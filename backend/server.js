@@ -2111,7 +2111,7 @@ app.get("/api/manager/student-records", async (req, res) => {
 });
 
 // get all branches (for dropdown filter)
-app.get("/api/branches", async (req, res) => {
+app.get("/api/branches/records", async (req, res) => {
   try {
     const result = await pool.query(
       "SELECT branch_id, name FROM branches ORDER BY name"

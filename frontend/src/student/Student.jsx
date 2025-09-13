@@ -10,6 +10,8 @@ import {
   DollarSign,
   TrendingUp,
   LogOut,
+  Menu,
+  X,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import { FcFeedback } from "react-icons/fc";
@@ -101,7 +103,6 @@ const DashboardPage = () => {
     });
 
     if (result.isConfirmed) {
-      // Actual sign out logic here
       localStorage.removeItem("token");
       localStorage.removeItem("user");
 
@@ -113,11 +114,10 @@ const DashboardPage = () => {
         showConfirmButton: false,
       });
 
-      // Redirect to login or landing page
-      window.location.href = "/login"; // Adjust this based on your routing
+      window.location.href = "/login";
     }
   };
-  // Fetch announcements (hindi binago)
+
   useEffect(() => {
     const fetchAnnouncements = async () => {
       try {
@@ -126,14 +126,13 @@ const DashboardPage = () => {
         });
         setAnnouncements(res.data);
       } catch (err) {
-        console.error("❌ Failed to fetch announcements:", err);
+        console.error("⚠ Failed to fetch announcements:", err);
       }
     };
 
     if (branchId) fetchAnnouncements();
   }, [branchId]);
 
-  // Fetch enrollments ng kasalukuyang user, kukunin lang ang unang enrollment
   useEffect(() => {
     const fetchEnrollment = async () => {
       if (!token) {
@@ -147,12 +146,11 @@ const DashboardPage = () => {
         });
         if (!res.ok) throw new Error("Nabigong makuha ang enrollment.");
         const data = await res.json();
-        // Kung maraming enrollments, piliin natin ang una (o pwede mong i-adjust logic)
         if (data.length > 0) {
           setEnrollment(data[0]);
         }
       } catch (err) {
-        console.error("❌ Error fetching enrollment:", err);
+        console.error("⚠ Error fetching enrollment:", err);
         setErrorEnroll(err.message);
       } finally {
         setLoadingEnroll(false);
@@ -161,7 +159,6 @@ const DashboardPage = () => {
     fetchEnrollment();
   }, [token]);
 
-  // Helper para sa pag-format ng petsa at oras
   const fmtDate = (d) =>
     new Date(d).toLocaleDateString("en-US", {
       month: "long",
@@ -181,8 +178,7 @@ const DashboardPage = () => {
       .toLowerCase();
   };
 
-  // I-compute ang schedule label kung mayroon nang enrollment
-  let scheduleLabel = "–";
+  let scheduleLabel = "—";
   if (
     enrollment?.start_date &&
     enrollment?.start_time &&
@@ -207,57 +203,98 @@ const DashboardPage = () => {
 
   return (
     <div>
-      {/* Main Content */}
-      <div className="flex-1 p-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-4xl font-bold text-gray-900 mb-2">
-                Welcome {name}!
-              </h1>
-              <p className="text-gray-600 text-lg">
-                Easily track your driving progress, schedules, and performance
-                through your student dashboard.
-              </p>
-            </div>
-            <div className="text-right">
-              <div className="text-sm text-gray-500">Today</div>
-              <div className="text-2xl font-bold text-gray-900">
-                {new Date().toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
+      <div className="flex-1 p-4 sm:p-6 lg:p-8">
+        {/* Header - Mobile Optimized */}
+        <div className="mb-6 sm:mb-8">
+          {/* Mobile Layout */}
+          <div className="block sm:hidden">
+            {/* Top Row - Date & Sign Out */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="bg-white rounded-lg px-3 py-2 shadow-sm border border-gray-200">
+                <div className="text-xs text-gray-500">Today</div>
+                <div className="text-sm font-semibold text-gray-900">
+                  {new Date().toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </div>
               </div>
               <button
                 onClick={handleSignOut}
-                className="mt-2 text-red-600 hover:text-red-800 flex items-center text-sm"
+                className="bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 p-2 rounded-lg transition-colors duration-200 flex items-center shadow-sm border border-red-200"
               >
                 <LogOut className="w-4 h-4 mr-1" />
-                Sign Out
+                <span className="text-sm font-medium">Sign Out</span>
               </button>
+            </div>
+
+            {/* Welcome Section */}
+            <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-xl p-6 text-white shadow-lg">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <User className="w-8 h-8 text-white" />
+                </div>
+                <h1 className="text-xl font-bold mb-2">
+                  Welcome back, {name}!
+                </h1>
+                <p className="text-red-100 text-sm leading-relaxed">
+                  Track your driving progress, schedules, and performance all in
+                  one place.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Desktop Layout */}
+          <div className="hidden sm:block">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="text-center sm:text-left">
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-2">
+                  Welcome {name}!
+                </h1>
+                <p className="text-gray-600 text-sm sm:text-base lg:text-lg">
+                  Easily track your driving progress, schedules, and performance
+                  through your student dashboard.
+                </p>
+              </div>
+              <div className="text-center sm:text-right">
+                <div className="text-xs sm:text-sm text-gray-500">Today</div>
+                <div className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">
+                  {new Date().toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </div>
+                <button
+                  onClick={handleSignOut}
+                  className="mt-2 text-red-600 hover:text-red-800 flex items-center justify-center sm:justify-end text-sm mx-auto sm:mx-0 transition-colors duration-200"
+                >
+                  <LogOut className="w-4 h-4 mr-1" />
+                  Sign Out
+                </button>
+              </div>
             </div>
           </div>
         </div>
-
-        {/* Mission Statement */}
-        <div className="bg-gradient-to-r from-red-600 to-red-700 rounded-2xl p-8 mb-8 text-white shadow-xl">
-          <div className="flex items-start justify-between">
+        {/* Mission Statement - Mobile Optimized */}
+        <div className="bg-gradient-to-r from-red-600 to-red-700 rounded-lg sm:rounded-2xl p-4 sm:p-6 lg:p-8 mb-6 sm:mb-8 text-white shadow-xl">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
             <div className="flex-1">
-              <h2 className="text-2xl font-bold mb-4 flex items-center">
-                <Shield className="w-8 h-8 mr-3 text-yellow-300" />
+              <h2 className="text-lg sm:text-xl lg:text-2xl font-bold mb-3 sm:mb-4 flex items-center justify-center lg:justify-start">
+                <Shield className="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8 mr-2 sm:mr-3 text-yellow-300" />
                 Our Mission
               </h2>
-              <p className="text-red-100 text-lg leading-relaxed max-w-4xl">
+              <p className="text-red-100 text-sm sm:text-base lg:text-lg leading-relaxed text-center lg:text-left max-w-4xl">
                 Our mission is to educate every Filipino Motor Vehicle Driver on
                 Road Safety and instill safe driving practices. We envision a
                 safer road for every Filipino family, with zero fatalities
                 brought about by road crash incidents.
               </p>
             </div>
-            <div className="text-right ml-8">
-              <div className="text-yellow-300 font-bold text-lg">
+            <div className="text-center lg:text-right lg:ml-8">
+              <div className="text-yellow-300 font-bold text-base sm:text-lg">
                 First Safety
               </div>
               <div className="text-red-200 text-sm">Always Safe</div>
@@ -265,19 +302,19 @@ const DashboardPage = () => {
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+        {/* Stats - Responsive Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <StatCard
             number={enrollment?.instructor_name || "-"}
             title="Instructor"
-            icon={<User className="w-6 h-6" />}
+            icon={<User className="w-5 h-5 sm:w-6 sm:h-6" />}
             iconColor="text-indigo-600"
             iconBg="bg-indigo-100"
           />
           <StatCard
-            number={enrollment?.course_name || "–"}
+            number={enrollment?.course_name || "—"}
             title="Course"
-            icon={<Users className="w-6 h-6" />}
+            icon={<Users className="w-5 h-5 sm:w-6 sm:h-6" />}
             iconColor="text-teal-600"
             iconBg="bg-teal-100"
           />
@@ -289,30 +326,32 @@ const DashboardPage = () => {
                 : "Pending"
             }
             title="Status"
-            icon={<BarChart3 className="w-6 h-6" />}
+            icon={<BarChart3 className="w-5 h-5 sm:w-6 sm:h-6" />}
             iconColor="text-emerald-600"
             iconBg="bg-emerald-100"
           />
           <StatCard
             number={scheduleLabel}
             title="Schedule"
-            icon={<Shield className="w-6 h-6" />}
+            icon={<Shield className="w-5 h-5 sm:w-6 sm:h-6" />}
             iconColor="text-rose-600"
             iconBg="bg-rose-100"
           />
         </div>
 
-        {/* Announcements */}
-        <div className="mt-12">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-1 h-8 bg-red-600 rounded-full"></div>
-            <h2 className="text-2xl font-bold text-gray-900">Announcements</h2>
+        {/* Announcements - Mobile Optimized */}
+        <div className="mt-8 sm:mt-12">
+          <div className="flex items-center gap-3 mb-4 sm:mb-6">
+            <div className="w-1 h-6 sm:h-8 bg-red-600 rounded-full"></div>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
+              Announcements
+            </h2>
           </div>
           {announcements.length === 0 ? (
-            <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 text-center">
-              <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="bg-gray-50 border border-gray-200 rounded-lg sm:rounded-xl p-6 sm:p-8 text-center">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
                 <svg
-                  className="w-8 h-8 text-gray-400"
+                  className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -325,31 +364,31 @@ const DashboardPage = () => {
                   />
                 </svg>
               </div>
-              <p className="text-gray-600 font-medium">
+              <p className="text-gray-600 font-medium text-sm sm:text-base">
                 No announcements available
               </p>
-              <p className="text-gray-500 text-sm mt-1">
+              <p className="text-gray-500 text-xs sm:text-sm mt-1">
                 Check back later for updates from your branch.
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {announcements.map((a) => (
                 <div
                   key={a.announcement_id}
-                  className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow duration-200"
+                  className="bg-white border border-gray-200 rounded-lg sm:rounded-xl p-4 sm:p-6 shadow-sm hover:shadow-md transition-shadow duration-200"
                 >
                   <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2 leading-tight">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 leading-tight break-words">
                         {a.title}
                       </h3>
-                      <p className="text-gray-700 leading-relaxed mb-3">
+                      <p className="text-gray-700 leading-relaxed mb-3 text-sm sm:text-base break-words">
                         {a.content}
                       </p>
-                      <div className="flex items-center text-sm text-gray-500">
+                      <div className="flex items-center text-xs sm:text-sm text-gray-500">
                         <svg
-                          className="w-4 h-4 mr-1.5"
+                          className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5 flex-shrink-0"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -965,15 +1004,17 @@ const EnrollmentPage = () => {
       .toLowerCase();
   };
 
-  if (loading) return <p>Loading your enrollments…</p>;
-  if (error) return <p className="text-red-600">{error}</p>;
+  if (loading) return <p className="p-4 lg:p-8">Loading your enrollments…</p>;
+  if (error) return <p className="text-red-600 p-4 lg:p-8">{error}</p>;
   if (!enrollments || enrollments.length === 0)
-    return <p>You have no enrollments yet.</p>;
+    return <p className="p-4 lg:p-8">You have no enrollments yet.</p>;
 
   return (
-    <div className="p-8 bg-gray-50 min-h-screen">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">My Enrollments</h1>
-      <div className="space-y-6">
+    <div className="p-4 lg:p-8 bg-gray-50 min-h-screen">
+      <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-6 lg:mb-8">
+        My Enrollments
+      </h1>
+      <div className="space-y-4 lg:space-y-6">
         {enrollments.map((e) => {
           const start = e.start_date ? new Date(e.start_date) : null;
           const scheduleLabel = e.is_theoretical
@@ -1003,15 +1044,15 @@ const EnrollmentPage = () => {
           return (
             <div
               key={e.enrollment_id ?? Math.random()}
-              className="bg-white shadow-lg rounded-xl p-6 border border-gray-200 hover:shadow-xl transition-shadow duration-300"
+              className="bg-white shadow-lg rounded-xl p-4 lg:p-6 border border-gray-200 hover:shadow-xl transition-shadow duration-300"
             >
-              <div className="flex items-start gap-6">
+              <div className="flex flex-col lg:flex-row lg:items-start gap-4 lg:gap-6">
                 {imageUrl && (
-                  <div className="flex-shrink-0">
+                  <div className="flex-shrink-0 mx-auto lg:mx-0">
                     <img
                       src={imageUrl}
                       alt={e.course_name ?? "Course"}
-                      className="w-32 h-32 object-cover rounded-lg shadow-md"
+                      className="w-full max-w-xs lg:w-32 lg:h-32 object-cover rounded-lg shadow-md"
                       onError={(evt) =>
                         (evt.currentTarget.style.display = "none")
                       }
@@ -1020,7 +1061,7 @@ const EnrollmentPage = () => {
                 )}
 
                 <div className="flex-grow">
-                  <h2 className="text-xl font-bold text-gray-900 mb-3">
+                  <h2 className="text-lg lg:text-xl font-bold text-gray-900 mb-3 text-center lg:text-left">
                     {e.course_name ?? "Unnamed Course"}
                   </h2>
 
@@ -1028,42 +1069,44 @@ const EnrollmentPage = () => {
                     {/* Schedule at Instructor lalabas lang kung hindi OTDC */}
                     {!isOnlineTheoretical && (
                       <>
-                        <div className="flex items-center text-gray-700">
+                        <div className="flex flex-col lg:flex-row lg:items-center text-gray-700">
                           <span className="text-sm font-medium">Schedule:</span>
-                          <span className="text-sm ml-2">{scheduleLabel}</span>
+                          <span className="text-sm lg:ml-2 break-words">
+                            {scheduleLabel}
+                          </span>
                         </div>
 
-                        <div className="flex items-center text-gray-700">
+                        <div className="flex flex-col lg:flex-row lg:items-center text-gray-700">
                           <span className="text-sm font-medium">
                             Instructor:
                           </span>
-                          <span className="text-sm ml-2">
+                          <span className="text-sm lg:ml-2">
                             {e.instructor_name ?? "Wala pa"}
                           </span>
                         </div>
                       </>
                     )}
 
-                    <div className="flex items-center">
+                    <div className="flex flex-col lg:flex-row lg:items-center">
                       <span className="text-sm font-medium text-gray-700">
                         Status:
                       </span>
-                      <span className="text-sm ml-2 px-3 py-1 rounded-full bg-blue-100 text-blue-800 font-semibold capitalize">
+                      <span className="text-sm lg:ml-2 mt-1 lg:mt-0 inline-block px-3 py-1 rounded-full bg-blue-100 text-blue-800 font-semibold capitalize w-fit">
                         {e.status ?? "pending"}
                       </span>
                     </div>
                   </div>
 
                   {(e.status ?? "").toLowerCase() === "passed/completed" && (
-                    <div className="flex gap-3">
+                    <div className="flex flex-col sm:flex-row gap-3">
                       <button
-                        className="bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-lg font-medium transition-colors duration-200 shadow-sm"
+                        className="bg-green-600 hover:bg-green-700 text-white px-4 lg:px-6 py-2.5 rounded-lg font-medium transition-colors duration-200 shadow-sm text-sm lg:text-base"
                         onClick={() => generateCertificate(e.enrollment_id)}
                       >
                         Generate Certificate
                       </button>
                       <button
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-medium transition-colors duration-200 shadow-sm"
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 lg:px-6 py-2.5 rounded-lg font-medium transition-colors duration-200 shadow-sm text-sm lg:text-base"
                         onClick={() => handleOpenFeedback(e)}
                       >
                         Give Feedback
@@ -1072,9 +1115,9 @@ const EnrollmentPage = () => {
                   )}
                 </div>
 
-                <div className="flex-shrink-0">
+                <div className="flex-shrink-0 self-start lg:self-auto text-center lg:text-right">
                   <span
-                    className={`inline-block px-4 py-2 rounded-lg font-semibold text-sm ${
+                    className={`inline-block px-3 lg:px-4 py-2 rounded-lg font-semibold text-xs lg:text-sm ${
                       (e.payment_status ?? "").toLowerCase() === "paid"
                         ? "bg-green-100 text-green-800"
                         : "bg-yellow-100 text-yellow-800"
@@ -1091,9 +1134,9 @@ const EnrollmentPage = () => {
 
       {/* Feedback Modal */}
       {showFeedbackModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+          <div className="bg-white p-4 lg:p-6 rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg lg:text-xl font-bold mb-4">
               Training Course Evaluation –{" "}
               {selectedEnrollment?.course_name ?? "Course"}
             </h2>
@@ -1101,15 +1144,15 @@ const EnrollmentPage = () => {
               {Object.entries(questions).map(
                 ([category, items], categoryIndex) => (
                   <div key={categoryIndex} className="mb-6">
-                    <h3 className="text-lg font-bold capitalize mb-2">
+                    <h3 className="text-base lg:text-lg font-bold capitalize mb-2">
                       {category.replace(/_/g, " ")}
                     </h3>
                     {items.map((question, qIndex) => (
                       <div key={qIndex} className="mb-4">
-                        <p className="font-semibold">
+                        <p className="font-semibold text-sm lg:text-base">
                           {qIndex + 1}. {question}
                         </p>
-                        <div className="flex gap-4 mt-1 flex-wrap">
+                        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 lg:gap-4 mt-2">
                           {[
                             "Strongly Agree",
                             "Agree",
@@ -1119,15 +1162,18 @@ const EnrollmentPage = () => {
                           ].map((option) => (
                             <label
                               key={option}
-                              className="flex items-center gap-1"
+                              className="flex items-center gap-2 text-sm lg:text-base"
                             >
                               <input
                                 type="radio"
                                 name={`${category}_q${qIndex + 1}`}
                                 value={option}
                                 required
+                                className="flex-shrink-0"
                               />{" "}
-                              {option}
+                              <span className="whitespace-nowrap">
+                                {option}
+                              </span>
                             </label>
                           ))}
                         </div>
@@ -1138,38 +1184,38 @@ const EnrollmentPage = () => {
               )}
 
               <div className="mb-4">
-                <label className="block font-semibold mb-1">
+                <label className="block font-semibold mb-1 text-sm lg:text-base">
                   Comments about Instructor:
                 </label>
                 <textarea
                   name="instructor_comments"
-                  className="w-full border rounded p-2"
+                  className="w-full border rounded p-2 text-sm lg:text-base"
                   rows="3"
                 ></textarea>
               </div>
 
               <div className="mb-4">
-                <label className="block font-semibold mb-1">
+                <label className="block font-semibold mb-1 text-sm lg:text-base">
                   Additional Comments/Recommendations:
                 </label>
                 <textarea
                   name="comments"
-                  className="w-full border rounded p-2"
+                  className="w-full border rounded p-2 text-sm lg:text-base"
                   rows="4"
                 ></textarea>
               </div>
 
-              <div className="flex justify-end gap-2">
+              <div className="flex flex-col sm:flex-row justify-end gap-2">
                 <button
                   type="button"
-                  className="px-4 py-2 bg-gray-400 rounded hover:bg-gray-500 text-white"
+                  className="px-4 py-2 bg-gray-400 rounded hover:bg-gray-500 text-white text-sm lg:text-base order-2 sm:order-1"
                   onClick={() => setShowFeedbackModal(false)}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-green-600 rounded hover:bg-green-700 text-white"
+                  className="px-4 py-2 bg-green-600 rounded hover:bg-green-700 text-white text-sm lg:text-base order-1 sm:order-2"
                 >
                   Submit Feedback
                 </button>
@@ -1303,15 +1349,62 @@ const FeedbacksPage = () => {
 };
 const Student = () => {
   const [activePage, setActivePage] = useState("Dashboard");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   // Get the user from localStorage
   const user = JSON.parse(localStorage.getItem("user"));
   const name = user?.name || "Student"; // fallback kung wala
 
+  const handleNavClick = (pageName) => {
+    setActivePage(pageName);
+    setSidebarOpen(false); // Close sidebar on mobile after navigation
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      {/* Mobile Header */}
+      <div className="lg:hidden bg-white shadow-lg border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 bg-gradient-to-r from-red-600 to-red-700 rounded-lg flex items-center justify-center">
+            <Shield className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <div className="font-bold text-sm">First Safety</div>
+            <div className="text-gray-500 text-xs">Driving School</div>
+          </div>
+        </div>
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+        >
+          {sidebarOpen ? (
+            <X className="w-6 h-6 text-gray-700" />
+          ) : (
+            <Menu className="w-6 h-6 text-gray-700" />
+          )}
+        </button>
+      </div>
+
       <div className="flex">
+        {/* Mobile Overlay */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
         {/* Sidebar */}
-        <div className="w-64 bg-white shadow-xl border-r border-gray-200 min-h-screen">
+        <div
+          className={`
+          fixed lg:static inset-y-0 left-0 z-50
+          w-64 bg-white shadow-xl border-r border-gray-200 min-h-screen
+          transform transition-transform duration-300 ease-in-out
+          ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          }
+        `}
+        >
           {/* Brand Header */}
           <div className="p-6 bg-gradient-to-r from-red-600 to-red-700 text-white">
             <div className="flex items-center space-x-3 mb-4">
@@ -1353,7 +1446,7 @@ const Student = () => {
             ].map(({ name, icon }) => (
               <button
                 key={name}
-                onClick={() => setActivePage(name)}
+                onClick={() => handleNavClick(name)}
                 className={`flex items-center w-full px-4 py-3 rounded-lg font-medium text-sm cursor-pointer
                   ${
                     activePage === name
@@ -1368,7 +1461,7 @@ const Student = () => {
         </div>
 
         {/* Main Content */}
-        <main className="flex-1 p-8 max-w-7xl mx-auto">
+        <main className="flex-1 p-4 lg:p-8 max-w-7xl mx-auto min-w-0">
           {activePage === "Dashboard" && <DashboardPage />}
           {activePage === "Courses" && <CoursesPage />}
           {activePage === "Enrollment Details" && <EnrollmentPage />}

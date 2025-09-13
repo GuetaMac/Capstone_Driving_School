@@ -607,39 +607,59 @@ function LandingPage() {
       </section>
 
       {/* Contact Section */}
-      <section id="contact" className="py-16 sm:py-20 bg-white">
+      <section id="contact" className="py-16 sm:py-20 bg-gray-50">
         <div className="container mx-auto px-4 sm:px-6">
-          <div className="flex flex-col lg:flex-row gap-10 lg:gap-0">
-            <div className="w-full lg:w-1/2 lg:pr-8">
-              <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-4 sm:mb-6">
+          <div className="flex flex-col lg:flex-row gap-12">
+            {/* Left side - Info */}
+            <div className="w-full lg:w-1/2">
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-4">
                 Get In Touch
               </h2>
-              <p className="text-gray-600 mb-6 sm:mb-8 text-sm sm:text-base">
+              <p className="text-gray-600 mb-8 text-base sm:text-lg leading-relaxed">
                 Have questions or ready to enroll? Reach out to our friendly
-                team for assistance.
+                team for assistance. We’d love to hear from you!
               </p>
 
-              <div className="space-y-4 sm:space-y-6">
-                <div className="flex items-start">
-                  <div className="bg-red-100 p-3 rounded-full mr-4 flex-shrink-0">
-                    <MapPin size={20} className="text-red-500" />
+              <div className="space-y-6">
+                {/* Location */}
+                <div className="flex items-start bg-white shadow-sm p-4 rounded-xl hover:shadow-md transition">
+                  <div className="bg-red-100 p-3 rounded-full mr-4">
+                    <MapPin size={22} className="text-red-500" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-gray-800 mb-1 text-sm sm:text-base">
-                      Our Location
+                    <h4 className="font-semibold text-gray-800 text-base mb-1">
+                      Our Locations
                     </h4>
                     <p className="text-gray-600 text-sm sm:text-base">
-                      123 Driving Avenue, Metro City
+                      <a
+                        href="https://www.google.com/maps?q=Unit+5,+155+Maharlika+Highway,+Brgy.+San+Nicolas,+San+Pablo+City,+Laguna"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block hover:text-red-500 transition"
+                      >
+                        San Pablo City – Unit 5, 155 Maharlika Highway, Brgy.
+                        San Nicolas
+                      </a>
+                      <a
+                        href="https://www.google.com/maps?q=2nd+Floor,+DuPoint+Bldg.+(DESMARK/PREMIO),+J.P+Laurel+Highway,+Brgy.+Darasa,+Tanauan+City,+Batangas"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block mt-2 hover:text-red-500 transition"
+                      >
+                        Tanauan City – 2nd Floor, DuPoint Bldg.
+                        (DESMARK/PREMIO), J.P Laurel Highway, Brgy. Darasa
+                      </a>
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-start">
-                  <div className="bg-red-100 p-3 rounded-full mr-4 flex-shrink-0">
-                    <Phone size={20} className="text-red-500" />
+                {/* Phone */}
+                <div className="flex items-start bg-white shadow-sm p-4 rounded-xl hover:shadow-md transition">
+                  <div className="bg-red-100 p-3 rounded-full mr-4">
+                    <Phone size={22} className="text-red-500" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-gray-800 mb-1 text-sm sm:text-base">
+                    <h4 className="font-semibold text-gray-800 text-base mb-1">
                       Call Us
                     </h4>
                     <p className="text-gray-600 text-sm sm:text-base">
@@ -648,12 +668,13 @@ function LandingPage() {
                   </div>
                 </div>
 
-                <div className="flex items-start">
-                  <div className="bg-red-100 p-3 rounded-full mr-4 flex-shrink-0">
-                    <Mail size={20} className="text-red-500" />
+                {/* Email */}
+                <div className="flex items-start bg-white shadow-sm p-4 rounded-xl hover:shadow-md transition">
+                  <div className="bg-red-100 p-3 rounded-full mr-4">
+                    <Mail size={22} className="text-red-500" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-gray-800 mb-1 text-sm sm:text-base">
+                    <h4 className="font-semibold text-gray-800 text-base mb-1">
                       Email Us
                     </h4>
                     <p className="text-gray-600 text-sm sm:text-base break-all">
@@ -662,70 +683,57 @@ function LandingPage() {
                   </div>
                 </div>
 
-                <div className="flex items-start">
-                  <div className="bg-red-100 p-3 rounded-full mr-4 flex-shrink-0">
-                    <Calendar size={20} className="text-red-500" />
+                {/* Hours */}
+                <div className="flex items-start bg-white shadow-sm p-4 rounded-xl hover:shadow-md transition">
+                  <div className="bg-red-100 p-3 rounded-full mr-4">
+                    <Calendar size={22} className="text-red-500" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-gray-800 mb-1 text-sm sm:text-base">
+                    <h4 className="font-semibold text-gray-800 text-base mb-1">
                       Operating Hours
                     </h4>
                     <p className="text-gray-600 text-sm sm:text-base">
-                      Monday-Saturday: 8AM - 6PM
+                      Monday - Saturday: 8AM – 6PM
                     </p>
                   </div>
                 </div>
               </div>
             </div>
+            {/* Right side - Contact Form */}
+            <div className="w-full lg:w-1/2 flex flex-col items-center justify-center gap-6">
+              <a
+                href="https://www.facebook.com/messages/t/111320033799629" // FB Page ng San Pablo branch
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-3 bg-red-600 hover:bg-red-700 text-white font-semibold py-5 px-8 rounded-2xl shadow-md transition w-full"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                  className="w-7 h-7"
+                >
+                  <path d="M12 2C6.477 2 2 6.177 2 11.54c0 2.97 1.39 5.64 3.64 7.38V22l3.33-1.84c.96.27 1.98.42 3.03.42 5.523 0 10-4.177 10-9.54C22 6.177 17.523 2 12 2zm.21 12.9l-2.47-2.63-4.86 2.63 5.31-5.69 2.46 2.63 4.87-2.63-5.31 5.69z" />
+                </svg>
+                Message San Pablo Branch
+              </a>
 
-            <div className="w-full lg:w-1/2 lg:pl-8">
-              <div className="bg-gray-50 p-6 sm:p-8 rounded-lg">
-                <h3 className="font-bold text-lg sm:text-xl mb-4 sm:mb-6">
-                  Send Us a Message
-                </h3>
-                <form className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <input
-                      type="text"
-                      placeholder="First Name"
-                      className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500 text-sm sm:text-base"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Last Name"
-                      className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500 text-sm sm:text-base"
-                    />
-                  </div>
-                  <input
-                    type="email"
-                    placeholder="Email Address"
-                    className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500 text-sm sm:text-base"
-                  />
-                  <input
-                    type="tel"
-                    placeholder="Phone Number"
-                    className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500 text-sm sm:text-base"
-                  />
-                  <select className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500 bg-white text-sm sm:text-base">
-                    <option value="">Select Course</option>
-                    <option>Beginner Course</option>
-                    <option>Intermediate Course</option>
-                    <option>Advanced Course</option>
-                    <option>Other</option>
-                  </select>
-                  <textarea
-                    placeholder="Your Message"
-                    rows="4"
-                    className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-red-500 text-sm sm:text-base resize-none"
-                  ></textarea>
-                  <button
-                    type="submit"
-                    className="w-full bg-red-500 text-white py-2 sm:py-3 rounded font-bold hover:bg-red-600 transition text-sm sm:text-base"
-                  >
-                    Send Message
-                  </button>
-                </form>
-              </div>
+              <a
+                href="https://www.facebook.com/messages/t/100798978911903" // FB Page ng Tanauan branch
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-3 bg-red-600 hover:bg-red-700 text-white font-semibold py-5 px-8 rounded-2xl shadow-md transition w-full"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                  className="w-7 h-7"
+                >
+                  <path d="M12 2C6.477 2 2 6.177 2 11.54c0 2.97 1.39 5.64 3.64 7.38V22l3.33-1.84c.96.27 1.98.42 3.03.42 5.523 0 10-4.177 10-9.54C22 6.177 17.523 2 12 2zm.21 12.9l-2.47-2.63-4.86 2.63 5.31-5.69 2.46 2.63 4.87-2.63-5.31 5.69z" />
+                </svg>
+                Message Tanauan Branch
+              </a>
             </div>
           </div>
         </div>

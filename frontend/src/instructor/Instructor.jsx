@@ -23,6 +23,8 @@ import {
   Wrench,
   AlertTriangle,
   TrendingDown,
+  Menu,
+  X,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import { BsExclamationOctagon } from "react-icons/bs";
@@ -211,32 +213,70 @@ const DashboardPage = () => {
 
   return (
     <div>
-      {/* Main Content */}
-      <div className="flex-1 p-8">
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-4xl font-bold text-gray-900 mb-2">
-                Welcome {name}!
-              </h1>
-              <p className="text-gray-600 text-lg">
-                Easily track your driving progress, schedules, and performance
-                through your student dashboard.
-              </p>
-            </div>
-            <div className="text-right">
-              <div className="text-sm text-gray-500">Today</div>
-              <div className="text-2xl font-bold text-gray-900">
+      {/* Header - Mobile Optimized */}
+      <div className="p-4 sm:p-6 lg:p-8">
+        {/* Mobile Layout */}
+        <div className="block sm:hidden">
+          {/* Top Row - Date & Sign Out */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="bg-white rounded-lg px-3 py-2 shadow-sm border border-gray-200">
+              <div className="text-xs text-gray-500">Today</div>
+              <div className="text-sm font-semibold text-gray-900">
                 {new Date().toLocaleDateString("en-US", {
                   month: "short",
                   day: "numeric",
                   year: "numeric",
                 })}
               </div>
-              {/* Sign Out Button */}
+            </div>
+            <button
+              onClick={handleSignOut}
+              className="bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 p-2 rounded-lg transition-colors duration-200 flex items-center shadow-sm border border-red-200"
+            >
+              <LogOut className="w-4 h-4 mr-1" />
+              <span className="text-sm font-medium">Sign Out</span>
+            </button>
+          </div>
+
+          {/* Welcome Section */}
+          <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-xl p-6 text-white shadow-lg mb-6">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Shield className="w-8 h-8 text-white" />
+              </div>
+              <h1 className="text-xl font-bold mb-2">Welcome back, {name}!</h1>
+              <p className="text-red-100 text-sm leading-relaxed">
+                Track your assigned students, schedules, and teaching
+                performance through your instructor dashboard.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop Layout */}
+        <div className="hidden sm:block">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-6 lg:mb-8">
+            <div className="text-center lg:text-left">
+              <h1 className="text-2xl lg:text-4xl font-bold text-gray-900 mb-2">
+                Welcome {name}!
+              </h1>
+              <p className="text-gray-600 text-sm lg:text-lg">
+                Easily track your driving progress, schedules, and performance
+                through your student dashboard.
+              </p>
+            </div>
+            <div className="text-center lg:text-right">
+              <div className="text-sm text-gray-500">Today</div>
+              <div className="text-xl lg:text-2xl font-bold text-gray-900">
+                {new Date().toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+              </div>
               <button
                 onClick={handleSignOut}
-                className="mt-2 text-red-600 hover:text-red-800 flex items-center text-sm"
+                className="mt-2 text-red-600 hover:text-red-800 flex items-center text-sm mx-auto lg:mx-0 transition-colors duration-200"
               >
                 <LogOut className="w-4 h-4 mr-1" />
                 Sign Out
@@ -244,65 +284,91 @@ const DashboardPage = () => {
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Mission Statement */}
-      <div className="bg-gradient-to-r from-red-600 to-red-700 rounded-2xl p-8 mb-8 text-white shadow-xl">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <h2 className="text-2xl font-bold mb-4 flex items-center">
-              <Settings className="w-8 h-8 mr-3 text-yellow-300" />
-              Our Mission
-            </h2>
-            <p className="text-red-100 text-lg leading-relaxed max-w-4xl">
-              Layunin naming turuan ang bawat Filipino Motor Vehicle Driver
-              tungkol sa Road Safety at itanim sa kanila ang tamang pagmamaneho.
-              Pangarap namin ang ligtas na kalsada para sa bawat pamilyang
-              Pilipino na walang nasasawi dahil sa aksidente.
-            </p>
-          </div>
-          <div className="text-right ml-8">
-            <div className="text-yellow-300 font-bold text-lg">
-              First Safety
+        {/* Mission Statement */}
+        <div className="bg-gradient-to-r from-red-600 to-red-700 rounded-xl lg:rounded-2xl p-4 sm:p-6 lg:p-8 mb-6 lg:mb-8 text-white shadow-xl">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+            <div className="flex-1">
+              <h2 className="text-lg sm:text-xl lg:text-2xl font-bold mb-3 lg:mb-4 flex items-center justify-center lg:justify-start">
+                <Settings className="w-6 h-6 lg:w-8 lg:h-8 mr-2 lg:mr-3 text-yellow-300" />
+                Our Mission
+              </h2>
+              <p className="text-red-100 text-sm sm:text-base lg:text-lg leading-relaxed text-center lg:text-left max-w-4xl">
+                Layunin naming turuan ang bawat Filipino Motor Vehicle Driver
+                tungkol sa Road Safety at itanim sa kanila ang tamang
+                pagmamaneho. Pangarap namin ang ligtas na kalsada para sa bawat
+                pamilyang Pilipino na walang nasasawi dahil sa aksidente.
+              </p>
             </div>
-            <div className="text-red-200 text-sm">Always Safe</div>
+            <div className="text-center lg:text-right lg:ml-8 mt-4 lg:mt-0">
+              <div className="text-yellow-300 font-bold text-base lg:text-lg">
+                First Safety
+              </div>
+              <div className="text-red-200 text-sm">Always Safe</div>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-8">
-        <StatCard
-          number={totalAssigned.toString()}
-          title="Total Assigned Students"
-          icon={<Users className="w-6 h-6" />}
-          color="blue"
-          trend=""
-        />
-        <StatCard
-          number={theoreticalCount.toString()}
-          title="Theoretical Students"
-          icon={<BookOpen className="w-6 h-6" />}
-          color="green"
-          trend=""
-        />
-        <StatCard
-          number={practicalCount.toString()}
-          title="Practical (PDC) Students"
-          icon={<User className="w-6 h-6" />}
-          color="purple"
-          trend=""
-        />
-        <StatCard
-          number={upcomingCount.toString()}
-          title="Upcoming Schedules"
-          icon={<Calendar className="w-6 h-6" />}
-          color="yellow"
-          trend=""
-        />
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+          <StatCard
+            number={totalAssigned.toString()}
+            title="Total Assigned Students"
+            icon={<Users className="w-5 h-5 lg:w-6 lg:h-6" />}
+            color="blue"
+          />
+          <StatCard
+            number={theoreticalCount.toString()}
+            title="Theoretical Students"
+            icon={<BookOpen className="w-5 h-5 lg:w-6 lg:h-6" />}
+            color="green"
+          />
+          <StatCard
+            number={practicalCount.toString()}
+            title="Practical (PDC) Students"
+            icon={<User className="w-5 h-5 lg:w-6 lg:h-6" />}
+            color="purple"
+          />
+          <StatCard
+            number={upcomingCount.toString()}
+            title="Upcoming Schedules"
+            icon={<Calendar className="w-5 h-5 lg:w-6 lg:h-6" />}
+            color="yellow"
+          />
+        </div>
       </div>
     </div>
   );
+
+  // StatCard Component
+  function StatCard({ number, title, icon, color }) {
+    const colorClasses = {
+      blue: "bg-blue-500 text-blue-600 bg-blue-50",
+      green: "bg-green-500 text-green-600 bg-green-50",
+      purple: "bg-purple-500 text-purple-600 bg-purple-50",
+      yellow: "bg-yellow-500 text-yellow-600 bg-yellow-50",
+    };
+
+    const [iconBg, textColor, cardBg] = colorClasses[color].split(" ");
+
+    return (
+      <div
+        className={`${cardBg} rounded-xl p-4 lg:p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200`}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <div className={`${iconBg} p-2 lg:p-3 rounded-lg`}>
+            <div className="text-white">{icon}</div>
+          </div>
+        </div>
+        <div className="text-xl lg:text-2xl font-bold text-gray-900 mb-1">
+          {number}
+        </div>
+        <div className={`${textColor} text-xs lg:text-sm font-medium`}>
+          {title}
+        </div>
+      </div>
+    );
+  }
 };
 
 const RecordsPage = () => {
@@ -416,91 +482,189 @@ const RecordsPage = () => {
   }
 
   return (
-    <div>
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-gray-900 mb-2">
+    <div className="p-4 sm:p-6 lg:p-8">
+      {/* Header */}
+      <div className="mb-6 lg:mb-8">
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-2">
           Student Records
         </h1>
-        <p className="text-gray-600 text-lg">
+        <p className="text-gray-600 text-sm sm:text-base lg:text-lg">
           View and manage your assigned students
         </p>
       </div>
 
       {enrollments.length === 0 ? (
-        <div className="bg-white rounded-xl p-8 shadow-lg text-center">
-          <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">
+        <div className="bg-white rounded-xl p-6 sm:p-8 shadow-lg text-center">
+          <Users className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">
             No Students Assigned
           </h3>
-          <p className="text-gray-600">
+          <p className="text-gray-600 text-sm sm:text-base">
             You don't have any students assigned to you yet.
           </p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          <div className="p-6 bg-gradient-to-r from-red-600 to-red-700 text-white">
-            <h2 className="text-2xl font-bold">
-              Assigned Students ({enrollments.length})
-            </h2>
+        <>
+          {/* Desktop View */}
+          <div className="hidden lg:block bg-white rounded-xl shadow-lg overflow-hidden">
+            <div className="p-6 bg-gradient-to-r from-red-600 to-red-700 text-white">
+              <h2 className="text-2xl font-bold">
+                Assigned Students ({enrollments.length})
+              </h2>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      Student Name
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      Email
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      Course
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      Schedule
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      Date
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      Status
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {enrollments.map((enrollment) => (
+                    <tr
+                      key={enrollment.enrollment_id}
+                      className="hover:bg-gray-50"
+                    >
+                      <td className="px-6 py-4">
+                        <div className="flex items-center">
+                          <div className="w-10 h-10 bg-gradient-to-r from-red-500 to-red-600 rounded-full flex items-center justify-center mr-3">
+                            <User className="w-5 h-5 text-white" />
+                          </div>
+                          <div className="font-semibold text-gray-900">
+                            {enrollment.student_name}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-gray-600">
+                        {enrollment.student_email}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                          {enrollment.course_name}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-gray-600">
+                        <div className="flex items-center">
+                          <Clock className="w-4 h-4 mr-1" />
+                          {enrollment.start_time} - {enrollment.end_time}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-gray-600">
+                        <div className="flex items-center">
+                          <Calendar className="w-4 h-4 mr-1" />
+                          {new Date(enrollment.start_date).toLocaleDateString()}
+                          {enrollment.end_date && (
+                            <>
+                              {" "}
+                              to{" "}
+                              {new Date(
+                                enrollment.end_date
+                              ).toLocaleDateString()}
+                            </>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <select
+                          value={enrollment.status || ""}
+                          onChange={(e) =>
+                            handleStatusUpdate(
+                              enrollment.enrollment_id,
+                              e.target.value,
+                              enrollment.student_name
+                            )
+                          }
+                          className="border border-gray-300 rounded px-2 py-1 text-sm bg-white"
+                        >
+                          <option value="">Select Status</option>
+                          <option value="pending">Pending</option>
+                          <option value="in progress">In Progress</option>
+                          <option value="passed/completed">
+                            Passed/Completed
+                          </option>
+                          <option value="failed">Failed</option>
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                    Student Name
-                  </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                    Email
-                  </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                    Course
-                  </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                    Schedule
-                  </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                    Date
-                  </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {enrollments.map((enrollment) => (
-                  <tr
-                    key={enrollment.enrollment_id}
-                    className="hover:bg-gray-50"
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 bg-gradient-to-r from-red-500 to-red-600 rounded-full flex items-center justify-center mr-3">
-                          <User className="w-5 h-5 text-white" />
-                        </div>
-                        <div className="font-semibold text-gray-900">
-                          {enrollment.student_name}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-gray-600">
+          {/* Mobile/Tablet View */}
+          <div className="lg:hidden space-y-4">
+            <div className="bg-gradient-to-r from-red-600 to-red-700 rounded-xl p-4 text-white mb-4">
+              <h2 className="text-lg sm:text-xl font-bold">
+                Assigned Students ({enrollments.length})
+              </h2>
+            </div>
+
+            {enrollments.map((enrollment) => (
+              <div
+                key={enrollment.enrollment_id}
+                className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6"
+              >
+                {/* Student Header */}
+                <div className="flex items-center mb-4">
+                  <div className="w-12 h-12 bg-gradient-to-r from-red-500 to-red-600 rounded-full flex items-center justify-center mr-4">
+                    <User className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-gray-900 text-lg">
+                      {enrollment.student_name}
+                    </h3>
+                    <p className="text-gray-600 text-sm">
                       {enrollment.student_email}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-                        {enrollment.course_name}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-gray-600">
-                      <div className="flex items-center">
-                        <Clock className="w-4 h-4 mr-1" />
+                    </p>
+                  </div>
+                </div>
+
+                {/* Course Info */}
+                <div className="mb-4">
+                  <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                    {enrollment.course_name}
+                  </span>
+                </div>
+
+                {/* Schedule & Date */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                  <div className="flex items-center text-gray-600">
+                    <Clock className="w-4 h-4 mr-2 text-red-500" />
+                    <div>
+                      <div className="text-xs text-gray-500 uppercase tracking-wide">
+                        Schedule
+                      </div>
+                      <div className="text-sm font-medium">
                         {enrollment.start_time} - {enrollment.end_time}
                       </div>
-                    </td>
-                    <td className="px-6 py-4 text-gray-600">
-                      <div className="flex items-center">
-                        <Calendar className="w-4 h-4 mr-1" />
+                    </div>
+                  </div>
+                  <div className="flex items-center text-gray-600">
+                    <Calendar className="w-4 h-4 mr-2 text-red-500" />
+                    <div>
+                      <div className="text-xs text-gray-500 uppercase tracking-wide">
+                        Date
+                      </div>
+                      <div className="text-sm font-medium">
                         {new Date(enrollment.start_date).toLocaleDateString()}
                         {enrollment.end_date && (
                           <>
@@ -510,39 +674,41 @@ const RecordsPage = () => {
                           </>
                         )}
                       </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <select
-                        value={enrollment.status || ""}
-                        onChange={(e) =>
-                          handleStatusUpdate(
-                            enrollment.enrollment_id,
-                            e.target.value,
-                            enrollment.student_name
-                          )
-                        }
-                        className="border border-gray-300 rounded px-2 py-1 text-sm bg-white"
-                      >
-                        <option value="">Select Status</option>
-                        <option value="pending">Pending</option>
-                        <option value="in progress">In Progress</option>
-                        <option value="passed/completed">
-                          Passed/Completed
-                        </option>
-                        <option value="failed">Failed</option>
-                      </select>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status Update */}
+                <div className="border-t border-gray-100 pt-4">
+                  <label className="block text-xs text-gray-500 uppercase tracking-wide mb-2">
+                    Update Status
+                  </label>
+                  <select
+                    value={enrollment.status || ""}
+                    onChange={(e) =>
+                      handleStatusUpdate(
+                        enrollment.enrollment_id,
+                        e.target.value,
+                        enrollment.student_name
+                      )
+                    }
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  >
+                    <option value="">Select Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="in progress">In Progress</option>
+                    <option value="passed/completed">Passed/Completed</option>
+                    <option value="failed">Failed</option>
+                  </select>
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
+        </>
       )}
     </div>
   );
 };
-
 const MaintenancePage = () => {
   const [vehicleName, setVehicleName] = useState("");
   const [description, setDescription] = useState("");
@@ -644,103 +810,135 @@ const MaintenancePage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto px-6 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-red-100 rounded-lg">
-              <Wrench className="w-6 h-6 text-red-600" />
-            </div>
-            <h1 className="text-3xl font-bold text-gray-900">
+    <div className="p-4 sm:p-6 lg:p-8">
+      {/* Header - Mobile Optimized */}
+      <div className="mb-6 lg:mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+          <div className="p-2 bg-red-100 rounded-lg w-fit">
+            <Wrench className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
+          </div>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
               Maintenance Reports
             </h1>
+            <p className="text-gray-600 text-sm sm:text-base">
+              Submit and track vehicle maintenance requests
+            </p>
           </div>
-          <p className="text-gray-600">
-            Submit and track vehicle maintenance requests
+        </div>
+      </div>
+
+      {/* Form Section - Mobile Optimized */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6 lg:mb-8">
+        <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-900 flex items-center gap-2">
+            <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
+            Submit New Report
+          </h2>
+        </div>
+
+        <div className="p-4 sm:p-6">
+          <div className="space-y-4 sm:space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Car className="w-4 h-4 inline mr-1" />
+                Vehicle Name
+              </label>
+              <input
+                type="text"
+                value={vehicleName}
+                onChange={(e) => setVehicleName(e.target.value)}
+                className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors text-sm sm:text-base"
+                placeholder="Enter vehicle name or identifier"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <MessageSquare className="w-4 h-4 inline mr-1" />
+                Problem Description
+              </label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors resize-none text-sm sm:text-base"
+                placeholder="Describe the maintenance issue or problem"
+              />
+            </div>
+
+            <button
+              onClick={handleSubmit}
+              className="w-full bg-red-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-medium hover:bg-red-700 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors text-sm sm:text-base"
+            >
+              Submit Report
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Reports List - Mobile Optimized */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
+            Recent Reports
+          </h3>
+          <p className="text-xs sm:text-sm text-gray-600 mt-1">
+            Track your submitted maintenance requests
           </p>
         </div>
 
-        {/* Form Section */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-8">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-              <FileText className="w-5 h-5 text-red-600" />
-              Submit New Report
-            </h2>
-          </div>
-
-          <div className="p-6">
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Car className="w-4 h-4 inline mr-1" />
-                  Vehicle Name
-                </label>
-                <input
-                  type="text"
-                  value={vehicleName}
-                  onChange={(e) => setVehicleName(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                  placeholder="Enter vehicle name or identifier"
-                />
+        <div className="p-4 sm:p-6">
+          {reports.length === 0 ? (
+            <div className="text-center py-8 sm:py-12">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <MessageSquare className="w-4 h-4 inline mr-1" />
-                  Problem Description
-                </label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={4}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
-                  placeholder="Describe the maintenance issue or problem"
-                />
-              </div>
-
-              <button
-                onClick={handleSubmit}
-                className="w-full bg-red-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-red-700 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
-              >
-                Submit Report
-              </button>
+              <p className="text-gray-600 font-medium text-sm sm:text-base">
+                No reports submitted yet
+              </p>
+              <p className="text-gray-400 text-xs sm:text-sm mt-1">
+                Your maintenance reports will appear here
+              </p>
             </div>
-          </div>
-        </div>
+          ) : (
+            <div className="space-y-3 sm:space-y-4">
+              {reports.map((report) => (
+                <div
+                  key={report.id}
+                  className="border border-gray-200 rounded-lg p-4 sm:p-5 hover:shadow-md transition-shadow"
+                >
+                  {/* Mobile Layout */}
+                  <div className="block sm:hidden">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Car className="w-4 h-4 text-gray-600" />
+                        <h4 className="font-semibold text-gray-900 text-sm">
+                          {report.vehicle_name}
+                        </h4>
+                      </div>
+                      <div
+                        className={`px-2 py-1 rounded-full text-xs font-medium border flex items-center gap-1 ${getStatusColor(
+                          report.status
+                        )}`}
+                      >
+                        {getStatusIcon(report.status)}
+                        {report.status}
+                      </div>
+                    </div>
 
-        {/* Reports List */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-xl font-semibold text-gray-900">
-              Recent Reports
-            </h3>
-            <p className="text-sm text-gray-600 mt-1">
-              Track your submitted maintenance requests
-            </p>
-          </div>
+                    <p className="text-gray-700 mb-3 leading-relaxed text-sm">
+                      {report.description}
+                    </p>
 
-          <div className="p-6">
-            {reports.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                  <FileText className="w-8 h-8 text-gray-400" />
-                </div>
-                <p className="text-gray-600 font-medium">
-                  No reports submitted yet
-                </p>
-                <p className="text-gray-400 text-sm mt-1">
-                  Your maintenance reports will appear here
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {reports.map((report) => (
-                  <div
-                    key={report.id}
-                    className="border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow"
-                  >
+                    <div className="flex items-center text-xs text-gray-500">
+                      <Calendar className="w-3 h-3 mr-1" />
+                      {new Date(report.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
+
+                  {/* Desktop Layout */}
+                  <div className="hidden sm:block">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <Car className="w-5 h-5 text-gray-600" />
@@ -767,10 +965,10 @@ const MaintenancePage = () => {
                       {new Date(report.created_at).toLocaleString()}
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -806,132 +1004,83 @@ const FeedbacksPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <span className="ml-3 text-gray-600 font-medium">
-              Loading feedbacks...
-            </span>
-          </div>
+      <div className="p-4 sm:p-6 lg:p-8">
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-red-600"></div>
+          <span className="ml-3 text-gray-600 font-medium text-sm sm:text-base">
+            Loading feedbacks...
+          </span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header Section */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-6 py-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-red-700">
-                Instructor Feedbacks
-              </h1>
-              <p className="mt-2 text-gray-600">
-                Review student evaluations and feedback
-              </p>
-            </div>
-            <div className="bg-red-50 px-4 py-2 rounded-lg">
-              <span className="text-red-700 font-semibold">
-                {feedbacks.length}
-              </span>
-              <span className="text-red-600 ml-1">Total Reviews</span>
-            </div>
+    <div className="p-4 sm:p-6 lg:p-8">
+      {/* Header Section - Mobile Optimized */}
+      <div className="mb-6 lg:mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-red-700">
+              Instructor Feedbacks
+            </h1>
+            <p className="mt-2 text-gray-600 text-sm sm:text-base">
+              Review student evaluations and feedback
+            </p>
+          </div>
+          <div className="bg-red-50 px-3 sm:px-4 py-2 rounded-lg w-fit">
+            <span className="text-red-700 font-semibold text-lg sm:text-xl">
+              {feedbacks.length}
+            </span>
+            <span className="text-red-600 ml-1 text-sm sm:text-base">
+              Total Reviews
+            </span>
           </div>
         </div>
       </div>
 
       {/* Content Section */}
-      <div className="max-w-6xl mx-auto px-6 py-8">
-        {feedbacks.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
-            <div className="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-4">
-              <svg
-                className="w-8 h-8 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-3.582 8-8 8a8.978 8.978 0 01-4.906-1.456l-3.815 1.372a.75.75 0 01-.954-.954l1.372-3.815A8.978 8.978 0 013 12c0-4.418 3.582-8 8-8s8 3.582 8 8z"
-                />
-              </svg>
-            </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              No Feedback Available
-            </h3>
-            <p className="text-gray-500">
-              There are currently no student evaluations to display.
-            </p>
+      {feedbacks.length === 0 ? (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 sm:p-12 text-center">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-4">
+            <svg
+              className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-3.582 8-8 8a8.978 8.978 0 01-4.906-1.456l-3.815 1.372a.75.75 0 01-.954-.954l1.372-3.815A8.978 8.978 0 013 12c0-4.418 3.582-8 8-8s8 3.582 8 8z"
+              />
+            </svg>
           </div>
-        ) : (
-          <div className="space-y-6">
-            {feedbacks.map((fb) => (
-              <div
-                key={fb.feedback_id}
-                className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-200"
-              >
-                {/* Feedback Header */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-900">
-                        {fb.student_name}
-                      </h3>
-                      <div className="flex items-center mt-1 space-x-4">
-                        <span className="inline-flex items-center text-sm text-gray-600">
-                          <svg
-                            className="w-4 h-4 mr-1"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                            />
-                          </svg>
-                          {fb.course_name}
-                        </span>
-                        <span className="inline-flex items-center text-sm text-gray-500">
-                          <svg
-                            className="w-4 h-4 mr-1"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4m-6 0v1m6-1v1M6 7h12l1 1v11a2 2 0 01-2 2H7a2 2 0 01-2-2V8l1-1z"
-                            />
-                          </svg>
-                          {new Date(fb.created_at).toLocaleDateString("en-US", {
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          })}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Feedback Content */}
-                <div className="p-6">
-                  {/* Instructor Evaluation */}
-                  <div className="mb-6">
-                    <h4 className="text-lg font-semibold text-red-700 mb-4 flex items-center">
+          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">
+            No Feedback Available
+          </h3>
+          <p className="text-gray-500 text-sm sm:text-base">
+            There are currently no student evaluations to display.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4 sm:space-y-6">
+          {feedbacks.map((fb) => (
+            <div
+              key={fb.feedback_id}
+              className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-200"
+            >
+              {/* Feedback Header - Mobile Optimized */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 sm:px-6 py-4 border-b border-gray-200">
+                <div>
+                  <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
+                    {fb.student_name}
+                  </h3>
+                  <div className="flex flex-col sm:flex-row sm:items-center mt-2 sm:mt-1 space-y-1 sm:space-y-0 sm:space-x-4">
+                    <span className="inline-flex items-center text-xs sm:text-sm text-gray-600">
                       <svg
-                        className="w-5 h-5 mr-2 text-red-600"
+                        className="w-3 h-3 sm:w-4 sm:h-4 mr-1"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -940,34 +1089,14 @@ const FeedbacksPage = () => {
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                          d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
                         />
                       </svg>
-                      Instructor Evaluation
-                    </h4>
-                    <div className="grid gap-3">
-                      {instructorQuestions.map((question, index) => (
-                        <div key={index} className="bg-gray-50 rounded-lg p-4">
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium text-gray-700">
-                              {question}
-                            </span>
-                            <div className="flex items-center">
-                              <span className="bg-blue-100 text-blue-800 text-sm font-semibold px-3 py-1 rounded-full">
-                                {fb[`instructor_q${index + 1}`]}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Student Comments */}
-                  <div>
-                    <h4 className="text-lg font-semibold text-red-700 mb-3 flex items-center">
+                      {fb.course_name}
+                    </span>
+                    <span className="inline-flex items-center text-xs sm:text-sm text-gray-500">
                       <svg
-                        className="w-5 h-5 mr-2 text-red-600"
+                        className="w-3 h-3 sm:w-4 sm:h-4 mr-1"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -976,39 +1105,174 @@ const FeedbacksPage = () => {
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-3.582 8-8 8a8.978 8.978 0 01-4.906-1.456l-3.815 1.372a.75.75 0 01-.954-.954l1.372-3.815A8.978 8.978 0 013 12c0-4.418 3.582-8 8-8s8 3.582 8 8z"
+                          d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4m-6 0v1m6-1v1M6 7h12l1 1v11a2 2 0 01-2 2H7a2 2 0 01-2-2V8l1-1z"
                         />
                       </svg>
-                      Student Comment
-                    </h4>
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <p className="text-gray-700 leading-relaxed">
-                        {fb.instructor_comments || (
-                          <span className="text-gray-500 italic">
-                            No comment provided.
-                          </span>
-                        )}
-                      </p>
-                    </div>
+                      {new Date(fb.created_at).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}
+                    </span>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+
+              {/* Feedback Content - Mobile Optimized */}
+              <div className="p-4 sm:p-6">
+                {/* Instructor Evaluation */}
+                <div className="mb-4 sm:mb-6">
+                  <h4 className="text-base sm:text-lg font-semibold text-red-700 mb-3 sm:mb-4 flex items-center">
+                    <svg
+                      className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-red-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                      />
+                    </svg>
+                    Instructor Evaluation
+                  </h4>
+                  <div className="grid gap-2 sm:gap-3">
+                    {instructorQuestions.map((question, index) => (
+                      <div
+                        key={index}
+                        className="bg-gray-50 rounded-lg p-3 sm:p-4"
+                      >
+                        {/* Mobile Layout */}
+                        <div className="block sm:hidden">
+                          <div className="text-sm font-medium text-gray-700 mb-2">
+                            {question}
+                          </div>
+                          <div className="flex justify-end">
+                            <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2 py-1 rounded-full">
+                              {fb[`instructor_q${index + 1}`]}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Desktop Layout */}
+                        <div className="hidden sm:flex items-center justify-between">
+                          <span className="font-medium text-gray-700 text-sm">
+                            {question}
+                          </span>
+                          <div className="flex items-center">
+                            <span className="bg-blue-100 text-blue-800 text-sm font-semibold px-3 py-1 rounded-full">
+                              {fb[`instructor_q${index + 1}`]}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Student Comments */}
+                <div>
+                  <h4 className="text-base sm:text-lg font-semibold text-red-700 mb-3 flex items-center">
+                    <svg
+                      className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-red-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-3.582 8-8 8a8.978 8.978 0 01-4.906-1.456l-3.815 1.372a.75.75 0 01-.954-.954l1.372-3.815A8.978 8.978 0 013 12c0-4.418 3.582-8 8-8s8 3.582 8 8z"
+                      />
+                    </svg>
+                    Student Comment
+                  </h4>
+                  <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
+                    <p className="text-gray-700 leading-relaxed text-sm sm:text-base">
+                      {fb.instructor_comments || (
+                        <span className="text-gray-500 italic">
+                          No comment provided.
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
 
 const Instructor = () => {
   const [activePage, setActivePage] = useState("Dashboard");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const navigationItems = [
+    { name: "Dashboard", icon: <BarChart3 className="w-5 h-5" /> },
+    { name: "Records", icon: <User className="w-5 h-5" /> },
+    {
+      name: "Report Maintenance",
+      icon: <BsExclamationOctagon className="w-5 h-5" />,
+    },
+    { name: "Feedbacks", icon: <FcFeedback className="w-5 h-5" /> },
+  ];
+
+  const handleNavClick = (pageName) => {
+    setActivePage(pageName);
+    setSidebarOpen(false); // Close sidebar on mobile after navigation
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      {/* Mobile Header */}
+      <div className="lg:hidden bg-white shadow-lg border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 bg-gradient-to-r from-red-600 to-red-700 rounded-lg flex items-center justify-center">
+            <Shield className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <div className="font-bold text-sm">First Safety</div>
+            <div className="text-gray-500 text-xs">Instructor Panel</div>
+          </div>
+        </div>
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+        >
+          {sidebarOpen ? (
+            <X className="w-6 h-6 text-gray-700" />
+          ) : (
+            <Menu className="w-6 h-6 text-gray-700" />
+          )}
+        </button>
+      </div>
+
       <div className="flex">
+        {/* Mobile Overlay */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
         {/* Sidebar */}
-        <div className="w-64 bg-white shadow-xl border-r border-gray-200 min-h-screen">
+        <div
+          className={`
+          fixed lg:static inset-y-0 left-0 z-50
+          w-64 bg-white shadow-xl border-r border-gray-200 min-h-screen
+          transform transition-transform duration-300 ease-in-out
+          ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          }
+        `}
+        >
           {/* Brand Header */}
           <div className="p-6 bg-gradient-to-r from-red-600 to-red-700 text-white">
             <div className="flex items-center space-x-3 mb-4">
@@ -1036,37 +1300,43 @@ const Instructor = () => {
 
           {/* Navigation */}
           <nav className="p-4 space-y-2">
-            {[
-              { name: "Dashboard", icon: <BarChart3 className="w-5 h-5" /> },
-              { name: "Records", icon: <User className="w-5 h-5" /> },
-              {
-                name: "Report Maintenance",
-                icon: <BsExclamationOctagon className="w-5 h-5" />,
-              },
-              { name: "Feedbacks", icon: <FcFeedback className="w-5 h-5" /> },
-            ].map(({ name, icon }) => (
+            {navigationItems.map(({ name, icon }) => (
               <button
                 key={name}
-                onClick={() => setActivePage(name)}
-                className={`flex items-center w-full px-4 py-3 rounded-lg font-medium text-sm cursor-pointer
+                onClick={() => handleNavClick(name)}
+                className={`flex items-center w-full px-4 py-3 rounded-lg font-medium text-sm cursor-pointer transition-colors
                   ${
                     activePage === name
                       ? "bg-red-600 text-white"
                       : "text-gray-700 hover:bg-gray-100"
                   }`}
               >
-                <span className="mr-3">{icon}</span> {name}
+                <span className="mr-3">{icon}</span>
+                <span className="truncate">{name}</span>
               </button>
             ))}
           </nav>
         </div>
 
         {/* Main Content */}
-        <main className="flex-1 p-8 max-w-7xl mx-auto">
-          {activePage === "Dashboard" && <DashboardPage />}
-          {activePage === "Records" && <RecordsPage />}
-          {activePage === "Report Maintenance" && <MaintenancePage />}
-          {activePage === "Feedbacks" && <FeedbacksPage />}
+        <main className="flex-1 min-w-0">
+          {/* Content Header - Mobile */}
+          <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3">
+            <h1 className="text-lg font-semibold text-gray-900">
+              {activePage}
+            </h1>
+          </div>
+
+          {/* Content Area */}
+          <div className="p-4 lg:p-8 max-w-7xl mx-auto">
+            {/* Page Content */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 min-h-[calc(100vh-200px)] lg:min-h-[calc(100vh-250px)]">
+              {activePage === "Dashboard" && <DashboardPage />}
+              {activePage === "Records" && <RecordsPage />}
+              {activePage === "Report Maintenance" && <MaintenancePage />}
+              {activePage === "Feedbacks" && <FeedbacksPage />}
+            </div>
+          </div>
         </main>
       </div>
     </div>

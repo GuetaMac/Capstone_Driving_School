@@ -22,6 +22,7 @@ import {
   Book,
   Car,
   ListCheck,
+  Menu,
 } from "lucide-react";
 import {
   User,
@@ -979,10 +980,10 @@ const StudentsRecords = () => {
 
   // fetch branches for dropdown
   useEffect(() => {
-    fetch("http://localhost:5000/api/branches")
+    fetch("http://localhost:5000/api/branches/records")
       .then((res) => res.json())
       .then((data) => {
-        console.log("🏢 Branches fetched:", data);
+        console.log(" Branches fetched:", data);
         setBranches(data);
       })
       .catch((err) => console.error("❌ Error fetching branches:", err));
@@ -2418,6 +2419,7 @@ const AnalyticsPage = () => {
     </div>
   );
 };
+
 const AttendancePage = () => {
   const [attendance, setAttendance] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -2962,7 +2964,6 @@ const AttendancePage = () => {
     </div>
   );
 };
-
 const SettingsPage = () => {
   const [statusInfo, setStatusInfo] = useState({});
   const [loading, setLoading] = useState(false);
@@ -3072,15 +3073,76 @@ const SettingsPage = () => {
 
 const ManagerDashboard = () => {
   const [activePage, setActivePage] = useState("Dashboard");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   // Get the user from localStorage
   const user = JSON.parse(localStorage.getItem("user"));
   const name = user?.name || "Student"; // fallback kung wala
 
+  const navigationItems = [
+    { name: "Dashboard", icon: <BarChart3 className="w-5 h-5" /> },
+    { name: "Records", icon: <Users className="w-5 h-5" /> },
+    { name: "Courses", icon: <LucideBookOpen className="w-5 h-5" /> },
+    { name: "Student Records", icon: <Users className="w-5 h-5" /> },
+    { name: "Analytics", icon: <BarChart3 className="w-5 h-5" /> },
+    {
+      name: "Announcements",
+      icon: <MegaphoneIcon className="w-5 h-5" />,
+    },
+    { name: "Feedbacks", icon: <Shield className="w-5 h-5" /> },
+    { name: "Attendance", icon: <ListCheck className="w-5 h-5" /> },
+    { name: "Settings", icon: <Settings className="w-5 h-5" /> },
+  ];
+
+  const handleNavClick = (pageName) => {
+    setActivePage(pageName);
+    setSidebarOpen(false); // Close sidebar on mobile after navigation
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      {/* Mobile Header */}
+      <div className="lg:hidden bg-white shadow-lg border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 bg-gradient-to-r from-red-600 to-red-700 rounded-lg flex items-center justify-center">
+            <Shield className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <div className="font-bold text-sm">First Safety</div>
+            <div className="text-gray-500 text-xs">Manager Panel</div>
+          </div>
+        </div>
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+        >
+          {sidebarOpen ? (
+            <X className="w-6 h-6 text-gray-700" />
+          ) : (
+            <Menu className="w-6 h-6 text-gray-700" />
+          )}
+        </button>
+      </div>
+
       <div className="flex">
+        {/* Mobile Overlay */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
         {/* Sidebar */}
-        <div className="w-64 bg-white shadow-xl border-r border-gray-200 min-h-screen">
+        <div
+          className={`
+          fixed lg:static inset-y-0 left-0 z-50
+          w-64 bg-white shadow-xl border-r border-gray-200 min-h-screen
+          transform transition-transform duration-300 ease-in-out
+          ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          }
+        `}
+        >
           {/* Brand Header */}
           <div className="p-6 bg-gradient-to-r from-red-600 to-red-700 text-white">
             <div className="flex items-center space-x-3 mb-4">
@@ -3108,47 +3170,41 @@ const ManagerDashboard = () => {
 
           {/* Navigation */}
           <nav className="p-4 space-y-2">
-            {[
-              { name: "Dashboard", icon: <BarChart3 className="w-5 h-5" /> },
-              { name: "Records", icon: <Users className="w-5 h-5" /> },
-              { name: "Courses", icon: <LucideBookOpen className="w-5 h-5" /> },
-              { name: "Student Records", icon: <Users className="w-5 h-5" /> },
-              { name: "Analytics", icon: <BarChart3 className="w-5 h-5" /> },
-              {
-                name: "Announcements",
-                icon: <MegaphoneIcon className="w-5 h-5" />,
-              },
-              { name: "Feedbacks", icon: <Shield className="w-5 h-5" /> },
-              { name: "Attendance", icon: <ListCheck className="w-5 h-5" /> },
-              { name: "Settings", icon: <Settings className="w-5 h-5" /> },
-            ].map(({ name, icon }) => (
+            {navigationItems.map(({ name, icon }) => (
               <button
                 key={name}
-                onClick={() => setActivePage(name)}
-                className={`flex items-center w-full px-4 py-3 rounded-lg font-medium text-sm cursor-pointer
+                onClick={() => handleNavClick(name)}
+                className={`flex items-center w-full px-4 py-3 rounded-lg font-medium text-sm cursor-pointer transition-colors
                   ${
                     activePage === name
                       ? "bg-red-600 text-white"
                       : "text-gray-700 hover:bg-gray-100"
                   }`}
               >
-                <span className="mr-3">{icon}</span> {name}
+                <span className="mr-3">{icon}</span>
+                <span className="truncate">{name}</span>
               </button>
             ))}
           </nav>
         </div>
 
         {/* Main Content */}
-        <main className="flex-1 p-8 max-w-7xl mx-auto">
-          {activePage === "Dashboard" && <DashboardPage />}
-          {activePage === "Records" && <RecordsPage />}
-          {activePage === "Courses" && <CoursesPage />}
-          {activePage === "Student Records" && <StudentsRecords />}
-          {activePage === "Analytics" && <AnalyticsPage />}
-          {activePage === "Announcements" && <AnnouncementsPage />}
-          {activePage === "Feedbacks" && <FeedbackPage />}
-          {activePage === "Attendance" && <AttendancePage />}
-          {activePage === "Settings" && <SettingsPage />}
+        <main className="flex-1 min-w-0">
+          {/* Content Area */}
+          <div className="p-4 lg:p-8 max-w-7xl mx-auto">
+            {/* Page Content */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 min-h-[calc(100vh-200px)] lg:min-h-[calc(100vh-250px)]">
+              {activePage === "Dashboard" && <DashboardPage />}
+              {activePage === "Records" && <RecordsPage />}
+              {activePage === "Courses" && <CoursesPage />}
+              {activePage === "Student Records" && <StudentsRecords />}
+              {activePage === "Analytics" && <AnalyticsPage />}
+              {activePage === "Announcements" && <AnnouncementsPage />}
+              {activePage === "Feedbacks" && <FeedbackPage />}
+              {activePage === "Attendance" && <AttendancePage />}
+              {activePage === "Settings" && <SettingsPage />}
+            </div>
+          </div>
         </main>
       </div>
     </div>
