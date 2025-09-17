@@ -186,6 +186,7 @@ app.post("/verify", async (req, res) => {
   }
 });
 
+// Updated login endpoint with verification check
 app.post("/login", async (req, res) => {
   const { identifier, password } = req.body;
 
@@ -208,6 +209,16 @@ app.post("/login", async (req, res) => {
     }
 
     const user = result.rows[0];
+
+    // ✅ CHECK IF USER IS VERIFIED (especially for students)
+    if (user.role === "student" && !user.is_verified) {
+      return res.status(400).json({
+        error: "Please verify your email first before logging in.",
+        type: "unverified",
+        email: user.email,
+      });
+    }
+
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
@@ -219,7 +230,7 @@ app.post("/login", async (req, res) => {
       {
         userId: user.user_id,
         role: user.role,
-        branch_id: user.branch_id, // ← DITO MAHALAGA
+        branch_id: user.branch_id,
       },
       process.env.JWT_SECRET,
       { expiresIn: "24h" }
@@ -234,11 +245,138 @@ app.post("/login", async (req, res) => {
         email: user.email,
         role: user.role,
         branch_id: user.branch_id,
+        is_verified: user.is_verified,
       },
     });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Updated check-user endpoint to include verification status
+app.post("/check-user", async (req, res) => {
+  const { identifier } = req.body;
+
+  try {
+    let result;
+    const isEmail = identifier.includes("@");
+
+    if (isEmail) {
+      result = await pool.query(
+        "SELECT role, is_verified, email FROM users WHERE email = $1",
+        [identifier]
+      );
+    } else {
+      result = await pool.query(
+        "SELECT role, is_verified, email FROM users WHERE username = $1",
+        [identifier]
+      );
+    }
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const user = result.rows[0];
+
+    return res.json({
+      role: user.role,
+      is_verified: user.is_verified,
+      email: user.email,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Add resend verification code endpoint
+app.post("/resend-code", async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    // Check if user exists and is not verified
+    const userResult = await pool.query(
+      "SELECT * FROM users WHERE email = $1 AND is_verified = false",
+      [email]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(400).json({
+        error: "User not found or already verified",
+      });
+    }
+
+    const user = userResult.rows[0];
+    const code = Math.floor(100000 + Math.random() * 900000);
+
+    // Delete existing verification codes for this email
+    await pool.query("DELETE FROM verification_codes WHERE email = $1", [
+      email,
+    ]);
+
+    // Insert new verification code
+    await pool.query(
+      "INSERT INTO verification_codes (email, code) VALUES ($1, $2)",
+      [email, code]
+    );
+
+    // Send email with new code
+    const mailOptions = {
+      from: `"First Safety Driving School" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: "New Verification Code - First Safety Driving School",
+      text: `Hello ${user.name},
+
+Here is your new verification code: ${code}
+
+This code will expire in 10 minutes.
+
+Best regards,
+First Safety Driving School Team`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
+            <h2 style="color: #1f2937; margin-bottom: 20px;">New Verification Code</h2>
+            
+            <p style="color: #374151; font-size: 16px;">Hello ${user.name},</p>
+            
+            <p style="color: #374151; font-size: 16px;">
+              Here is your new verification code:
+            </p>
+            
+            <div style="background-color: #ffffff; padding: 20px; border-radius: 6px; text-align: center; margin: 20px 0;">
+              <p style="font-size: 32px; font-weight: bold; color: #2563eb; letter-spacing: 4px; margin: 0;">${code}</p>
+            </div>
+            
+            <p style="color: #6b7280; font-size: 14px;">
+              This code will expire in 10 minutes for security purposes.
+            </p>
+            
+            <p style="color: #374151; font-size: 16px;">
+              Best regards,<br>
+              <strong>First Safety Driving School Team</strong>
+            </p>
+          </div>
+        </div>
+      `,
+    };
+
+    transporter.sendMail(mailOptions, (err, info) => {
+      if (err) {
+        console.error("Error sending email:", err);
+        return res
+          .status(500)
+          .json({ error: "Error sending verification email" });
+      } else {
+        console.log("Email sent:", info.response);
+        res.json({ message: "New verification code sent successfully!" });
+      }
+    });
+  } catch (error) {
+    console.error("Resend code error:", error);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
@@ -548,7 +686,7 @@ app.get("/api/admin/enrollments", authenticateToken, async (req, res) => {
         const filename = row.proof_of_payment
           .replace(/^.*[\\\/]/, "")
           .replace("/uploads/", "");
-        row.proof_of_payment = `http://localhost:5000/uploads/${filename}`;
+        row.proof_of_payment = `${filename}`;
       }
       return row;
     });
@@ -1566,7 +1704,47 @@ app.post("/api/feedback/:enrollmentId", async (req, res) => {
   }
 });
 
-//fetch feedback
+// Feature/Unfeature feedback route
+app.put("/api/feedback/:id/feature", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { featured } = req.body;
+
+    const result = await pool.query(
+      "UPDATE feedback SET featured = $1 WHERE feedback_id = $2",
+      [featured, id]
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error updating featured status:", error);
+    res.status(500).json({ error: "Failed to update featured status" });
+  }
+});
+
+// Get featured testimonials route
+app.get("/api/testimonials", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        f.feedback_id,
+        u.name as student_name,
+        f.comments,
+        f.created_at
+      FROM feedback f
+      JOIN enrollments e ON f.enrollment_id = e.enrollment_id
+      JOIN users u ON e.user_id = u.user_id
+      WHERE f.featured = TRUE AND f.comments IS NOT NULL AND f.comments != ''
+      ORDER BY f.created_at DESC
+      LIMIT 6
+    `);
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error fetching testimonials:", error);
+    res.status(500).json({ error: "Failed to fetch testimonials" });
+  }
+});
 
 app.post("/forgot-password", async (req, res) => {
   const { email } = req.body;
@@ -1704,6 +1882,7 @@ app.get("/api/feedback", async (req, res) => {
       SELECT 
         f.feedback_id,
         f.enrollment_id,
+        f.featured, 
         u.name AS student_name,
         i.name AS instructor_name,
         c.name AS course_name,
@@ -1725,7 +1904,13 @@ app.get("/api/feedback", async (req, res) => {
       branch_id ? [branch_id] : []
     );
 
-    res.json(result.rows);
+    // Ensure featured is always a boolean
+    const processedResults = result.rows.map((row) => ({
+      ...row,
+      featured: Boolean(row.featured), // Convert to boolean, handles null/undefined
+    }));
+
+    res.json(processedResults);
   } catch (err) {
     console.error("Error fetching feedback:", err);
     res.status(500).json({ error: "Failed to fetch feedback" });
@@ -2606,6 +2791,42 @@ app.get("/api/attendance/today", authenticateToken, async (req, res) => {
     });
   }
 });
-app.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
+
+app.put("/change-password", authenticateToken, async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+  const userId = req.user.userId; 
+
+  try {
+    const result = await pool.query(
+      "SELECT password FROM users WHERE user_id = $1",
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const user = result.rows[0];
+
+    const valid = await bcrypt.compare(oldPassword, user.password);
+    if (!valid) {
+      return res.status(400).json({ message: "Old password is incorrect" });
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+
+    await pool.query("UPDATE users SET password = $1 WHERE user_id = $2", [
+      hashed,
+      userId,
+    ]);
+
+    res.json({ message: "Password updated successfully" });
+  } catch (err) {
+    console.error("Error updating password:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.listen(port, "0.0.0.0", () => {
+  console.log(`Server running on http://0.0.0.0:${port}`);
 });

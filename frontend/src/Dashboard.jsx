@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import logo from "./assets/logo.png";
 import axios from "axios";
 import {
   Edit2,
@@ -176,7 +177,7 @@ const DashboardPage = () => {
   });
 
   useEffect(() => {
-    fetch("http://localhost:5000/api/dashboard-stats")
+    fetch(`${import.meta.env.VITE_API_URL}/api/dashboard-stats`)
       .then((res) => res.json())
       .then((data) => setStats(data))
       .catch((err) => console.error(err));
@@ -208,12 +209,51 @@ const DashboardPage = () => {
   };
 
   return (
-    <div className="flex-1 p-8">
-      {/* Header */}
-      <div className="mb-8 flex items-center justify-between">
+    <div className="flex-1 p-4 sm:p-6 lg:p-8">
+      {/* Header - Mobile Optimized */}
+      <div className="block sm:hidden">
+        {/* Mobile Top Row - Date & Sign Out */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="bg-white rounded-lg px-3 py-2 shadow-sm border border-gray-200">
+            <div className="text-xs text-gray-500">Today</div>
+            <div className="text-sm font-semibold text-gray-900">
+              {new Date().toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })}
+            </div>
+          </div>
+          <button
+            onClick={handleSignOut}
+            className="bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 p-2 rounded-lg transition-colors duration-200 flex items-center shadow-sm border border-red-200"
+          >
+            <LogOut className="w-4 h-4 mr-1" />
+            <span className="text-sm font-medium">Sign Out</span>
+          </button>
+        </div>
+
+        {/* Mobile Welcome Section */}
+        <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-xl p-6 text-white shadow-lg mb-6">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
+              <Shield className="w-8 h-8 text-white" />
+            </div>
+            <h1 className="text-xl font-bold mb-2">Welcome back, {name}!</h1>
+            <p className="text-red-100 text-sm leading-relaxed">
+              Monitor your driving school operations and track key metrics
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop Header */}
+      <div className="hidden sm:flex items-center justify-between mb-6 lg:mb-8">
         <div>
-          <h1 className="text-4xl font-bold mb-2">Welcome {name}!</h1>
-          <p className="text-gray-600 text-lg">
+          <h1 className="text-2xl lg:text-4xl font-bold mb-2">
+            Welcome {name}!
+          </h1>
+          <p className="text-gray-600 text-sm lg:text-lg">
             Monitor your driving school operations and track key metrics
           </p>
         </div>
@@ -227,7 +267,7 @@ const DashboardPage = () => {
           </div>
           <button
             onClick={handleSignOut}
-            className="mt-2 text-red-600 hover:text-red-800 flex items-center text-sm"
+            className="mt-2 text-red-600 hover:text-red-800 flex items-center text-sm transition-colors duration-200"
           >
             <LogOut className="w-4 h-4 mr-1" /> Sign Out
           </button>
@@ -235,42 +275,47 @@ const DashboardPage = () => {
       </div>
 
       {/* Mission Statement Card */}
-      <div className="bg-gradient-to-r from-red-600 to-red-700 rounded-2xl p-8 mb-8 text-white shadow-xl flex justify-between">
-        <div className="max-w-4xl">
-          <h2 className="text-2xl font-bold mb-4 flex items-center">
-            <Shield className="w-8 h-8 mr-3 text-yellow-300" /> Our Mission
-          </h2>
-          <p className="text-red-100 text-lg leading-relaxed">
-            Our mission is to educate every Filipino Motor Vehicle Driver on
-            Road Safety and instill safe driving practices. We envision a safer
-            road for every Filipino family, with zero fatalities brought about
-            by road crash incidents.
-          </p>
-        </div>
-        <div className="text-right ml-8">
-          <div className="text-yellow-300 font-bold text-lg">First Safety</div>
-          <div className="text-red-200 text-sm">Always Safe</div>
+      <div className="bg-gradient-to-r from-red-600 to-red-700 rounded-xl lg:rounded-2xl p-4 sm:p-6 lg:p-8 mb-6 lg:mb-8 text-white shadow-xl">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+          <div className="flex-1">
+            <h2 className="text-lg sm:text-xl lg:text-2xl font-bold mb-3 lg:mb-4 flex items-center justify-center sm:justify-start">
+              <Shield className="w-6 h-6 lg:w-8 lg:h-8 mr-2 lg:mr-3 text-yellow-300" />{" "}
+              Our Mission
+            </h2>
+            <p className="text-red-100 text-sm sm:text-base lg:text-lg leading-relaxed text-center sm:text-left max-w-4xl">
+              Our mission is to educate every Filipino Motor Vehicle Driver on
+              Road Safety and instill safe driving practices. We envision a
+              safer road for every Filipino family, with zero fatalities brought
+              about by road crash incidents.
+            </p>
+          </div>
+          <div className="text-center lg:text-right lg:ml-8 mt-4 lg:mt-0">
+            <div className="text-yellow-300 font-bold text-base lg:text-lg">
+              First Safety
+            </div>
+            <div className="text-red-200 text-sm">Always Safe</div>
+          </div>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
         <StatCard
           number={stats.total_enrollments}
           title="Total Enrollments"
-          icon={<Users className="w-6 h-6" />}
+          icon={<Users className="w-5 h-5 lg:w-6 lg:h-6" />}
           color="blue"
         />
         <StatCard
           number={stats.total_tdc}
           title="Theoretical Driving Course"
-          icon={<Book className="w-6 h-6" />}
+          icon={<Book className="w-5 h-5 lg:w-6 lg:h-6" />}
           color="green"
         />
         <StatCard
           number={stats.total_pdc}
           title="Practical Driving Course"
-          icon={<Car className="w-6 h-6" />}
+          icon={<Car className="w-5 h-5 lg:w-6 lg:h-6" />}
           color="yellow"
         />
         <StatCard
@@ -278,7 +323,7 @@ const DashboardPage = () => {
             minimumFractionDigits: 2,
           })}`}
           title="Total Earnings"
-          icon={<DollarSign className="w-6 h-6" />}
+          icon={<DollarSign className="w-5 h-5 lg:w-6 lg:h-6" />}
           color="purple"
         />
       </div>
@@ -306,7 +351,9 @@ const RecordsPage = () => {
 
   const fetchAccounts = async () => {
     try {
-      const { data } = await axios.get("http://localhost:5000/api/accounts");
+      const { data } = await axios.get(
+        `${import.meta.env.VITE_API_URL}/api/accounts`
+      );
       setAccounts(data);
     } catch (error) {
       console.error(error);
@@ -315,7 +362,9 @@ const RecordsPage = () => {
 
   const fetchBranches = async () => {
     try {
-      const { data } = await axios.get("http://localhost:5000/branches");
+      const { data } = await axios.get(
+        `${import.meta.env.VITE_API_URL}/branches`
+      );
       setBranches(data);
     } catch (error) {
       console.error(error);
@@ -341,12 +390,12 @@ const RecordsPage = () => {
     try {
       if (editingId) {
         await axios.put(
-          `http://localhost:5000/api/accounts/${editingId}`,
+          `${import.meta.env.VITE_API_URL}/api/accounts/${editingId}`,
           form
         );
         Swal.fire("Updated!", "Account updated successfully.", "success");
       } else {
-        await axios.post("http://localhost:5000/api/accounts", form);
+        await axios.post(`${import.meta.env.VITE_API_URL}/api/accounts`, form);
         Swal.fire("Added!", "Account added successfully.", "success");
       }
 
@@ -389,7 +438,7 @@ const RecordsPage = () => {
     if (!result.isConfirmed) return;
 
     try {
-      await axios.delete(`http://localhost:5000/api/accounts/${id}`);
+      await axios.delete(`${import.meta.env.VITE_API_URL}/api/accounts/${id}`);
       Swal.fire("Deleted!", "Account has been deleted.", "success");
       fetchAccounts();
     } catch (error) {
@@ -415,18 +464,18 @@ const RecordsPage = () => {
     );
 
     return (
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <div className="bg-white shadow-md rounded-lg">
-          <div className="border-b px-6 py-4 flex items-center justify-between">
-            <h2 className="text-2xl font-semibold">Account List</h2>
-            <div>
-              <label className="text-sm font-medium text-gray-700 mr-2">
+          <div className="border-b px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <h2 className="text-xl sm:text-2xl font-semibold">Account List</h2>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <label className="text-sm font-medium text-gray-700">
                 Filter by Branch:
               </label>
               <select
                 value={selectedBranch}
                 onChange={(e) => setSelectedBranch(e.target.value)}
-                className="border border-gray-300 rounded px-2 py-1 text-sm"
+                className="border border-gray-300 rounded px-2 py-1 text-sm w-full sm:w-auto"
               >
                 {branches.map((branch) => (
                   <option key={branch} value={branch}>
@@ -437,7 +486,55 @@ const RecordsPage = () => {
             </div>
           </div>
 
-          <div className="overflow-x-auto p-6">
+          {/* Mobile Card View */}
+          <div className="block sm:hidden p-4 space-y-4">
+            {filteredAccounts.map((acc) => (
+              <div key={acc.id} className="bg-gray-50 rounded-lg p-4 border">
+                <div className="space-y-2">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-medium text-gray-900">{acc.name}</h3>
+                      <p className="text-sm text-gray-600">@{acc.username}</p>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => handleEdit(acc)}
+                        className="text-blue-600 hover:text-blue-800 font-medium text-sm"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(acc.id)}
+                        className="text-red-600 hover:text-red-800 font-medium text-sm"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="text-gray-500">Role:</span>
+                      <p className="font-medium capitalize">
+                        {acc.role.replace("_", " ")}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Branch:</span>
+                      <p className="font-medium">{acc.branch_name || "N/A"}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {filteredAccounts.length === 0 && (
+              <div className="text-center text-gray-500 py-8">
+                No accounts found for this branch.
+              </div>
+            )}
+          </div>
+
+          {/* Desktop Table View */}
+          <div className="hidden sm:block overflow-x-auto p-6">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
@@ -505,79 +602,87 @@ const RecordsPage = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
+    <div className="max-w-6xl mx-auto p-4 sm:p-6">
       {/* Add or Edit Account Form */}
-      <div className="bg-white shadow-md rounded-lg mb-8">
-        <div className="border-b px-6 py-4">
-          <h2 className="text-2xl font-semibold">
+      <div className="bg-white shadow-md rounded-lg mb-6 sm:mb-8">
+        <div className="border-b px-4 sm:px-6 py-4">
+          <h2 className="text-xl sm:text-2xl font-semibold">
             {editingId ? "Edit Account" : "Add New Account"}
           </h2>
         </div>
         <form
           onSubmit={handleSubmit}
-          className="px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-4"
+          className="px-4 sm:px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-4"
         >
           <div className="flex flex-col">
-            <label className="mb-1 font-medium">Full Name</label>
+            <label className="mb-1 font-medium text-sm sm:text-base">
+              Full Name
+            </label>
             <input
               type="text"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               required
-              className="border border-gray-300 rounded-md p-2"
+              className="border border-gray-300 rounded-md p-2 text-sm sm:text-base"
               placeholder="e.g. Juan Dela Cruz"
             />
           </div>
           <div className="flex flex-col">
-            <label className="mb-1 font-medium">Username</label>
+            <label className="mb-1 font-medium text-sm sm:text-base">
+              Username
+            </label>
             <input
               type="text"
               value={form.username}
               onChange={(e) => setForm({ ...form, username: e.target.value })}
               required
-              className="border border-gray-300 rounded-md p-2"
+              className="border border-gray-300 rounded-md p-2 text-sm sm:text-base"
               placeholder="Enter your username"
             />
           </div>
           <div className="flex flex-col relative">
-            <label className="mb-1 font-medium">
+            <label className="mb-1 font-medium text-sm sm:text-base">
               Password {editingId && "(Leave blank to keep unchanged)"}
             </label>
             <input
               type={showPassword ? "text" : "password"}
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
-              className="border border-gray-300 rounded-md p-2 pr-10"
+              className="border border-gray-300 rounded-md p-2 pr-10 text-sm sm:text-base"
               placeholder="Enter password"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-[42px] text-gray-500"
+              className="absolute right-3 top-[38px] sm:top-[42px] text-gray-500"
             >
               {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
             </button>
           </div>
 
           <div className="flex flex-col">
-            <label className="mb-1 font-medium">Role</label>
+            <label className="mb-1 font-medium text-sm sm:text-base">
+              Role
+            </label>
             <select
               value={form.role}
               onChange={(e) => setForm({ ...form, role: e.target.value })}
               required
-              className="border border-gray-300 rounded-md p-2"
+              className="border border-gray-300 rounded-md p-2 text-sm sm:text-base"
             >
               <option value="instructor">Instructor</option>
               <option value="administrative_staff">Administrative Staff</option>
             </select>
           </div>
-          <div className="flex flex-col">
-            <label className="mb-1 font-medium">Branch</label>
+          <div className="flex flex-col md:col-span-2">
+            <label className="mb-1 font-medium text-sm sm:text-base">
+              Branch
+            </label>
             <select
               value={form.branch_id}
               onChange={(e) => setForm({ ...form, branch_id: e.target.value })}
               required
-              className="border border-gray-300 rounded-md p-2"
+              className="border border-gray-300 rounded-md p-2 text-sm sm:text-base"
             >
               <option value="">Select Branch</option>
               {branches.map((branch) => (
@@ -587,7 +692,7 @@ const RecordsPage = () => {
               ))}
             </select>
           </div>
-          <div className="col-span-full flex justify-end space-x-2">
+          <div className="col-span-full flex flex-col sm:flex-row justify-end gap-2 sm:space-x-2 sm:gap-0">
             {editingId && (
               <button
                 type="button"
@@ -601,14 +706,14 @@ const RecordsPage = () => {
                     branch_id: "",
                   });
                 }}
-                className="bg-gray-300 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-400"
+                className="bg-gray-300 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-400 text-sm sm:text-base order-2 sm:order-1"
               >
                 Cancel
               </button>
             )}
             <button
               type="submit"
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm sm:text-base order-1 sm:order-2"
             >
               {editingId ? "Update Account" : "Add Account"}
             </button>
@@ -637,7 +742,7 @@ const CoursesPage = () => {
 
   const fetchCourses = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/courses");
+      const res = await axios.get(`${import.meta.env.VITE_API_URL}/courses`);
       setCourses(res.data);
     } catch (err) {
       console.error("Error fetching courses:", err);
@@ -685,7 +790,7 @@ const CoursesPage = () => {
 
       if (form.course_id) {
         await axios.put(
-          `http://localhost:5000/courses/${form.course_id}`,
+          `${import.meta.env.VITE_API_URL}/courses/${form.course_id}`,
           formData,
           {
             headers: { "Content-Type": "multipart/form-data" },
@@ -693,7 +798,7 @@ const CoursesPage = () => {
         );
         Swal.fire("Updated!", "Course updated successfully.", "success");
       } else {
-        await axios.post("http://localhost:5000/courses", formData, {
+        await axios.post(`${import.meta.env.VITE_API_URL}/courses`, formData, {
           headers: { "Content-Type": "multipart/form-data" },
         });
         Swal.fire("Added!", "Course added successfully.", "success");
@@ -755,7 +860,7 @@ const CoursesPage = () => {
     if (!result.isConfirmed) return;
 
     try {
-      await axios.delete(`http://localhost:5000/courses/${id}`);
+      await axios.delete(`${import.meta.env.VITE_API_URL}/courses/${id}`);
       Swal.fire("Deleted!", "The course has been deleted.", "success");
       fetchCourses();
     } catch (err) {
@@ -767,19 +872,19 @@ const CoursesPage = () => {
   const isTheoretical = form.name.trim().toLowerCase().includes("theoretical");
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="bg-white rounded-2xl shadow-lg p-8 mb-12">
-        <h2 className="text-3xl font-extrabold text-gray-800 mb-6 flex items-center">
-          <PlusCircle className="mr-2 text-red-600" />
+    <div className="container mx-auto p-4 sm:p-6">
+      <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 lg:p-8 mb-8 sm:mb-12">
+        <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-800 mb-4 sm:mb-6 flex items-center">
+          <PlusCircle className="mr-2 text-red-600 w-6 h-6 sm:w-8 sm:h-8" />
           {form.course_id ? "Update Course" : "Add New Course"}
         </h2>
 
         <form
           onSubmit={handleAddOrUpdate}
-          className="space-y-6"
+          className="space-y-4 sm:space-y-6"
           encType="multipart/form-data"
         >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Code Name
@@ -791,7 +896,7 @@ const CoursesPage = () => {
                 onChange={handleChange}
                 placeholder="e.g. TDC101"
                 required
-                className="mt-2 block w-full border border-gray-300 rounded-lg shadow-sm text-base py-2 px-3"
+                className="mt-1 sm:mt-2 block w-full border border-gray-300 rounded-lg shadow-sm text-sm sm:text-base py-2 px-3"
               />
             </div>
             <div>
@@ -804,12 +909,12 @@ const CoursesPage = () => {
                 value={form.name}
                 onChange={handleChange}
                 required
-                className="mt-2 block w-full border border-gray-300 rounded-lg shadow-sm text-base py-2 px-3"
+                className="mt-1 sm:mt-2 block w-full border border-gray-300 rounded-lg shadow-sm text-sm sm:text-base py-2 px-3"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
             {!isTheoretical && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -820,7 +925,7 @@ const CoursesPage = () => {
                   value={form.type}
                   onChange={handleChange}
                   required
-                  className="mt-2 block w-full border border-gray-300 rounded-lg shadow-sm text-base py-2 px-3"
+                  className="mt-1 sm:mt-2 block w-full border border-gray-300 rounded-lg shadow-sm text-sm sm:text-base py-2 px-3"
                 >
                   <option value="">Select Type</option>
                   <option value="automatic">Automatic</option>
@@ -839,7 +944,7 @@ const CoursesPage = () => {
                   value={form.mode}
                   onChange={handleChange}
                   required
-                  className="mt-2 block w-full border border-gray-300 rounded-lg shadow-sm text-base py-2 px-3"
+                  className="mt-1 sm:mt-2 block w-full border border-gray-300 rounded-lg shadow-sm text-sm sm:text-base py-2 px-3"
                 >
                   <option value="">Select Mode</option>
                   <option value="ftof">Face-to-Face</option>
@@ -857,7 +962,7 @@ const CoursesPage = () => {
                 value={form.price}
                 onChange={handleChange}
                 required
-                className="mt-2 block w-full border border-gray-300 rounded-lg shadow-sm text-base py-2 px-3"
+                className="mt-1 sm:mt-2 block w-full border border-gray-300 rounded-lg shadow-sm text-sm sm:text-base py-2 px-3"
               />
             </div>
           </div>
@@ -871,7 +976,7 @@ const CoursesPage = () => {
               value={form.description}
               onChange={handleChange}
               rows={3}
-              className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm"
+              className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm text-sm sm:text-base py-2 px-3"
             />
           </div>
 
@@ -883,29 +988,29 @@ const CoursesPage = () => {
               type="file"
               accept="image/*"
               onChange={handleImageChange}
-              className="block w-full text-sm text-gray-700"
+              className="block w-full text-xs sm:text-sm text-gray-700"
             />
             {imagePreview && (
               <img
                 src={imagePreview}
                 alt="Preview"
-                className="mt-4 h-40 rounded-lg object-cover border"
+                className="mt-4 h-32 sm:h-40 rounded-lg object-cover border"
               />
             )}
           </div>
 
           <button
             type="submit"
-            className="inline-flex items-center px-6 py-3 bg-red-600 text-white font-semibold rounded-2xl shadow hover:bg-red-700"
+            className="inline-flex items-center px-4 sm:px-6 py-2 sm:py-3 bg-red-600 text-white font-semibold rounded-xl sm:rounded-2xl shadow hover:bg-red-700 text-sm sm:text-base"
           >
             {form.course_id ? (
               <>
-                <Edit2 className="mr-2" />
+                <Edit2 className="mr-2 w-4 h-4 sm:w-5 sm:h-5" />
                 Update Course
               </>
             ) : (
               <>
-                <PlusCircle className="mr-2" />
+                <PlusCircle className="mr-2 w-4 h-4 sm:w-5 sm:h-5" />
                 Add Course
               </>
             )}
@@ -914,19 +1019,90 @@ const CoursesPage = () => {
       </div>
 
       {/* Course List */}
-      <div className="bg-white rounded-2xl shadow-lg p-6">
-        <h3 className="text-2xl font-bold text-gray-800 mb-4">Course List</h3>
-        <div className="overflow-x-auto">
+      <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6">
+        <h3 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">
+          Course List
+        </h3>
+
+        {/* Mobile Card View */}
+        <div className="block lg:hidden space-y-4">
+          {courses.map((course) => (
+            <div
+              key={course.course_id}
+              className="bg-gray-50 rounded-lg p-4 border"
+            >
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-shrink-0">
+                  {course.image ? (
+                    <img
+                      src={`${import.meta.env.VITE_API_URL}${course.image}`}
+                      alt="Course"
+                      className="w-full sm:w-20 h-32 sm:h-20 object-cover rounded-lg"
+                    />
+                  ) : (
+                    <div className="w-full sm:w-20 h-32 sm:h-20 bg-gray-200 rounded-lg flex items-center justify-center">
+                      <span className="text-xs text-gray-500">No image</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 space-y-2">
+                  <h4 className="font-semibold text-gray-900">{course.name}</h4>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="text-gray-500">Code:</span>
+                      <p className="font-medium">{course.codename}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Price:</span>
+                      <p className="font-medium">₱{course.price}</p>
+                    </div>
+                    {course.type && (
+                      <div>
+                        <span className="text-gray-500">Type:</span>
+                        <p className="font-medium">{course.type}</p>
+                      </div>
+                    )}
+                    {course.mode && (
+                      <div>
+                        <span className="text-gray-500">Mode:</span>
+                        <p className="font-medium">{course.mode}</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      onClick={() => handleEdit(course)}
+                      className="bg-yellow-400 text-white px-3 py-1 rounded text-sm font-medium"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(course.course_id)}
+                      className="bg-red-500 text-white px-3 py-1 rounded text-sm font-medium"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop Table View */}
+        <div className="hidden lg:block overflow-x-auto">
           <table className="min-w-full table-auto border-collapse border border-gray-200">
             <thead>
               <tr className="bg-gray-100">
-                <th className="border px-4 py-2">Image</th>
-                <th className="border px-4 py-2">Name</th>
-                <th className="border px-4 py-2">Code</th>
-                <th className="border px-4 py-2">Type</th>
-                <th className="border px-4 py-2">Mode</th>
-                <th className="border px-4 py-2">Price</th>
-                <th className="border px-4 py-2">Actions</th>
+                <th className="border px-4 py-2 text-sm font-medium">Image</th>
+                <th className="border px-4 py-2 text-sm font-medium">Name</th>
+                <th className="border px-4 py-2 text-sm font-medium">Code</th>
+                <th className="border px-4 py-2 text-sm font-medium">Type</th>
+                <th className="border px-4 py-2 text-sm font-medium">Mode</th>
+                <th className="border px-4 py-2 text-sm font-medium">Price</th>
+                <th className="border px-4 py-2 text-sm font-medium">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -935,29 +1111,33 @@ const CoursesPage = () => {
                   <td className="border px-4 py-2">
                     {course.image ? (
                       <img
-                        src={`http://localhost:5000${course.image}`}
+                        src={`${import.meta.env.VITE_API_URL}${course.image}`}
                         alt="Course"
-                        className="w-16 h-16 object-cover"
+                        className="w-16 h-16 object-cover rounded"
                       />
                     ) : (
-                      "No image"
+                      <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center">
+                        <span className="text-xs text-gray-500">No image</span>
+                      </div>
                     )}
                   </td>
-                  <td className="border px-4 py-2">{course.name}</td>
-                  <td className="border px-4 py-2">{course.codename}</td>
-                  <td className="border px-4 py-2">{course.type}</td>
-                  <td className="border px-4 py-2">{course.mode}</td>
-                  <td className="border px-4 py-2">{course.price}</td>
+                  <td className="border px-4 py-2 text-sm">{course.name}</td>
+                  <td className="border px-4 py-2 text-sm">
+                    {course.codename}
+                  </td>
+                  <td className="border px-4 py-2 text-sm">{course.type}</td>
+                  <td className="border px-4 py-2 text-sm">{course.mode}</td>
+                  <td className="border px-4 py-2 text-sm">₱{course.price}</td>
                   <td className="border px-4 py-2 space-x-2">
                     <button
                       onClick={() => handleEdit(course)}
-                      className="bg-yellow-400 text-white px-2 py-1 rounded"
+                      className="bg-yellow-400 text-white px-2 py-1 rounded text-sm"
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => handleDelete(course.course_id)}
-                      className="bg-red-500 text-white px-2 py-1 rounded"
+                      className="bg-red-500 text-white px-2 py-1 rounded text-sm"
                     >
                       Delete
                     </button>
@@ -980,7 +1160,7 @@ const StudentsRecords = () => {
 
   // fetch branches for dropdown
   useEffect(() => {
-    fetch("http://localhost:5000/api/branches/records")
+    fetch(`${import.meta.env.VITE_API_URL}/api/branches/records`)
       .then((res) => res.json())
       .then((data) => {
         console.log(" Branches fetched:", data);
@@ -992,7 +1172,7 @@ const StudentsRecords = () => {
   // fetch student records (all or filtered)
   useEffect(() => {
     setLoading(true);
-    let url = "http://localhost:5000/api/manager/student-records";
+    let url = `${import.meta.env.VITE_API_URL}/api/manager/student-records`;
 
     // Only add branch_id parameter if a branch is selected and it's not empty
     if (selectedBranch && selectedBranch !== "") {
@@ -1132,7 +1312,7 @@ const AnnouncementsPage = () => {
 
   const fetchBranches = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/branches");
+      const res = await axios.get(`${import.meta.env.VITE_API_URL}/branches`);
       setBranches(res.data);
     } catch (err) {
       console.error("Error fetching branches:", err);
@@ -1142,9 +1322,12 @@ const AnnouncementsPage = () => {
 
   const fetchAnnouncements = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/announcements", {
-        params: selectedBranch ? { branch_id: selectedBranch } : {},
-      });
+      const res = await axios.get(
+        `${import.meta.env.VITE_API_URL}/announcements`,
+        {
+          params: selectedBranch ? { branch_id: selectedBranch } : {},
+        }
+      );
       setAnnouncements(res.data);
     } catch (err) {
       console.error("Error fetching announcements:", err);
@@ -1191,14 +1374,17 @@ const AnnouncementsPage = () => {
 
     try {
       if (editingId) {
-        await axios.put(`http://localhost:5000/announcements/${editingId}`, {
-          title,
-          content,
-          branch_id: branchId || null,
-        });
+        await axios.put(
+          `${import.meta.env.VITE_API_URL}/announcements/${editingId}`,
+          {
+            title,
+            content,
+            branch_id: branchId || null,
+          }
+        );
         Swal.fire("Updated!", "Announcement updated successfully!", "success");
       } else {
-        await axios.post("http://localhost:5000/announcements", {
+        await axios.post(`${import.meta.env.VITE_API_URL}/announcements`, {
           title,
           content,
           branch_id: branchId || null,
@@ -1238,7 +1424,7 @@ const AnnouncementsPage = () => {
     if (!result.isConfirmed) return;
 
     try {
-      await axios.delete(`http://localhost:5000/announcements/${id}`);
+      await axios.delete(`${import.meta.env.VITE_API_URL}/announcements/${id}`);
       Swal.fire("Deleted!", "Announcement deleted successfully!", "success");
       fetchAnnouncements();
     } catch (err) {
@@ -1281,20 +1467,20 @@ const AnnouncementsPage = () => {
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="py-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+          <div className="py-4 sm:py-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
                   Announcements
                 </h1>
-                <p className="mt-2 text-sm text-gray-600">
+                <p className="mt-1 sm:mt-2 text-sm text-gray-600">
                   Manage and broadcast important announcements to all branches
                 </p>
               </div>
-              <div className="mt-4 sm:mt-0">
+              <div className="w-full sm:w-auto">
                 <button
                   onClick={() => setShowForm(!showForm)}
-                  className="inline-flex items-center px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                  className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   New Announcement
@@ -1305,7 +1491,7 @@ const AnnouncementsPage = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         {/* Alert */}
         {alert && (
           <div
@@ -1321,7 +1507,9 @@ const AnnouncementsPage = () => {
               <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
             )}
             <div className="flex-1">
-              <p className="font-medium">{alert.message}</p>
+              <p className="font-medium text-sm sm:text-base">
+                {alert.message}
+              </p>
             </div>
             <button
               onClick={() => setAlert(null)}
@@ -1332,9 +1520,9 @@ const AnnouncementsPage = () => {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
           {/* Form Section */}
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 order-2 lg:order-1">
             <div
               className={`bg-white rounded-xl shadow-sm border transition-all duration-300 ${
                 showForm
@@ -1342,14 +1530,14 @@ const AnnouncementsPage = () => {
                   : "opacity-50 transform translate-y-2"
               }`}
             >
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-xl font-semibold text-gray-900">
+              <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
                   {editingId ? "Edit Announcement" : "Create New Announcement"}
                 </h2>
               </div>
 
               {showForm && (
-                <div className="p-6 space-y-6">
+                <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Title
@@ -1358,7 +1546,7 @@ const AnnouncementsPage = () => {
                       type="text"
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-colors duration-200"
+                      className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-colors duration-200"
                       placeholder="Enter announcement title"
                     />
                   </div>
@@ -1370,7 +1558,7 @@ const AnnouncementsPage = () => {
                     <textarea
                       value={content}
                       onChange={(e) => setContent(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-colors duration-200"
+                      className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-colors duration-200"
                       rows="4"
                       placeholder="Enter announcement content"
                     />
@@ -1383,7 +1571,7 @@ const AnnouncementsPage = () => {
                     <select
                       value={branchId}
                       onChange={(e) => setBranchId(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-colors duration-200"
+                      className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-colors duration-200"
                     >
                       <option value="">All Branches</option>
                       {branches.map((branch) => (
@@ -1394,11 +1582,11 @@ const AnnouncementsPage = () => {
                     </select>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex flex-col gap-3">
                     <button
                       onClick={handleSubmit}
                       disabled={loading}
-                      className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 font-medium"
+                      className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 font-medium text-sm sm:text-base"
                     >
                       {loading
                         ? "Processing..."
@@ -1411,7 +1599,7 @@ const AnnouncementsPage = () => {
                       <button
                         type="button"
                         onClick={handleCancelEdit}
-                        className="flex-1 bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200 font-medium"
+                        className="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200 font-medium text-sm sm:text-base"
                       >
                         Cancel
                       </button>
@@ -1423,18 +1611,20 @@ const AnnouncementsPage = () => {
               {!showForm && (
                 <div className="p-6 text-center text-gray-500">
                   <Plus className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p>Click "New Announcement" to get started</p>
+                  <p className="text-sm">
+                    Click "New Announcement" to get started
+                  </p>
                 </div>
               )}
             </div>
           </div>
 
           {/* Announcements List Section */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 order-1 lg:order-2">
             <div className="bg-white rounded-xl shadow-sm border">
-              <div className="px-6 py-4 border-b border-gray-200">
+              <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                  <h2 className="text-xl font-semibold text-gray-900">
+                  <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
                     Recent Announcements
                   </h2>
 
@@ -1443,7 +1633,7 @@ const AnnouncementsPage = () => {
                     <select
                       value={selectedBranch}
                       onChange={(e) => setSelectedBranch(e.target.value)}
-                      className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                      className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent w-full sm:w-auto"
                     >
                       <option value="">All Branches</option>
                       {branches.map((branch) => (
@@ -1458,12 +1648,12 @@ const AnnouncementsPage = () => {
 
               <div className="divide-y divide-gray-200">
                 {announcements.length === 0 ? (
-                  <div className="p-12 text-center">
-                    <Building className="w-12 h-12 mx-auto text-gray-300 mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  <div className="p-8 sm:p-12 text-center">
+                    <Building className="w-10 h-10 sm:w-12 sm:h-12 mx-auto text-gray-300 mb-4" />
+                    <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">
                       No announcements found
                     </h3>
-                    <p className="text-gray-500">
+                    <p className="text-sm text-gray-500">
                       Create your first announcement to get started.
                     </p>
                   </div>
@@ -1471,22 +1661,22 @@ const AnnouncementsPage = () => {
                   announcements.map((announcement) => (
                     <div
                       key={announcement.announcement_id}
-                      className={`p-6 hover:bg-gray-50 transition-colors duration-200 ${
+                      className={`p-4 sm:p-6 hover:bg-gray-50 transition-colors duration-200 ${
                         editingId === announcement.announcement_id
                           ? "bg-blue-50 border-l-4 border-l-red-500"
                           : ""
                       }`}
                     >
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                      <div className="flex flex-col gap-4">
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
                             {announcement.title}
                           </h3>
-                          <p className="text-gray-700 leading-relaxed mb-3">
+                          <p className="text-sm sm:text-base text-gray-700 leading-relaxed mb-3">
                             {announcement.content}
                           </p>
 
-                          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+                          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-500">
                             <div className="flex items-center">
                               <Building className="w-4 h-4 mr-1" />
                               {announcement.branch_name || "All Branches"}
@@ -1498,10 +1688,10 @@ const AnnouncementsPage = () => {
                           </div>
                         </div>
 
-                        <div className="flex items-center space-x-2 flex-shrink-0">
+                        <div className="flex items-center gap-2 pt-2 border-t sm:border-t-0 sm:pt-0 border-gray-100">
                           <button
                             onClick={() => handleEdit(announcement)}
-                            className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-green-700 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors duration-200"
+                            className="flex-1 sm:flex-none inline-flex items-center justify-center px-3 py-1.5 text-xs sm:text-sm font-medium text-green-700 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors duration-200"
                             disabled={loading}
                           >
                             <Edit3 className="w-4 h-4 mr-1" />
@@ -1511,7 +1701,7 @@ const AnnouncementsPage = () => {
                             onClick={() =>
                               handleDelete(announcement.announcement_id)
                             }
-                            className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-red-700 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors duration-200"
+                            className="flex-1 sm:flex-none inline-flex items-center justify-center px-3 py-1.5 text-xs sm:text-sm font-medium text-red-700 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors duration-200"
                             disabled={loading}
                           >
                             <Trash2 className="w-4 h-4 mr-1" />
@@ -1531,288 +1721,6 @@ const AnnouncementsPage = () => {
   );
 };
 
-const FeedbackPage = () => {
-  const [branches, setBranches] = useState([]);
-  const [selectedBranch, setSelectedBranch] = useState("");
-  const [feedbackList, setFeedbackList] = useState([]);
-  const [selectedFeedback, setSelectedFeedback] = useState(null);
-
-  useEffect(() => {
-    fetch("http://localhost:5000/branches")
-      .then((res) => res.json())
-      .then((data) => setBranches(data));
-  }, []);
-
-  useEffect(() => {
-    const url = selectedBranch
-      ? `http://localhost:5000/api/feedback?branch_id=${selectedBranch}`
-      : `http://localhost:5000/api/feedback`;
-
-    fetch(url)
-      .then((res) => res.json())
-      .then((data) => setFeedbackList(data))
-      .catch((err) => console.error("Error loading feedback:", err));
-  }, [selectedBranch]);
-
-  const selectedBranchName =
-    branches.find((b) => b.branch_id == selectedBranch)?.name || "All Branches";
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
-      <div className="max-w-7xl mx-auto">
-        {/* Header Section */}
-        <div className="mb-8">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <div>
-                <h2 className="text-4xl font-bold text-slate-800 mb-2 flex items-center gap-3">
-                  <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
-                    <svg
-                      className="w-6 h-6 text-red-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                      />
-                    </svg>
-                  </div>
-                  Student Feedbacks
-                </h2>
-                <p className="text-slate-600 text-lg">
-                  View and explore student course evaluations and reviews
-                </p>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <div className="bg-red-50 px-4 py-2 rounded-full">
-                  <span className="text-red-700 font-medium">
-                    {feedbackList.length} Reviews
-                  </span>
-                </div>
-                <div className="bg-red-50 px-4 py-2 rounded-full">
-                  <span className="text-red-700 font-medium">
-                    {selectedBranchName}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Filter Section */}
-        <div className="mb-8">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
-                  <svg
-                    className="w-4 h-4 text-slate-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.707A1 1 0 013 7V4z"
-                    />
-                  </svg>
-                </div>
-                <label className="text-lg font-semibold text-slate-700">
-                  Filter by Branch:
-                </label>
-              </div>
-
-              <select
-                value={selectedBranch}
-                onChange={(e) => setSelectedBranch(e.target.value)}
-                className="px-4 py-3 border border-slate-300 rounded-xl bg-white text-slate-700 font-medium min-w-48 focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200"
-              >
-                <option value="">All Branches</option>
-                {branches.map((b) => (
-                  <option key={b.branch_id} value={b.branch_id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Feedback Cards */}
-        {feedbackList.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-16 text-center">
-            <div className="w-24 h-24 mx-auto mb-6 bg-slate-100 rounded-full flex items-center justify-center">
-              <svg
-                className="w-12 h-12 text-slate-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                />
-              </svg>
-            </div>
-            <h3 className="text-xl font-semibold text-slate-700 mb-2">
-              No Feedback Available
-            </h3>
-            <p className="text-slate-500">
-              Student feedback will appear here once submitted.
-            </p>
-          </div>
-        ) : (
-          <div className="grid lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {feedbackList.map((fb) => (
-              <div
-                key={fb.feedback_id}
-                className="group bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg hover:shadow-red-100/50 transition-all duration-300 overflow-hidden"
-              >
-                <div className="p-6">
-                  {/* Header with Date */}
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="bg-red-50 px-3 py-1.5 rounded-full">
-                      <p className="text-xs font-medium text-gray-600">
-                        {new Date(fb.created_at).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </p>
-                    </div>
-                    <div className="w-3 h-3 bg-green-400 rounded-full opacity-60"></div>
-                  </div>
-
-                  {/* Student Info */}
-                  <div className="mb-6">
-                    <h3 className="text-lg font-bold text-slate-800 mb-3 flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center">
-                        <span className="text-white font-bold text-sm">
-                          {fb.student_name.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                      {fb.student_name}
-                    </h3>
-                  </div>
-
-                  {/* Course Details */}
-                  <div className="space-y-4 mb-6">
-                    <div className="flex items-start gap-3">
-                      <div className="w-2 h-2 bg-yellow-400 rounded-full mt-2.5 flex-shrink-0"></div>
-                      <div>
-                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                          Course
-                        </p>
-                        <p className="font-semibold text-slate-800 leading-tight">
-                          {fb.course_name}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-3">
-                      <div className="w-2 h-2 bg-emerald-400 rounded-full mt-2.5 flex-shrink-0"></div>
-                      <div>
-                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                          Instructor
-                        </p>
-                        <p className="font-semibold text-slate-800 leading-tight">
-                          {fb.instructor_name}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Comments Preview */}
-                  <div className="mb-6">
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                      Comments
-                    </p>
-                    <div className="bg-slate-50 p-4 rounded-xl">
-                      <p className="text-slate-700 leading-relaxed text-sm line-clamp-3">
-                        "{fb.comments}"
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Submission Time */}
-                  <div className="mb-6">
-                    <p className="text-xs text-slate-500 flex items-center gap-2">
-                      <svg
-                        className="w-3 h-3"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                      Submitted:{" "}
-                      {new Date(fb.created_at).toLocaleTimeString("en-US", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
-                  </div>
-
-                  {/* Action Button */}
-                  <button
-                    onClick={() => setSelectedFeedback(fb)}
-                    className="w-full bg-gradient-to-r from-red-600 to-red-600 hover:from-blredue-700 hover:to-red-700 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-200 transform group-hover:scale-[1.02] shadow-sm hover:shadow-md"
-                  >
-                    <span className="flex items-center justify-center gap-2">
-                      View Detailed Feedback
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                        />
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                        />
-                      </svg>
-                    </span>
-                  </button>
-                </div>
-
-                {/* Bottom Accent */}
-                <div className="h-1 bg-gradient-to-r from-red-500 via-green-500 to-yellow-600"></div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Modal */}
-        {selectedFeedback && (
-          <FeedbackDetailsModal
-            feedback={selectedFeedback}
-            onClose={() => setSelectedFeedback(null)}
-          />
-        )}
-      </div>
-    </div>
-  );
-};
 const FeedbackDetailsModal = ({ feedback, onClose }) => {
   if (!feedback) return null;
 
@@ -1844,41 +1752,81 @@ const FeedbackDetailsModal = ({ feedback, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex justify-center items-center">
+    <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex justify-center items-center p-4">
       <div className="bg-white p-6 rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-lg">
-        <h2 className="text-xl font-bold mb-4">Feedback Details</h2>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-slate-800">
+            Feedback Details
+          </h2>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
 
+        {/* Questions and Answers */}
         {Object.entries(questions).map(([category, items], index) => (
-          <div key={index} className="mb-6">
-            <h3 className="text-lg font-semibold capitalize mb-2">
+          <div key={index} className="mb-6 border-b pb-4">
+            <h3 className="text-lg font-semibold capitalize mb-3 text-red-600">
               {category.replace(/_/g, " ")}
             </h3>
-            {items.map((question, i) => (
-              <div key={i} className="mb-2">
-                <p className="font-medium">
-                  {i + 1}. {question}
-                </p>
-                <p className="ml-4 text-gray-700">
-                  Answer: {answerMap[category]?.[i] || "No answer"}
-                </p>
-              </div>
-            ))}
+            <div className="space-y-3">
+              {items.map((question, i) => (
+                <div key={i} className="bg-gray-50 p-3 rounded-lg">
+                  <p className="font-medium text-slate-700 mb-1">
+                    {i + 1}. {question}
+                  </p>
+                  <p className="ml-4 text-slate-600">
+                    <strong>Answer:</strong>{" "}
+                    {answerMap[category]?.[i] || "No answer"}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
         ))}
 
-        <div className="mb-4">
-          <h4 className="font-semibold">Instructor Comments:</h4>
-          <p className="ml-2">{feedback.instructor_comments || "None"}</p>
-        </div>
-        <div className="mb-4">
-          <h4 className="font-semibold">Additional Comments:</h4>
-          <p className="ml-2">{feedback.comments || "None"}</p>
+        {/* Comments Section */}
+        <div className="space-y-4 mb-6">
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <h4 className="font-semibold text-slate-800 mb-2">
+              Instructor Comments:
+            </h4>
+            <p className="text-slate-700">
+              {feedback.instructor_comments ||
+                "No instructor comments provided"}
+            </p>
+          </div>
+
+          <div className="bg-green-50 p-4 rounded-lg">
+            <h4 className="font-semibold text-slate-800 mb-2">
+              Additional Comments:
+            </h4>
+            <p className="text-slate-700">
+              {feedback.comments || "No additional comments provided"}
+            </p>
+          </div>
         </div>
 
+        {/* Close Button */}
         <div className="text-right">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+            className="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
           >
             Close
           </button>
@@ -1888,6 +1836,492 @@ const FeedbackDetailsModal = ({ feedback, onClose }) => {
   );
 };
 
+const FeedbackPage = () => {
+  const [branches, setBranches] = useState([]);
+  const [selectedBranch, setSelectedBranch] = useState("");
+  const [feedbackList, setFeedbackList] = useState([]);
+  const [selectedFeedback, setSelectedFeedback] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const userRole = localStorage.getItem("role");
+
+  // Load branches
+  useEffect(() => {
+    fetch(`${import.meta.env.VITE_API_URL}/branches`)
+      .then((res) => res.json())
+      .then((data) => setBranches(data))
+      .catch((err) => {
+        console.error("Error loading branches:", err);
+        setError("Failed to load branches");
+      });
+  }, []);
+
+  // Load feedback with improved error handling
+  useEffect(() => {
+    const loadFeedback = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const url = selectedBranch
+          ? `${
+              import.meta.env.VITE_API_URL
+            }/api/feedback?branch_id=${selectedBranch}`
+          : `${import.meta.env.VITE_API_URL}/api/feedback`;
+
+        const response = await fetch(url);
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Ensure featured property exists and is boolean
+        const processedData = data.map((feedback) => ({
+          ...feedback,
+          featured: Boolean(feedback.featured), // Convert to boolean to handle null/undefined
+        }));
+
+        setFeedbackList(processedData);
+      } catch (err) {
+        console.error("Error loading feedback:", err);
+        setError("Failed to load feedback data");
+        setFeedbackList([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadFeedback();
+  }, [selectedBranch]);
+
+  const handleFeatureComment = async (feedbackId, shouldFeature) => {
+    try {
+      setError(null);
+
+      // Ask for confirmation first
+      const result = await Swal.fire({
+        title: shouldFeature
+          ? "Feature this comment?"
+          : "Remove from featured comments?",
+        text: shouldFeature
+          ? "This comment will be highlighted as featured."
+          : "This comment will no longer be featured.",
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: shouldFeature ? "Yes, feature it" : "Yes, remove it",
+        cancelButtonText: "Cancel",
+      });
+
+      if (!result.isConfirmed) return;
+
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/feedback/${feedbackId}/feature`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ featured: shouldFeature }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.error || `HTTP error! status: ${response.status}`
+        );
+      }
+
+      const updatedFeedback = await response.json();
+
+      // Update feedback list
+      setFeedbackList((prevList) =>
+        prevList.map((feedback) =>
+          feedback.feedback_id === feedbackId
+            ? {
+                ...feedback,
+                featured: Boolean(updatedFeedback.featured || shouldFeature),
+              }
+            : feedback
+        )
+      );
+
+      // Success SweetAlert
+      Swal.fire({
+        icon: "success",
+        title: shouldFeature ? "Comment Featured!" : "Comment Unfeatured!",
+        text: shouldFeature
+          ? "The comment is now featured."
+          : "The comment has been removed from featured list.",
+        timer: 1500,
+        showConfirmButton: false,
+      });
+    } catch (error) {
+      console.error("Error updating featured status:", error);
+      setError(`Failed to update featured status: ${error.message}`);
+
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: `Failed to update: ${error.message}`,
+      });
+    }
+  };
+
+  const selectedBranchName =
+    branches.find((b) => b.branch_id == selectedBranch)?.name || "All Branches";
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-4 sm:py-8 px-4">
+      <div className="max-w-7xl mx-auto">
+        {/* Error Display */}
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center">
+              <svg
+                className="w-5 h-5 text-red-600 mr-2"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <span className="text-red-800 font-medium">{error}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Header Section */}
+        <div className="mb-6 sm:mb-8">
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 lg:p-8">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div>
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-800 mb-2 flex items-center gap-3">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-red-100 rounded-xl flex items-center justify-center">
+                    <svg
+                      className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-red-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                      />
+                    </svg>
+                  </div>
+                  Student Feedbacks
+                </h2>
+                <p className="text-slate-600 text-sm sm:text-base lg:text-lg">
+                  View and explore student course evaluations and reviews
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
+                <div className="bg-red-50 px-3 sm:px-4 py-2 rounded-full">
+                  <span className="text-red-700 font-medium text-sm sm:text-base">
+                    {loading ? "Loading..." : `${feedbackList.length} Reviews`}
+                  </span>
+                </div>
+                <div className="bg-red-50 px-3 sm:px-4 py-2 rounded-full">
+                  <span className="text-red-700 font-medium text-sm sm:text-base">
+                    {selectedBranchName}
+                  </span>
+                </div>
+                {userRole === "manager" && (
+                  <div className="bg-green-50 px-3 sm:px-4 py-2 rounded-full">
+                    <span className="text-green-700 font-medium text-sm sm:text-base">
+                      Featured:{" "}
+                      {loading
+                        ? "..."
+                        : feedbackList.filter((fb) => fb.featured).length}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Filter Section */}
+        <div className="mb-6 sm:mb-8">
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
+                  <svg
+                    className="w-4 h-4 text-slate-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.707A1 1 0 013 7V4z"
+                    />
+                  </svg>
+                </div>
+                <label className="text-base sm:text-lg font-semibold text-slate-700">
+                  Filter by Branch:
+                </label>
+              </div>
+
+              <select
+                value={selectedBranch}
+                onChange={(e) => setSelectedBranch(e.target.value)}
+                disabled={loading}
+                className="w-full sm:w-auto px-3 sm:px-4 py-2 sm:py-3 border border-slate-300 rounded-lg sm:rounded-xl bg-white text-slate-700 font-medium text-sm sm:text-base min-w-0 sm:min-w-48 focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <option value="">All Branches</option>
+                {branches.map((b) => (
+                  <option key={b.branch_id} value={b.branch_id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Loading State */}
+        {loading && (
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 p-8 sm:p-16 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 border-4 border-red-200 border-t-red-600 rounded-full animate-spin"></div>
+            <h3 className="text-lg font-semibold text-slate-700 mb-2">
+              Loading Feedback...
+            </h3>
+            <p className="text-slate-500">
+              Please wait while we fetch the data.
+            </p>
+          </div>
+        )}
+
+        {/* Feedback Cards */}
+        {!loading && feedbackList.length === 0 ? (
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 p-8 sm:p-16 text-center">
+            <div className="w-16 h-16 sm:w-24 sm:h-24 mx-auto mb-4 sm:mb-6 bg-slate-100 rounded-full flex items-center justify-center">
+              <svg
+                className="w-8 h-8 sm:w-12 sm:h-12 text-slate-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                />
+              </svg>
+            </div>
+            <h3 className="text-lg sm:text-xl font-semibold text-slate-700 mb-2">
+              No Feedback Available
+            </h3>
+            <p className="text-slate-500 text-sm sm:text-base">
+              Student feedback will appear here once submitted.
+            </p>
+          </div>
+        ) : !loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+            {feedbackList.map((fb) => (
+              <div
+                key={fb.feedback_id}
+                className={`group bg-white rounded-xl sm:rounded-2xl border shadow-sm hover:shadow-lg hover:shadow-red-100/50 transition-all duration-300 overflow-hidden ${
+                  fb.featured
+                    ? "border-yellow-300 bg-gradient-to-br from-yellow-50 to-white"
+                    : "border-slate-200"
+                }`}
+              >
+                <div className="p-4 sm:p-6">
+                  {/* Featured Badge */}
+                  {fb.featured && (
+                    <div className="mb-3 flex justify-center">
+                      <div className="bg-yellow-500 text-white px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                        <svg
+                          className="w-3 h-3"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path d="M9.049 2.927c.3-.921 1.602-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        </svg>
+                        FEATURED
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Header with Date */}
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="bg-red-50 px-3 py-1.5 rounded-full">
+                      <p className="text-xs font-medium text-gray-600">
+                        {new Date(fb.created_at).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </p>
+                    </div>
+                    <div className="w-3 h-3 bg-green-400 rounded-full opacity-60"></div>
+                  </div>
+
+                  {/* Student Info */}
+                  <div className="mb-4 sm:mb-6">
+                    <h3 className="text-base sm:text-lg font-bold text-slate-800 mb-3 flex items-center gap-3">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center">
+                        <span className="text-white font-bold text-xs sm:text-sm">
+                          {fb.student_name?.charAt(0)?.toUpperCase() || "?"}
+                        </span>
+                      </div>
+                      <span className="truncate">{fb.student_name}</span>
+                    </h3>
+                  </div>
+
+                  {/* Course Details */}
+                  <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
+                    <div className="flex items-start gap-3">
+                      <div className="w-2 h-2 bg-yellow-400 rounded-full mt-2.5 flex-shrink-0"></div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                          Course
+                        </p>
+                        <p className="font-semibold text-slate-800 leading-tight text-sm sm:text-base">
+                          {fb.course_name}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-3">
+                      <div className="w-2 h-2 bg-emerald-400 rounded-full mt-2.5 flex-shrink-0"></div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                          Instructor
+                        </p>
+                        <p className="font-semibold text-slate-800 leading-tight text-sm sm:text-base">
+                          {fb.instructor_name}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Comments Preview */}
+                  <div className="mb-4 sm:mb-6">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                      Comments
+                    </p>
+                    <div className="bg-slate-50 p-3 sm:p-4 rounded-xl">
+                      <p className="text-slate-700 leading-relaxed text-xs sm:text-sm line-clamp-3">
+                        "{fb.comments || "No comments provided"}"
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Submission Time */}
+                  <div className="mb-4 sm:mb-6">
+                    <p className="text-xs text-slate-500 flex items-center gap-2">
+                      <svg
+                        className="w-3 h-3"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      Submitted:{" "}
+                      {new Date(fb.created_at).toLocaleTimeString("en-US", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => setSelectedFeedback(fb)}
+                      className="w-full bg-gradient-to-r from-red-600 to-red-600 hover:from-red-700 hover:to-red-700 text-white font-semibold py-2 sm:py-3 px-4 rounded-lg sm:rounded-xl transition-all duration-200 transform group-hover:scale-[1.02] shadow-sm hover:shadow-md text-sm sm:text-base"
+                    >
+                      <span className="flex items-center justify-center gap-2">
+                        <span className="hidden sm:inline">
+                          View Detailed Feedback
+                        </span>
+                        <span className="sm:hidden">View Details</span>
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                          />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                          />
+                        </svg>
+                      </span>
+                    </button>
+
+                    {/* Feature/Unfeature Button - Only for Managers */}
+                    {userRole === "manager" && (
+                      <button
+                        onClick={() =>
+                          handleFeatureComment(fb.feedback_id, !fb.featured)
+                        }
+                        className={`w-full font-semibold py-2 px-4 rounded-lg transition-all duration-200 text-sm ${
+                          fb.featured
+                            ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border border-yellow-300"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300"
+                        }`}
+                      >
+                        {fb.featured
+                          ? "Remove from Featured"
+                          : "Feature on Landing Page"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Bottom Accent */}
+                <div
+                  className={`h-1 ${
+                    fb.featured
+                      ? "bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600"
+                      : "bg-gradient-to-r from-red-500 via-green-500 to-yellow-600"
+                  }`}
+                ></div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {/* Modal */}
+        {selectedFeedback && (
+          <FeedbackDetailsModal
+            feedback={selectedFeedback}
+            onClose={() => setSelectedFeedback(null)}
+          />
+        )}
+      </div>
+    </div>
+  );
+};
 const AnalyticsPage = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1935,7 +2369,7 @@ const AnalyticsPage = () => {
       if (year) params.append("year", year);
       if (month) params.append("month", month);
 
-      const url = `http://localhost:5000/api/analytics${
+      const url = `${import.meta.env.VITE_API_URL}/api/analytics${
         params.toString() ? `?${params.toString()}` : ""
       }`;
 
@@ -1985,26 +2419,32 @@ const AnalyticsPage = () => {
 
   const StatCard = ({ title, value, icon: Icon, color, trend }) => (
     <div
-      className={`bg-white rounded-xl shadow-lg p-6 border-l-4 ${color} hover:shadow-xl transition-all duration-300`}
+      className={`bg-white rounded-xl shadow-lg p-4 sm:p-6 border-l-4 ${color} hover:shadow-xl transition-all duration-300`}
     >
       <div className="flex items-center justify-between">
-        <div>
-          <p className="text-gray-600 text-sm font-medium mb-1">{title}</p>
-          <p className="text-2xl font-bold text-gray-900">{value}</p>
+        <div className="flex-1 min-w-0">
+          <p className="text-gray-600 text-xs sm:text-sm font-medium mb-1 truncate">
+            {title}
+          </p>
+          <p className="text-xl sm:text-2xl font-bold text-gray-900 truncate">
+            {value}
+          </p>
           {trend && (
-            <div className="flex items-center mt-2 text-sm">
-              <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-              <span className="text-green-600 font-medium">{trend}</span>
+            <div className="flex items-center mt-2 text-xs sm:text-sm">
+              <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-green-500 mr-1" />
+              <span className="text-green-600 font-medium truncate">
+                {trend}
+              </span>
             </div>
           )}
         </div>
         <div
-          className={`p-3 rounded-full bg-gradient-to-br ${color.replace(
+          className={`p-2 sm:p-3 rounded-full bg-gradient-to-br ${color.replace(
             "border-l-",
             "from-"
-          )} to-opacity-20`}
+          )} to-opacity-20 flex-shrink-0 ml-2`}
         >
-          <Icon className="w-6 h-6 text-white" />
+          <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
         </div>
       </div>
     </div>
@@ -2012,11 +2452,11 @@ const AnalyticsPage = () => {
 
   const ChartContainer = ({ title, children, className = "" }) => (
     <div
-      className={`bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 ${className}`}
+      className={`bg-white rounded-xl shadow-lg p-4 sm:p-6 hover:shadow-xl transition-all duration-300 ${className}`}
     >
-      <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center">
-        <div className="w-1 h-6 bg-blue-500 rounded mr-3"></div>
-        {title}
+      <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-4 sm:mb-6 flex items-center">
+        <div className="w-1 h-4 sm:h-6 bg-blue-500 rounded mr-2 sm:mr-3"></div>
+        <span className="truncate">{title}</span>
       </h3>
       {children}
     </div>
@@ -2025,10 +2465,16 @@ const AnalyticsPage = () => {
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-          <p className="font-medium text-gray-800">{label}</p>
+        <div className="bg-white p-2 sm:p-3 border border-gray-200 rounded-lg shadow-lg">
+          <p className="font-medium text-gray-800 text-xs sm:text-sm">
+            {label}
+          </p>
           {payload.map((entry, index) => (
-            <p key={index} className="text-sm" style={{ color: entry.color }}>
+            <p
+              key={index}
+              className="text-xs sm:text-sm"
+              style={{ color: entry.color }}
+            >
               {`${entry.dataKey}: ${entry.value.toLocaleString()}`}
             </p>
           ))}
@@ -2040,10 +2486,12 @@ const AnalyticsPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center px-4">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 font-medium">Loading Analytics...</p>
+          <div className="animate-spin rounded-full h-12 w-12 sm:h-16 sm:w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium text-sm sm:text-base">
+            Loading Analytics...
+          </p>
         </div>
       </div>
     );
@@ -2051,15 +2499,17 @@ const AnalyticsPage = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center px-4">
         <div className="text-center">
-          <div className="text-red-500 text-6xl mb-4">⚠️</div>
-          <p className="text-gray-600 font-medium">Error: {error}</p>
+          <div className="text-red-500 text-4xl sm:text-6xl mb-4">⚠️</div>
+          <p className="text-gray-600 font-medium text-sm sm:text-base mb-4">
+            Error: {error}
+          </p>
           <button
             onClick={() =>
               fetchAnalytics(selectedBranch, selectedYear, selectedMonth)
             }
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base"
           >
             Retry
           </button>
@@ -2070,10 +2520,10 @@ const AnalyticsPage = () => {
 
   if (!data) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center px-4">
         <div className="text-center">
-          <div className="text-gray-400 text-6xl mb-4">📊</div>
-          <p className="text-gray-600 font-medium">
+          <div className="text-gray-400 text-4xl sm:text-6xl mb-4">📊</div>
+          <p className="text-gray-600 font-medium text-sm sm:text-base">
             No analytics data available
           </p>
         </div>
@@ -2092,93 +2542,97 @@ const AnalyticsPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="p-3 sm:p-6 max-w-7xl mx-auto">
         {/* Header with Enhanced Filters */}
-        <div className="mb-8">
+        <div className="mb-6 sm:mb-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between">
             <div className="mb-4 md:mb-0">
-              <h1 className="text-4xl font-bold text-gray-900 mb-2">
+              <h1 className="text-2xl sm:text-4xl font-bold text-gray-900 mb-2">
                 Analytics Dashboard
               </h1>
-              <p className="text-gray-600">
-                Comprehensive insights into your educational platform
+              <div className="flex flex-col sm:flex-row sm:items-center">
+                <p className="text-gray-600 text-sm sm:text-base">
+                  Comprehensive insights into your educational platform
+                </p>
                 {data.branchInfo && (
-                  <span className="ml-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                  <span className="mt-1 sm:mt-0 sm:ml-2 px-2 sm:px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs sm:text-sm font-medium inline-block w-fit">
                     {data.branchInfo.name}
                   </span>
                 )}
-              </p>
+              </div>
             </div>
 
             {/* Enhanced Filter Section */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-3">
-              {/* Branch Filter */}
-              <div className="flex items-center space-x-2">
-                <Filter className="w-5 h-5 text-gray-500" />
-                <select
-                  value={selectedBranch}
-                  onChange={handleBranchChange}
-                  className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                >
-                  <option value="">All Branches</option>
-                  {branches.map((branch) => (
-                    <option key={branch.branch_id} value={branch.branch_id}>
-                      {branch.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div className="flex flex-col space-y-3">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
+                {/* Branch Filter */}
+                <div className="flex items-center space-x-2 w-full sm:w-auto">
+                  <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500 flex-shrink-0" />
+                  <select
+                    value={selectedBranch}
+                    onChange={handleBranchChange}
+                    className="flex-1 sm:flex-none px-2 sm:px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm"
+                  >
+                    <option value="">All Branches</option>
+                    {branches.map((branch) => (
+                      <option key={branch.branch_id} value={branch.branch_id}>
+                        {branch.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              {/* Year Filter */}
-              <div className="flex items-center space-x-2">
-                <Calendar className="w-5 h-5 text-gray-500" />
-                <select
-                  value={selectedYear}
-                  onChange={handleYearChange}
-                  className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                >
-                  <option value="">All Years</option>
-                  {generateYearOptions().map((year) => (
-                    <option key={year} value={year}>
-                      {year}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                {/* Year Filter */}
+                <div className="flex items-center space-x-2 w-full sm:w-auto">
+                  <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500 flex-shrink-0" />
+                  <select
+                    value={selectedYear}
+                    onChange={handleYearChange}
+                    className="flex-1 sm:flex-none px-2 sm:px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm"
+                  >
+                    <option value="">All Years</option>
+                    {generateYearOptions().map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              {/* Month Filter */}
-              <div className="flex items-center space-x-2">
-                <Calendar className="w-5 h-5 text-gray-500" />
-                <select
-                  value={selectedMonth}
-                  onChange={handleMonthChange}
-                  className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                >
-                  {monthOptions.map((month) => (
-                    <option key={month.value} value={month.value}>
-                      {month.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                {/* Month Filter */}
+                <div className="flex items-center space-x-2 w-full sm:w-auto">
+                  <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500 flex-shrink-0" />
+                  <select
+                    value={selectedMonth}
+                    onChange={handleMonthChange}
+                    className="flex-1 sm:flex-none px-2 sm:px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm"
+                  >
+                    {monthOptions.map((month) => (
+                      <option key={month.value} value={month.value}>
+                        {month.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              {/* Clear Filters Button */}
-              {(selectedBranch || selectedYear || selectedMonth) && (
-                <button
-                  onClick={clearFilters}
-                  className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors text-sm flex items-center space-x-1"
-                >
-                  <X className="w-4 h-4" />
-                  <span>Clear</span>
-                </button>
-              )}
+                {/* Clear Filters Button */}
+                {(selectedBranch || selectedYear || selectedMonth) && (
+                  <button
+                    onClick={clearFilters}
+                    className="w-full sm:w-auto px-2 sm:px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors text-xs sm:text-sm flex items-center justify-center space-x-1"
+                  >
+                    <X className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <span>Clear</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Active Filters Display */}
           {(selectedBranch || selectedYear || selectedMonth) && (
-            <div className="mt-4 flex flex-wrap gap-2">
-              <span className="text-sm text-gray-600 mr-2">
+            <div className="mt-3 sm:mt-4 flex flex-wrap gap-2">
+              <span className="text-xs sm:text-sm text-gray-600 mr-2">
                 Active Filters:
               </span>
               {selectedBranch && (
@@ -2205,7 +2659,7 @@ const AnalyticsPage = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
           <StatCard
             title="Total Revenue"
             value={`₱${parseInt(data.totalRevenue || 0).toLocaleString()}`}
@@ -2233,26 +2687,38 @@ const AnalyticsPage = () => {
         </div>
 
         {/* Charts Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8 mb-6 sm:mb-8">
           {/* Enrollment Trends */}
           <ChartContainer title="Monthly Enrollment Trends">
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer
+              width="100%"
+              height={250}
+              className="sm:h-[300px]"
+            >
               <LineChart data={data.enrollmentTrends || []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis
                   dataKey="month"
-                  tick={{ fontSize: 12 }}
+                  tick={{ fontSize: 10 }}
+                  className="sm:text-xs"
                   stroke="#6b7280"
                 />
-                <YAxis tick={{ fontSize: 12 }} stroke="#6b7280" />
+                <YAxis
+                  tick={{ fontSize: 10 }}
+                  className="sm:text-xs"
+                  stroke="#6b7280"
+                />
                 <Tooltip content={<CustomTooltip />} />
                 <Line
                   type="monotone"
                   dataKey="enrollments"
                   stroke="#3B82F6"
-                  strokeWidth={3}
-                  dot={{ fill: "#3B82F6", strokeWidth: 2, r: 6 }}
-                  activeDot={{ r: 8, fill: "#1D4ED8" }}
+                  strokeWidth={2}
+                  className="sm:strokeWidth-3"
+                  dot={{ fill: "#3B82F6", strokeWidth: 1, r: 4 }}
+                  classname="sm:r-6"
+                  activeDot={{ r: 6, fill: "#1D4ED8" }}
+                  classNAme="sm:r-8"
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -2260,73 +2726,124 @@ const AnalyticsPage = () => {
 
           {/* Students per Course */}
           <ChartContainer title="Students per Course">
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer
+              width="100%"
+              height={250}
+              className="sm:h-[300px]"
+            >
               <BarChart data={data.courseStats || []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis
                   dataKey="courseName"
-                  tick={{ fontSize: 10 }}
+                  tick={{ fontSize: 8 }}
+                  className="sm:text-xs"
                   stroke="#6b7280"
                   interval={0}
                   angle={-45}
                   textAnchor="end"
-                  height={60}
+                  height={50}
+                  classname="sm:height-60"
                 />
-                <YAxis tick={{ fontSize: 12 }} stroke="#6b7280" />
+                <YAxis
+                  tick={{ fontSize: 10 }}
+                  className="sm:text-xs"
+                  stroke="#6b7280"
+                />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="students" fill="#10B981" radius={[4, 4, 0, 0]} />
+                <Bar
+                  dataKey="students"
+                  fill="#10B981"
+                  radius={[2, 2, 0, 0]}
+                  className="sm:radius-[4, 4, 0, 0]"
+                />
               </BarChart>
             </ResponsiveContainer>
           </ChartContainer>
         </div>
 
         {/* Top and Least Courses Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8 mb-6 sm:mb-8">
           {/* Top 5 Most Enrolled */}
           <ChartContainer title="Top 5 Most Enrolled Courses">
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer
+              width="100%"
+              height={250}
+              className="sm:h-[300px]"
+            >
               <BarChart layout="vertical" data={data.topCourses || []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis type="number" tick={{ fontSize: 12 }} stroke="#6b7280" />
+                <XAxis
+                  type="number"
+                  tick={{ fontSize: 10 }}
+                  className="sm:text-xs"
+                  stroke="#6b7280"
+                />
                 <YAxis
                   dataKey="courseName"
                   type="category"
-                  tick={{ fontSize: 11 }}
+                  tick={{ fontSize: 9 }}
+                  className="sm:text-xs"
                   stroke="#6b7280"
-                  width={120}
+                  width={80}
+                  classname="sm:width-120"
                 />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="students" fill="#3B82F6" radius={[0, 4, 4, 0]} />
+                <Bar
+                  dataKey="students"
+                  fill="#3B82F6"
+                  radius={[0, 2, 2, 0]}
+                  className="sm:radius-[0, 4, 4, 0]"
+                />
               </BarChart>
             </ResponsiveContainer>
           </ChartContainer>
 
           {/* Least Enrolled */}
           <ChartContainer title="5 Least Enrolled Courses">
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer
+              width="100%"
+              height={250}
+              className="sm:h-[300px]"
+            >
               <BarChart layout="vertical" data={data.leastCourses || []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis type="number" tick={{ fontSize: 12 }} stroke="#6b7280" />
+                <XAxis
+                  type="number"
+                  tick={{ fontSize: 10 }}
+                  className="sm:text-xs"
+                  stroke="#6b7280"
+                />
                 <YAxis
                   dataKey="courseName"
                   type="category"
-                  tick={{ fontSize: 11 }}
+                  tick={{ fontSize: 9 }}
+                  className="sm:text-xs"
                   stroke="#6b7280"
-                  width={120}
+                  width={80}
+                  classname="sm:width-120"
                 />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="students" fill="#EF4444" radius={[0, 4, 4, 0]} />
+                <Bar
+                  dataKey="students"
+                  fill="#EF4444"
+                  radius={[0, 2, 2, 0]}
+                  className="sm:radius-[0, 4, 4, 0]"
+                />
               </BarChart>
             </ResponsiveContainer>
           </ChartContainer>
         </div>
 
         {/* Revenue Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8 mb-6 sm:mb-8">
           {/* Revenue per Course - PIE CHART */}
           <ChartContainer title="Revenue Distribution by Course">
             {data.revenuePerCourse && data.revenuePerCourse.length > 0 ? (
-              <ResponsiveContainer width="100%" height={350}>
+              <ResponsiveContainer
+                width="100%"
+                height={300}
+                className="sm:h-[350px]"
+              >
                 <PieChart>
                   <Pie
                     data={data.revenuePerCourse.map((item) => ({
@@ -2335,7 +2852,8 @@ const AnalyticsPage = () => {
                     }))}
                     cx="50%"
                     cy="50%"
-                    outerRadius={120}
+                    outerRadius={80}
+                    className="sm:outerRadius-120"
                     innerRadius={0}
                     paddingAngle={2}
                     dataKey="revenue"
@@ -2358,17 +2876,21 @@ const AnalyticsPage = () => {
                   />
                   <Legend
                     verticalAlign="bottom"
-                    height={50}
-                    wrapperStyle={{ paddingTop: "20px" }}
+                    height={40}
+                    className="sm:height-50"
+                    wrapperStyle={{ paddingTop: "15px" }}
+                    classname="sm:paddingTop-20px"
                   />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-80">
+              <div className="flex items-center justify-center h-60 sm:h-80">
                 <div className="text-center text-gray-500">
-                  <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p className="font-medium">No revenue data available</p>
-                  <p className="text-sm">
+                  <BookOpen className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 opacity-50" />
+                  <p className="font-medium text-sm sm:text-base">
+                    No revenue data available
+                  </p>
+                  <p className="text-xs sm:text-sm">
                     Revenue will appear when courses have fully paid enrollments
                   </p>
                 </div>
@@ -2378,16 +2900,22 @@ const AnalyticsPage = () => {
 
           {/* Monthly Revenue Trend */}
           <ChartContainer title="Monthly Revenue Trend">
-            <ResponsiveContainer width="100%" height={350}>
+            <ResponsiveContainer
+              width="100%"
+              height={300}
+              className="sm:h-[350px]"
+            >
               <LineChart data={data.monthlyRevenue || []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis
                   dataKey="month"
-                  tick={{ fontSize: 12 }}
+                  tick={{ fontSize: 10 }}
+                  className="sm:text-xs"
                   stroke="#6b7280"
                 />
                 <YAxis
-                  tick={{ fontSize: 12 }}
+                  tick={{ fontSize: 10 }}
+                  className="sm:text-xs"
                   stroke="#6b7280"
                   tickFormatter={(value) => `₱${(value / 1000).toFixed(0)}K`}
                 />
@@ -2402,18 +2930,16 @@ const AnalyticsPage = () => {
                   type="monotone"
                   dataKey="revenue"
                   stroke="#F59E0B"
-                  strokeWidth={3}
-                  dot={{ fill: "#F59E0B", strokeWidth: 2, r: 6 }}
-                  activeDot={{ r: 8, fill: "#D97706" }}
+                  strokeWidth={2}
+                  className="sm:strokeWidth-3"
+                  dot={{ fill: "#F59E0B", strokeWidth: 1, r: 4 }}
+                  classname="sm:strokeWidth-2 sm:r-6"
+                  activeDot={{ r: 6, fill: "#D97706" }}
+                  classNAme="sm:r-8"
                 />
               </LineChart>
             </ResponsiveContainer>
           </ChartContainer>
-        </div>
-
-        {/* Footer */}
-        <div className="text-center text-gray-500 text-sm mt-8 pb-4">
-          <p>Last updated: {new Date().toLocaleString()}</p>
         </div>
       </div>
     </div>
@@ -2471,9 +2997,12 @@ const AttendancePage = () => {
           return;
         }
 
-        const res = await axios.get("http://localhost:5000/api/branches", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await axios.get(
+          `${import.meta.env.VITE_API_URL}/api/branches`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
 
         console.log("✅ Branches loaded:", res.data);
         setBranches(res.data);
@@ -2505,7 +3034,7 @@ const AttendancePage = () => {
 
         console.log("🔄 Loading attendance records...");
         const res = await axios.get(
-          "http://localhost:5000/api/attendance/all",
+          `${import.meta.env.VITE_API_URL}/api/attendance/all`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -2613,32 +3142,39 @@ const AttendancePage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 p-3 sm:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="flex items-center justify-between">
+        <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-4 sm:space-y-0">
             <div className="flex items-center space-x-3">
               <div className="p-2 bg-blue-100 rounded-lg">
                 <BarChart3 className="h-6 w-6 text-blue-600" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
                   Attendance Overview
                 </h1>
-                <p className="text-gray-600">
+                <p className="text-sm sm:text-base text-gray-600">
                   Monitor attendance across all branches
                 </p>
               </div>
             </div>
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <div className="flex items-center space-x-2 text-xs sm:text-sm text-gray-600">
               <Calendar className="h-4 w-4" />
-              <span>
+              <span className="hidden sm:inline">
                 {new Date().toLocaleDateString("en-US", {
                   weekday: "long",
                   year: "numeric",
                   month: "long",
                   day: "numeric",
+                })}
+              </span>
+              <span className="sm:hidden">
+                {new Date().toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
                 })}
               </span>
             </div>
@@ -2649,79 +3185,81 @@ const AttendancePage = () => {
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
             <div className="flex items-center">
               <XCircle className="h-5 w-5 text-red-600 mr-2" />
-              <span className="text-red-800">{error}</span>
+              <span className="text-red-800 text-sm sm:text-base">{error}</span>
             </div>
           </div>
         )}
 
         {/* Overall Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 mb-6">
+          <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">
+                <p className="text-xs sm:text-sm font-medium text-gray-600">
                   Present Today
                 </p>
-                <p className="text-3xl font-bold text-green-600">
+                <p className="text-2xl sm:text-3xl font-bold text-green-600">
                   {stats.present}
                 </p>
               </div>
-              <CheckCircle className="h-8 w-8 text-green-600" />
+              <CheckCircle className="h-6 w-6 sm:h-8 sm:w-8 text-green-600" />
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm p-6">
+          <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">
+                <p className="text-xs sm:text-sm font-medium text-gray-600">
                   Absent Today
                 </p>
-                <p className="text-3xl font-bold text-red-600">
+                <p className="text-2xl sm:text-3xl font-bold text-red-600">
                   {stats.absent}
                 </p>
               </div>
-              <XCircle className="h-8 w-8 text-red-600" />
+              <XCircle className="h-6 w-6 sm:h-8 sm:w-8 text-red-600" />
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm p-6">
+          <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Today</p>
-                <p className="text-3xl font-bold text-blue-600">
+                <p className="text-xs sm:text-sm font-medium text-gray-600">
+                  Total Today
+                </p>
+                <p className="text-2xl sm:text-3xl font-bold text-blue-600">
                   {stats.total}
                 </p>
               </div>
-              <Users className="h-8 w-8 text-blue-600" />
+              <Users className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
             </div>
           </div>
         </div>
 
         {/* Branch-wise Stats */}
         {Object.keys(branchStats).length > 0 && (
-          <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-6">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">
               Today's Branch Overview
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
               {Object.entries(branchStats).map(([branchName, stats]) => (
                 <div
                   key={branchName}
-                  className="border border-gray-200 rounded-lg p-4"
+                  className="border border-gray-200 rounded-lg p-3 sm:p-4"
                 >
-                  <h3 className="font-medium text-gray-900 mb-2">
+                  <h3 className="font-medium text-gray-900 mb-2 text-sm sm:text-base truncate">
                     {branchName}
                   </h3>
                   <div className="space-y-1">
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between text-xs sm:text-sm">
                       <span className="text-green-600">Present:</span>
                       <span className="font-medium">{stats.present}</span>
                     </div>
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between text-xs sm:text-sm">
                       <span className="text-red-600">Absent:</span>
                       <span className="font-medium">{stats.absent}</span>
                     </div>
-                    <div className="flex justify-between text-sm border-t pt-1">
+                    <div className="flex justify-between text-xs sm:text-sm border-t pt-1">
                       <span className="text-gray-600">Total:</span>
                       <span className="font-medium">{stats.total}</span>
                     </div>
@@ -2733,15 +3271,15 @@ const AttendancePage = () => {
         )}
 
         {/* Attendance Records Section */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">
+        <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 space-y-3 sm:space-y-0">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900">
               Attendance Records
             </h2>
             <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
               <button
                 onClick={() => setActiveTab("today")}
-                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                className={`px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm font-medium transition-colors ${
                   activeTab === "today"
                     ? "bg-white text-blue-600 shadow-sm"
                     : "text-gray-600 hover:text-gray-900"
@@ -2751,7 +3289,7 @@ const AttendancePage = () => {
               </button>
               <button
                 onClick={() => setActiveTab("all")}
-                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                className={`px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm font-medium transition-colors ${
                   activeTab === "all"
                     ? "bg-white text-blue-600 shadow-sm"
                     : "text-gray-600 hover:text-gray-900"
@@ -2763,9 +3301,9 @@ const AttendancePage = () => {
           </div>
 
           {/* Filters */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2 sm:gap-3 mb-6">
             {/* Search Name */}
-            <div className="relative">
+            <div className="relative lg:col-span-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
@@ -2837,7 +3375,7 @@ const AttendancePage = () => {
                 setFilterBranch("");
                 setFilterStatus("");
               }}
-              className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors flex items-center justify-center space-x-2 text-sm"
+              className="px-3 sm:px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors flex items-center justify-center space-x-1 sm:space-x-2 text-sm"
             >
               <RefreshCw className="h-4 w-4" />
               <span>Reset</span>
@@ -2845,8 +3383,8 @@ const AttendancePage = () => {
           </div>
 
           {/* Summary Info */}
-          <div className="bg-gray-50 rounded-lg p-4 mb-4">
-            <div className="flex items-center justify-between text-sm">
+          <div className="bg-gray-50 rounded-lg p-3 sm:p-4 mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs sm:text-sm space-y-2 sm:space-y-0">
               <span className="text-gray-600">
                 Showing {filteredAttendance.length} records
                 {filterBranch && (
@@ -2859,7 +3397,7 @@ const AttendancePage = () => {
                   </span>
                 )}
               </span>
-              <div className="flex space-x-4">
+              <div className="flex space-x-3 sm:space-x-4">
                 <span className="text-green-600">
                   Present:{" "}
                   {
@@ -2883,16 +3421,16 @@ const AttendancePage = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Date
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Instructor
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Branch
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
                 </tr>
@@ -2904,30 +3442,40 @@ const AttendancePage = () => {
                       key={record.attendance_id || record.id}
                       className="hover:bg-gray-50 transition-colors"
                     >
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(record.date).toLocaleDateString("en-US", {
-                          weekday: "short",
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                        })}
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
+                        <div className="sm:hidden">
+                          {new Date(record.date).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </div>
+                        <div className="hidden sm:block">
+                          {new Date(record.date).toLocaleDateString("en-US", {
+                            weekday: "short",
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                         <div>
-                          <div className="text-sm font-medium text-gray-900">
+                          <div className="text-xs sm:text-sm font-medium text-gray-900">
                             {record.instructor_name}
                           </div>
-                          <div className="text-sm text-gray-500">
+                          <div className="text-xs text-gray-500">
                             @{record.username}
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {record.branch_name}
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
+                        <div className="truncate max-w-[100px] sm:max-w-none">
+                          {record.branch_name}
+                        </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
                         <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium ${
                             record.status === "present"
                               ? "bg-green-100 text-green-800"
                               : "bg-red-100 text-red-800"
@@ -2938,19 +3486,24 @@ const AttendancePage = () => {
                           ) : (
                             <XCircle className="h-3 w-3 mr-1" />
                           )}
-                          {record.status.toUpperCase()}
+                          <span className="hidden sm:inline">
+                            {record.status.toUpperCase()}
+                          </span>
+                          <span className="sm:hidden">
+                            {record.status === "present" ? "P" : "A"}
+                          </span>
                         </span>
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="4" className="px-6 py-12 text-center">
-                      <Filter className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                      <p className="text-gray-600">
+                    <td colSpan="4" className="px-3 sm:px-6 py-12 text-center">
+                      <Filter className="h-8 sm:h-12 w-8 sm:w-12 text-gray-400 mx-auto mb-3" />
+                      <p className="text-gray-600 text-sm sm:text-base">
                         No attendance records found
                       </p>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-xs sm:text-sm text-gray-500">
                         Try adjusting your filters
                       </p>
                     </td>
@@ -2970,7 +3523,9 @@ const SettingsPage = () => {
 
   const fetchStatus = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/system-status");
+      const res = await axios.get(
+        `${import.meta.env.VITE_API_URL}/api/system-status`
+      );
       setStatusInfo(res.data);
     } catch (err) {
       console.error("Error fetching status:", err);
@@ -2994,7 +3549,7 @@ const SettingsPage = () => {
     try {
       const token = localStorage.getItem("token");
       await axios.put(
-        "http://localhost:5000/api/system-status",
+        `${import.meta.env.VITE_API_URL}/api/system-status`,
         { status: newStatus },
         {
           headers: {
@@ -3019,6 +3574,61 @@ const SettingsPage = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Para sa password change
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [repeatPassword, setRepeatPassword] = useState("");
+  const [loadingPw, setLoadingPw] = useState(false);
+
+  const [showOld, setShowOld] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showRepeat, setShowRepeat] = useState(false);
+
+  // Change password function
+  const changePassword = async () => {
+    if (!oldPassword || !newPassword || !repeatPassword) {
+      return Swal.fire("Error", "Please fill in all fields", "error");
+    }
+
+    if (newPassword !== repeatPassword) {
+      return Swal.fire("Error", "New passwords do not match", "error");
+    }
+
+    if (newPassword.length < 6) {
+      return Swal.fire(
+        "Error",
+        "New password must be at least 6 characters long",
+        "error"
+      );
+    }
+
+    setLoadingPw(true);
+    try {
+      const token = localStorage.getItem("token");
+
+      await axios.put(
+        `${import.meta.env.VITE_API_URL}/change-password`,
+        { oldPassword, newPassword },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      Swal.fire("Success", "Password updated successfully!", "success");
+      setOldPassword("");
+      setNewPassword("");
+      setRepeatPassword("");
+    } catch (err) {
+      Swal.fire(
+        "Error",
+        err.response?.data?.message || "Failed to update password",
+        "error"
+      );
+    } finally {
+      setLoadingPw(false);
     }
   };
 
@@ -3066,6 +3676,81 @@ const SettingsPage = () => {
             Set Maintenance
           </button>
         </div>
+        <div className="p-6 max-w-xl mx-auto">
+          <h2 className="text-2xl font-bold mb-4">System Settings</h2>
+
+          {/* Existing status panel */}
+          <div className="bg-white rounded-xl p-4 shadow border border-gray-200 space-y-2">
+            {/* dito yung status details at buttons mo */}
+          </div>
+
+          {/* Change Password Section */}
+          <div className="bg-white rounded-xl p-4 shadow border border-gray-200 space-y-2 mt-6">
+            <h3 className="text-lg font-semibold">Change Password</h3>
+
+            {/* Old Password */}
+            <div className="relative">
+              <input
+                type={showOld ? "text" : "password"}
+                placeholder="Old Password"
+                value={oldPassword}
+                onChange={(e) => setOldPassword(e.target.value)}
+                className="border p-2 w-full rounded"
+              />
+              <button
+                type="button"
+                onClick={() => setShowOld(!showOld)}
+                className="absolute right-2 top-2 text-gray-600"
+              >
+                {showOld ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+
+            {/* New Password */}
+            <div className="relative">
+              <input
+                type={showNew ? "text" : "password"}
+                placeholder="New Password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="border p-2 w-full rounded"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNew(!showNew)}
+                className="absolute right-2 top-2 text-gray-600"
+              >
+                {showNew ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+
+            {/* Repeat Password */}
+            <div className="relative">
+              <input
+                type={showRepeat ? "text" : "password"}
+                placeholder="Repeat New Password"
+                value={repeatPassword}
+                onChange={(e) => setRepeatPassword(e.target.value)}
+                className="border p-2 w-full rounded"
+              />
+              <button
+                type="button"
+                onClick={() => setShowRepeat(!showRepeat)}
+                className="absolute right-2 top-2 text-gray-600"
+              >
+                {showRepeat ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+
+            <button
+              onClick={changePassword}
+              disabled={loadingPw}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded mt-2"
+            >
+              {loadingPw ? "Updating..." : "Update Password"}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -3103,8 +3788,12 @@ const ManagerDashboard = () => {
       {/* Mobile Header */}
       <div className="lg:hidden bg-white shadow-lg border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-gradient-to-r from-red-600 to-red-700 rounded-lg flex items-center justify-center">
-            <Shield className="w-5 h-5 text-white" />
+          <div className="w-8 h-8 bg-gradient-to-r from-white-600 to-white-700 rounded-lg flex items-center justify-center">
+            <img
+              src={logo}
+              alt="Logo"
+              className="w-7 h-7 object-contain rounded-full"
+            />
           </div>
           <div>
             <div className="font-bold text-sm">First Safety</div>
@@ -3146,8 +3835,12 @@ const ManagerDashboard = () => {
           {/* Brand Header */}
           <div className="p-6 bg-gradient-to-r from-red-600 to-red-700 text-white">
             <div className="flex items-center space-x-3 mb-4">
-              <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-                <Shield className="w-7 h-7 text-white" />
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center">
+                <img
+                  src={logo}
+                  alt="Logo"
+                  className="h-8 w-8 rounded-full object-contain"
+                />
               </div>
               <div>
                 <div className="font-bold text-lg">First Safety</div>

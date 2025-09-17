@@ -1,10 +1,18 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
-import { User, Mail, Lock, Eye, EyeOff, Car, CheckCircle, AlertCircle } from "lucide-react";
-import logo from './assets/logo.png'; // adjust path as needed
-import Swal from 'sweetalert2';
-
+import {
+  User,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  Car,
+  CheckCircle,
+  AlertCircle,
+} from "lucide-react";
+import logo from "./assets/logo.png"; // adjust path as needed
+import Swal from "sweetalert2";
 
 function Register() {
   const [name, setName] = useState("");
@@ -22,7 +30,9 @@ function Register() {
   useEffect(() => {
     const fetchBranches = async () => {
       try {
-        const response = await axios.get("http://localhost:5000/branches");
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_URL}/branches`
+        );
         setBranches(response.data);
       } catch (error) {
         console.error("Error fetching branches:", error);
@@ -36,68 +46,80 @@ function Register() {
     setTimeout(() => setNotification(null), 3000);
   };
 
- const handleRegister = async () => {
-  if (password !== retypePassword) {
-    Swal.fire({
-      icon: 'error',
-      title: 'Oops!',
-      text: 'Passwords do not match!',
-    });
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-    // Check system status
-    const statusRes = await axios.get("http://localhost:5000/api/system-status");
-    const systemStatus = statusRes.data.status;
-
-    if (systemStatus === "offline" || systemStatus === "maintenance") {
+  const handleRegister = async () => {
+    if (password !== retypePassword) {
       Swal.fire({
-        icon: "warning",
-        title: "System Unavailable",
-        text: `The system is currently ${systemStatus}. Please try again later.`,
+        icon: "error",
+        title: "Oops!",
+        text: "Passwords do not match!",
       });
-      setLoading(false);
       return;
     }
-    const response = await axios.post("http://localhost:5000/register", {
-      name,
-      email,
-      password,
-      branch_id: selectedBranch,
-    });
 
-    await Swal.fire({
-      icon: 'success',
-      title: 'Registration Successful!',
-      text: 'Please check your email for verification.',
-      confirmButtonColor: '#16a34a',
-    });
+    setLoading(true);
 
-    navigate("/student/verify");
+    try {
+      // Check system status
+      const statusRes = await axios.get(
+        `${import.meta.env.VITE_API_URL}/api/system-status`
+      );
+      const systemStatus = statusRes.data.status;
 
-  } catch (error) {
-    console.error("Register error:", error.response?.data || error.message);
-    Swal.fire({
-      icon: 'error',
-      title: 'Registration Failed',
-      text: error.response?.data?.message || 'Please try again.',
-    });
-  } finally {
-    setLoading(false);
-  }
-};
+      if (systemStatus === "offline" || systemStatus === "maintenance") {
+        Swal.fire({
+          icon: "warning",
+          title: "System Unavailable",
+          text: `The system is currently ${systemStatus}. Please try again later.`,
+        });
+        setLoading(false);
+        return;
+      }
+      const response = await axios.post(
+        `${import.meta.env.VITE_API_URL}/register`,
+        {
+          name,
+          email,
+          password,
+          branch_id: selectedBranch,
+        }
+      );
+
+      await Swal.fire({
+        icon: "success",
+        title: "Registration Successful!",
+        text: "Please check your email for verification.",
+        confirmButtonColor: "#16a34a",
+      });
+
+      navigate("/student/verify");
+    } catch (error) {
+      console.error("Register error:", error.response?.data || error.message);
+      Swal.fire({
+        icon: "error",
+        title: "Registration Failed",
+        text: error.response?.data?.message || "Please try again.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-green-50 flex items-center justify-center p-4">
       {/* Notification */}
       {notification && (
-        <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg flex items-center gap-2 ${
-          notification.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-        }`}>
-          {notification.type === 'success' ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
+        <div
+          className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg flex items-center gap-2 ${
+            notification.type === "success"
+              ? "bg-green-500 text-white"
+              : "bg-red-500 text-white"
+          }`}
+        >
+          {notification.type === "success" ? (
+            <CheckCircle size={20} />
+          ) : (
+            <AlertCircle size={20} />
+          )}
           {notification.message}
         </div>
       )}
@@ -106,17 +128,27 @@ function Register() {
         {/* Logo and Header */}
         <div className="text-center mb-8">
           <div className="inline-block mb-4">
-            <img src={logo} alt="1st SAFETY Logo" className="w-16 h-16 object-contain" />
+            <img
+              src={logo}
+              alt="1st SAFETY Logo"
+              className="w-16 h-16 object-contain"
+            />
           </div>
           <h1 className="text-3xl font-bold text-gray-800 mb-2">1st SAFETY</h1>
-          <p className="text-lg font-semibold text-red-500 mb-1">DRIVING SCHOOL</p>
-          <p className="text-gray-600">Join us and start your driving journey!</p>
+          <p className="text-lg font-semibold text-red-500 mb-1">
+            DRIVING SCHOOL
+          </p>
+          <p className="text-gray-600">
+            Join us and start your driving journey!
+          </p>
         </div>
 
         {/* Register Form */}
         <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
-          <h2 className="text-xl font-bold text-gray-800 mb-6 text-center">Student Registration</h2>
-          
+          <h2 className="text-xl font-bold text-gray-800 mb-6 text-center">
+            Student Registration
+          </h2>
+
           <div className="space-y-5">
             {/* Full Name Input */}
             <div className="relative">
@@ -174,7 +206,11 @@ function Register() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
                 </button>
               </div>
             </div>
@@ -199,7 +235,11 @@ function Register() {
                   onClick={() => setShowRetypePassword(!showRetypePassword)}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  {showRetypePassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showRetypePassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
                 </button>
               </div>
             </div>
@@ -245,7 +285,10 @@ function Register() {
           <div className="mt-6 text-center">
             <p className="text-gray-600">
               Already have an account?{" "}
-              <Link to="/login" className="text-red-500 hover:text-red-600 font-semibold hover:underline transition-colors">
+              <Link
+                to="/login"
+                className="text-red-500 hover:text-red-600 font-semibold hover:underline transition-colors"
+              >
                 Sign in here
               </Link>
             </p>

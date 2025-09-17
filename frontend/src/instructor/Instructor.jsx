@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import logo from "../assets/logo.png";
 import axios from "axios";
 import {
   User,
@@ -140,7 +141,7 @@ const DashboardPage = () => {
       try {
         const token = localStorage.getItem("token");
         const res = await fetch(
-          "http://localhost:5000/api/instructor/enrollments",
+          `${import.meta.env.VITE_API_URL}/api/instructor/enrollments`,
           {
             method: "GET",
             mode: "cors",
@@ -381,7 +382,7 @@ const RecordsPage = () => {
       try {
         const token = localStorage.getItem("token");
         const res = await fetch(
-          "http://localhost:5000/api/instructor/enrollments",
+          `${import.meta.env.VITE_API_URL}/api/instructor/enrollments`,
           {
             method: "GET",
             mode: "cors",
@@ -427,7 +428,9 @@ const RecordsPage = () => {
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(
-        `http://localhost:5000/api/instructor/enrollments/${enrollmentId}/status`,
+        `${
+          import.meta.env.VITE_API_URL
+        }/api/instructor/enrollments/${enrollmentId}/status`,
         {
           method: "PUT",
           headers: {
@@ -718,7 +721,7 @@ const MaintenancePage = () => {
     try {
       const token = localStorage.getItem("token");
       const res = await axios.get(
-        "http://localhost:5000/api/instructor/maintenance",
+        `${import.meta.env.VITE_API_URL}/api/instructor/maintenance`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -761,7 +764,7 @@ const MaintenancePage = () => {
     try {
       const token = localStorage.getItem("token");
       await axios.post(
-        "http://localhost:5000/api/instructor/maintenance",
+        `${import.meta.env.VITE_API_URL}/api/instructor/maintenance`,
         { vehicle_name: vehicleName, description },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -984,7 +987,7 @@ const FeedbacksPage = () => {
       try {
         const token = localStorage.getItem("token");
         const res = await fetch(
-          "http://localhost:5000/api/instructor/feedback",
+          `${import.meta.env.VITE_API_URL}/api/instructor/feedback`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -1233,8 +1236,12 @@ const Instructor = () => {
       {/* Mobile Header */}
       <div className="lg:hidden bg-white shadow-lg border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-gradient-to-r from-red-600 to-red-700 rounded-lg flex items-center justify-center">
-            <Shield className="w-5 h-5 text-white" />
+          <div className="w-8 h-8 bg-gradient-to-r from-white-600 to-white-700 rounded-lg flex items-center justify-center">
+            <img
+              src={logo}
+              alt="Logo"
+              className="w-7 h-7 object-contain rounded-full"
+            />
           </div>
           <div>
             <div className="font-bold text-sm">First Safety</div>
@@ -1276,8 +1283,12 @@ const Instructor = () => {
           {/* Brand Header */}
           <div className="p-6 bg-gradient-to-r from-red-600 to-red-700 text-white">
             <div className="flex items-center space-x-3 mb-4">
-              <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-                <Shield className="w-7 h-7 text-white" />
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center">
+                <img
+                  src={logo}
+                  alt="Logo"
+                  className="h-8 w-8 rounded-full object-contain"
+                />
               </div>
               <div>
                 <div className="font-bold text-lg">First Safety</div>
@@ -1320,13 +1331,6 @@ const Instructor = () => {
 
         {/* Main Content */}
         <main className="flex-1 min-w-0">
-          {/* Content Header - Mobile */}
-          <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3">
-            <h1 className="text-lg font-semibold text-gray-900">
-              {activePage}
-            </h1>
-          </div>
-
           {/* Content Area */}
           <div className="p-4 lg:p-8 max-w-7xl mx-auto">
             {/* Page Content */}

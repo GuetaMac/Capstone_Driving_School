@@ -20,25 +20,37 @@ function ResetPasswordPage() {
   const handleReset = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post("http://localhost:5000/reset-password", {
-        email,
-        code,
-        newPassword,
-      });
+      const res = await axios.post(
+        `${import.meta.env.VITE_API_URL}/reset-password`,
+        {
+          email,
+          code,
+          newPassword,
+        }
+      );
 
       Swal.fire("Success", res.data.message, "success").then(() => {
         localStorage.removeItem("resetEmail");
         navigate("/login");
       });
     } catch (error) {
-      Swal.fire("Error", error.response?.data?.error || "Something went wrong", "error");
+      Swal.fire(
+        "Error",
+        error.response?.data?.error || "Something went wrong",
+        "error"
+      );
     }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
-      <form onSubmit={handleReset} className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
-        <h2 className="text-xl font-semibold mb-4 text-center">Reset Password</h2>
+      <form
+        onSubmit={handleReset}
+        className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md"
+      >
+        <h2 className="text-xl font-semibold mb-4 text-center">
+          Reset Password
+        </h2>
         <input
           type="text"
           placeholder="Verification code"

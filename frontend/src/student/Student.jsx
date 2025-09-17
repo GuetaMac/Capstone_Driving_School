@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Edit2, Trash2, PlusCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import logo from "../assets/logo.png";
 import {
   User,
   BarChart3,
@@ -121,9 +122,12 @@ const DashboardPage = () => {
   useEffect(() => {
     const fetchAnnouncements = async () => {
       try {
-        const res = await axios.get("http://localhost:5000/announcements", {
-          params: { branch_id: branchId },
-        });
+        const res = await axios.get(
+          `${import.meta.env.VITE_API_URL}/announcements`,
+          {
+            params: { branch_id: branchId },
+          }
+        );
         setAnnouncements(res.data);
       } catch (err) {
         console.error("⚠ Failed to fetch announcements:", err);
@@ -141,7 +145,7 @@ const DashboardPage = () => {
         return;
       }
       try {
-        const res = await fetch("http://localhost:5000/enrollments", {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/enrollments`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) throw new Error("Nabigong makuha ang enrollment.");
@@ -435,7 +439,7 @@ const CoursesPage = () => {
   const [scheduleId, setScheduleId] = useState("");
 
   useEffect(() => {
-    fetch("http://localhost:5000/courses")
+    fetch(`${import.meta.env.VITE_API_URL}/courses`)
       .then((res) => res.json())
       .then(setCourses)
       .catch((err) => console.error("❌ Error fetching courses:", err));
@@ -445,7 +449,7 @@ const CoursesPage = () => {
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(
-        `http://localhost:5000/api/schedules?course_id=${course_id}`,
+        `${import.meta.env.VITE_API_URL}/api/schedules?course_id=${course_id}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       let data = await res.json();
@@ -475,7 +479,7 @@ const CoursesPage = () => {
 
     try {
       const res = await fetch(
-        "http://localhost:5000/api/check-active-enrollment",
+        `${import.meta.env.VITE_API_URL}/api/check-active-enrollment`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -557,7 +561,7 @@ const CoursesPage = () => {
     formData.append("proof_image", proofImage);
 
     try {
-      const res = await fetch("http://localhost:5000/enroll", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/enroll`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
@@ -596,7 +600,7 @@ const CoursesPage = () => {
             >
               {course.image ? (
                 <img
-                  src={`http://localhost:5000${course.image}`}
+                  src={`${import.meta.env.VITE_API_URL}${course.image}`}
                   alt={course.name}
                   className="w-full h-40 sm:h-48 object-cover rounded mb-3 sm:mb-4"
                 />
@@ -865,7 +869,7 @@ const EnrollmentPage = () => {
         return;
       }
       try {
-        const res = await fetch("http://localhost:5000/enrollments", {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/enrollments`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) throw new Error("Failed to load enrollments");
@@ -884,7 +888,9 @@ const EnrollmentPage = () => {
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(
-        `http://localhost:5000/api/enrollments/${enrollmentId}/generate-certificate`,
+        `${
+          import.meta.env.VITE_API_URL
+        }/api/enrollments/${enrollmentId}/generate-certificate`,
         {
           method: "POST",
           headers: {
@@ -900,7 +906,7 @@ const EnrollmentPage = () => {
 
       if (data.downloadUrl) {
         const link = document.createElement("a");
-        link.href = `http://localhost:5000${data.downloadUrl}`;
+        link.href = `${import.meta.env.VITE_API_URL}${data.downloadUrl}`;
         link.download = data.fileName ?? "certificate.pdf";
         document.body.appendChild(link);
         link.click();
@@ -935,7 +941,9 @@ const EnrollmentPage = () => {
 
     try {
       const res = await fetch(
-        `http://localhost:5000/api/feedback/${selectedEnrollment?.enrollment_id}`,
+        `${import.meta.env.VITE_API_URL}/api/feedback/${
+          selectedEnrollment?.enrollment_id
+        }`,
         {
           method: "POST",
           headers: {
@@ -1033,7 +1041,7 @@ const EnrollmentPage = () => {
           if (e.course_image) {
             imageUrl = e.course_image.startsWith("http")
               ? e.course_image
-              : `http://localhost:5000${e.course_image}`;
+              : `${import.meta.env.VITE_API_URL}${e.course_image}`;
           }
 
           // Check kung online theoretical course
@@ -1235,7 +1243,7 @@ const FeedbacksPage = () => {
   useEffect(() => {
     const token = localStorage.getItem("token");
 
-    fetch("http://localhost:5000/api/student/feedback", {
+    fetch(`${import.meta.env.VITE_API_URL}/api/student/feedback`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -1365,8 +1373,12 @@ const Student = () => {
       {/* Mobile Header */}
       <div className="lg:hidden bg-white shadow-lg border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-gradient-to-r from-red-600 to-red-700 rounded-lg flex items-center justify-center">
-            <Shield className="w-5 h-5 text-white" />
+          <div className="w-8 h-8 bg-gradient-to-r from-white-600 to-white-700 rounded-lg flex items-center justify-center">
+            <img
+              src={logo}
+              alt="Logo"
+              className="w-7 h-7 object-contain rounded-full"
+            />
           </div>
           <div>
             <div className="font-bold text-sm">First Safety</div>
@@ -1408,8 +1420,12 @@ const Student = () => {
           {/* Brand Header */}
           <div className="p-6 bg-gradient-to-r from-red-600 to-red-700 text-white">
             <div className="flex items-center space-x-3 mb-4">
-              <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-                <Shield className="w-7 h-7 text-white" />
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center">
+                <img
+                  src={logo}
+                  alt="Logo"
+                  className="h-8 w-8 rounded-full object-contain"
+                />
               </div>
               <div>
                 <div className="font-bold text-lg">First Safety</div>

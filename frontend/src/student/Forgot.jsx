@@ -11,7 +11,10 @@ function ForgotPasswordPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post("http://localhost:5000/forgot-password", { email });
+      const res = await axios.post(
+        `${import.meta.env.VITE_API_URL}/forgot-password`,
+        { email }
+      );
 
       // Save email in localStorage for use in reset page
       localStorage.setItem("resetEmail", email);
@@ -20,16 +23,24 @@ function ForgotPasswordPage() {
       Swal.fire("Success", res.data.message, "success").then(() => {
         navigate("/reset-password");
       });
-
     } catch (error) {
-      Swal.fire("Error", error.response?.data?.error || "Something went wrong", "error");
+      Swal.fire(
+        "Error",
+        error.response?.data?.error || "Something went wrong",
+        "error"
+      );
     }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
-      <form onSubmit={handleSubmit} className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
-        <h2 className="text-xl font-semibold mb-4 text-center">Forgot Password</h2>
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md"
+      >
+        <h2 className="text-xl font-semibold mb-4 text-center">
+          Forgot Password
+        </h2>
         <input
           type="email"
           placeholder="Enter your registered email"

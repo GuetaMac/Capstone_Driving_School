@@ -23,9 +23,36 @@ function LandingPage() {
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [videoOpen, setVideoOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [testimonials, setTestimonials] = useState([]);
+  const [loading, setLoading] = useState(true);
   const isLoggedIn = localStorage.getItem("userToken");
   const userRole = localStorage.getItem("role");
   const userId = localStorage.getItem("userId");
+
+  // Default testimonials if no featured comments are available
+  const defaultTestimonials = [
+    {
+      student_name: "Sarah Johnson",
+      comments:
+        "The instructors were patient and helped me build confidence on the road. Passed my test first try!",
+      course_name: "Standard Driving Course",
+      instructor_name: "Mr. Rodriguez",
+    },
+    {
+      student_name: "James Rodriguez",
+      comments:
+        "Great value for money. The lessons were structured well and I felt prepared for any situation.",
+      course_name: "Defensive Driving Course",
+      instructor_name: "Ms. Garcia",
+    },
+    {
+      student_name: "Maria Chen",
+      comments:
+        "I was nervous about driving, but 1st Safety made the learning process enjoyable and stress-free.",
+      course_name: "Beginner's Course",
+      instructor_name: "Mr. Santos",
+    },
+  ];
 
   useEffect(() => {
     const handleScroll = () => {
@@ -36,13 +63,33 @@ function LandingPage() {
   }, []);
 
   useEffect(() => {
+    // Fetch courses
     axios
-      .get("http://localhost:5000/courses")
+      .get(`${import.meta.env.VITE_API_URL}/courses`)
       .then((res) => {
         setCourses(res.data);
       })
       .catch((err) => {
         console.error("Error fetching courses:", err);
+      });
+
+    // Fetch featured testimonials
+    axios
+      .get(`${import.meta.env.VITE_API_URL}/api/testimonials`)
+      .then((res) => {
+        if (res.data && res.data.length > 0) {
+          setTestimonials(res.data);
+        } else {
+          // Use default testimonials if no featured comments
+          setTestimonials(defaultTestimonials);
+        }
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Error fetching testimonials:", err);
+        // Fallback to default testimonials
+        setTestimonials(defaultTestimonials);
+        setLoading(false);
       });
   }, []);
 
@@ -65,24 +112,6 @@ function LandingPage() {
     document.addEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
   }, [mobileMenuOpen]);
-
-  const testimonials = [
-    {
-      name: "Sarah Johnson",
-      text: "The instructors were patient and helped me build confidence on the road. Passed my test first try!",
-      rating: 5,
-    },
-    {
-      name: "James Rodriguez",
-      text: "Great value for money. The lessons were structured well and I felt prepared for any situation.",
-      rating: 5,
-    },
-    {
-      name: "Maria Chen",
-      text: "I was nervous about driving, but 1st Safety made the learning process enjoyable and stress-free.",
-      rating: 5,
-    },
-  ];
 
   return (
     <div className="font-sans text-gray-800">
@@ -443,7 +472,7 @@ function LandingPage() {
                 >
                   {course.image ? (
                     <img
-                      src={`http://localhost:5000${course.image}`}
+                      src={`${import.meta.env.VITE_API_URL}${course.image}`}
                       alt={course.name}
                       className="w-full h-48 object-cover rounded mb-4"
                     />
@@ -497,7 +526,7 @@ function LandingPage() {
               onSubmit={(e) => {
                 e.preventDefault();
                 axios
-                  .post("http://localhost:5000/enroll", {
+                  .post(`${import.meta.env.VITE_API_URL}/enroll`, {
                     course_id: selectedCourse.course_id,
                     user_id: userId,
                   })
@@ -535,7 +564,7 @@ function LandingPage() {
         </div>
       )}
 
-      {/* Testimonials Section */}
+      {/* Dynamic Testimonials Section */}
       <section id="testimonials" className="py-16 sm:py-20 bg-gray-50">
         <div className="container mx-auto px-4 sm:px-6">
           <div className="text-center mb-12 sm:mb-16">
@@ -543,39 +572,55 @@ function LandingPage() {
               What Our Students Say
             </h2>
             <p className="text-gray-600 max-w-2xl mx-auto text-sm sm:text-base">
-              Don't just take our word for it - hear from some of our satisfied
-              students
+              Real feedback from our satisfied students
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-            {testimonials.map((item, index) => (
-              <div
-                key={index}
-                className="bg-white p-4 sm:p-6 rounded-lg shadow-sm hover:shadow-md transition"
-              >
-                <div className="flex items-center space-x-1 mb-4 text-yellow-500">
-                  {[...Array(item.rating)].map((_, i) => (
-                    <Star key={i} size={16} fill="currentColor" />
-                  ))}
-                </div>
-                <p className="text-gray-600 mb-6 italic text-sm sm:text-base">
-                  "{item.text}"
-                </p>
-                <div className="flex items-center">
-                  <div className="bg-red-100 text-red-500 w-10 h-10 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
-                    {item.name.charAt(0)}
+          {loading ? (
+            <div className="flex justify-center items-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+              {testimonials.map((item, index) => (
+                <div
+                  key={item.feedback_id || index}
+                  className="bg-white p-4 sm:p-6 rounded-lg shadow-sm hover:shadow-md transition"
+                >
+                  <div className="flex items-center space-x-1 mb-4 text-yellow-500">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} size={16} fill="currentColor" />
+                    ))}
                   </div>
-                  <div>
-                    <p className="font-medium text-gray-800 text-sm sm:text-base">
-                      {item.name}
-                    </p>
-                    <p className="text-sm text-gray-500">Student</p>
+                  <p className="text-gray-600 mb-6 italic text-sm sm:text-base leading-relaxed">
+                    "{item.comments}"
+                  </p>
+                  <div className="flex items-center">
+                    <div className="bg-red-100 text-red-500 w-10 h-10 rounded-full flex items-center justify-center mr-3 flex-shrink-0 font-semibold">
+                      {item.student_name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-800 text-sm sm:text-base">
+                        {item.student_name}
+                      </p>
+                      <p className="text-xs text-gray-500">Student</p>
+                    </div>
                   </div>
+                  {item.feedback_id && (
+                    <div className="mt-3 flex justify-end">
+                      <div className="bg-yellow-100 px-2 py-1 rounded-full">
+                        <Star
+                          size={12}
+                          className="text-yellow-600"
+                          fill="currentColor"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

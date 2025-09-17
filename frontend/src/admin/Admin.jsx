@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import logo from "../assets/logo.png";
 import {
   User,
   BarChart3,
@@ -140,7 +141,7 @@ const DashboardPage = () => {
       try {
         const token = localStorage.getItem("token");
         const res = await axios.get(
-          "http://localhost:5000/api/admin/enrollments/summary",
+          `${import.meta.env.VITE_API_URL}/api/admin/enrollments/summary`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -368,14 +369,16 @@ const EnrollmentsPage = () => {
       let data;
       if (token) {
         const response = await axios.get(
-          "http://localhost:5000/api/admin/enrollments",
+          `${import.meta.env.VITE_API_URL}/api/admin/enrollments`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
         );
         data = response.data;
       } else {
-        const response = await fetch("http://localhost:5000/enrollments");
+        const response = await fetch(
+          "${import.meta.env.VITE_API_URL}/enrollments"
+        );
         data = await response.json();
       }
 
@@ -384,7 +387,9 @@ const EnrollmentsPage = () => {
       console.error("Error fetching enrollments:", error);
       // Fallback to simple fetch
       try {
-        const response = await fetch("http://localhost:5000/enrollments");
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/enrollments`
+        );
         const data = await response.json();
         setEnrollments(data);
       } catch (fallbackError) {
@@ -401,14 +406,16 @@ const EnrollmentsPage = () => {
 
       if (token) {
         const { data } = await axios.get(
-          "http://localhost:5000/api/instructors",
+          `${import.meta.env.VITE_API_URL}/api/instructors`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
         );
         setInstructors(data);
       } else {
-        const response = await fetch("http://localhost:5000/instructors");
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/instructors`
+        );
         const data = await response.json();
         setInstructors(data);
       }
@@ -416,7 +423,9 @@ const EnrollmentsPage = () => {
       console.error("Error fetching instructors:", error);
       // Fallback
       try {
-        const response = await fetch("http://localhost:5000/instructors");
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/instructors`
+        );
         const data = await response.json();
         setInstructors(data);
       } catch (fallbackError) {
@@ -454,7 +463,9 @@ const EnrollmentsPage = () => {
       }
 
       await axios.patch(
-        `http://localhost:5000/api/admin/enrollments/${enrollmentId}/assign-instructor`,
+        `${
+          import.meta.env.VITE_API_URL
+        }/api/admin/enrollments/${enrollmentId}/assign-instructor`,
         { instructor_id: instructorId },
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -501,7 +512,9 @@ const EnrollmentsPage = () => {
 
       if (result.isConfirmed) {
         await axios.patch(
-          `http://localhost:5000/api/admin/enrollments/${enrollmentId}/amount-paid`,
+          `${
+            import.meta.env.VITE_API_URL
+          }/api/admin/enrollments/${enrollmentId}/amount-paid`,
           { amount_paid: value },
           {
             headers: { Authorization: `Bearer ${token}` },
@@ -540,7 +553,9 @@ const EnrollmentsPage = () => {
 
         if (result.isConfirmed) {
           await axios.patch(
-            `http://localhost:5000/api/admin/enrollments/${enrollmentId}/payment-status`,
+            `${
+              import.meta.env.VITE_API_URL
+            }/api/admin/enrollments/${enrollmentId}/payment-status`,
             { payment_status: status },
             {
               headers: { Authorization: `Bearer ${token}` },
@@ -813,13 +828,17 @@ const EnrollmentsPage = () => {
           <td className="px-6 py-4">
             {e.proof_of_payment ? (
               <a
-                href={e.proof_of_payment}
+                href={`${import.meta.env.VITE_API_URL}/uploads/${
+                  e.proof_of_payment
+                }`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-block"
               >
                 <img
-                  src={e.proof_of_payment}
+                  src={`${import.meta.env.VITE_API_URL}/uploads/${
+                    e.proof_of_payment
+                  }`}
                   alt="Proof of Payment"
                   className="h-12 w-12 object-cover rounded-lg border-2 border-gray-200 hover:border-indigo-300 transition-all hover:scale-105"
                 />
@@ -977,12 +996,16 @@ const EnrollmentsPage = () => {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">Payment Proof:</span>
                 <a
-                  href={e.proof_of_payment}
+                  href={`${import.meta.env.VITE_API_URL}/uploads/${
+                    e.proof_of_payment
+                  }`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
                   <img
-                    src={e.proof_of_payment}
+                    src={`${import.meta.env.VITE_API_URL}/uploads/${
+                      e.proof_of_payment
+                    }`}
                     alt="Proof"
                     className="h-10 w-10 object-cover rounded-lg border-2 border-gray-200"
                   />
@@ -1467,7 +1490,7 @@ const Schedules = ({ currentUser }) => {
       const token = localStorage.getItem("token");
       try {
         const { data } = await axios.get(
-          "http://localhost:5000/api/schedules",
+          `${import.meta.env.VITE_API_URL}/api/schedules`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         setSchedules(data);
@@ -1509,7 +1532,7 @@ const Schedules = ({ currentUser }) => {
     try {
       const token = localStorage.getItem("token");
       await axios.post(
-        "http://localhost:5000/api/schedules",
+        `${import.meta.env.VITE_API_URL}/api/schedules`,
         {
           branch_id: currentUser?.branch_id || 1,
           created_by: currentUser?.user_id || 1,
@@ -1533,9 +1556,12 @@ const Schedules = ({ currentUser }) => {
         slots: "",
       });
       // refetch para makita agad
-      const { data } = await axios.get("http://localhost:5000/api/schedules", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const { data } = await axios.get(
+        `${import.meta.env.VITE_API_URL}/api/schedules`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       setSchedules(data);
     } catch (err) {
       setMessage(`❌ ${err.response?.data?.error || err.message}`);
@@ -1819,7 +1845,7 @@ const FeedbackPage = () => {
   const [selectedFeedback, setSelectedFeedback] = useState(null);
 
   useEffect(() => {
-    fetch("http://localhost:5000/api/admin/feedback", {
+    fetch(`${import.meta.env.VITE_API_URL}/api/admin/feedback`, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
       },
@@ -2220,7 +2246,9 @@ const AttendancePage = () => {
     try {
       const token = localStorage.getItem("token");
       const response = await axios.post(
-        `http://localhost:5000/api/admin/instructors/${id}/attendance`,
+        `${
+          import.meta.env.VITE_API_URL
+        }/api/admin/instructors/${id}/attendance`,
         { status },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -2262,7 +2290,7 @@ const AttendancePage = () => {
         }
 
         const res = await axios.get(
-          "http://localhost:5000/api/admin/instructors",
+          `${import.meta.env.VITE_API_URL}/api/admin/instructors`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -2289,7 +2317,7 @@ const AttendancePage = () => {
     try {
       const token = localStorage.getItem("token");
       const res = await axios.get(
-        "http://localhost:5000/api/admin/instructors/attendance",
+        `${import.meta.env.VITE_API_URL}/api/admin/instructors/attendance`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -2724,7 +2752,7 @@ const MaintenancePage = () => {
   const fetchReports = async () => {
     try {
       const response = await axios.get(
-        "http://localhost:5000/api/admin/maintenance",
+        `${import.meta.env.VITE_API_URL}/api/admin/maintenance`,
         {
           headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         }
@@ -2757,7 +2785,7 @@ const MaintenancePage = () => {
 
     try {
       await axios.put(
-        `http://localhost:5000/api/admin/maintenance/${id}`,
+        `${import.meta.env.VITE_API_URL}/api/admin/maintenance/${id}`,
         formData,
         {
           headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
@@ -3322,7 +3350,7 @@ const Records = () => {
       try {
         const token = localStorage.getItem("token"); // JWT token
         const res = await axios.get(
-          "http://localhost:5000/api/admin/student-records",
+          `${import.meta.env.VITE_API_URL}/api/admin/student-records`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -3414,8 +3442,12 @@ const Admin_Staff = () => {
       {/* Mobile Header */}
       <div className="lg:hidden bg-white shadow-lg border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-gradient-to-r from-red-600 to-red-700 rounded-lg flex items-center justify-center">
-            <Shield className="w-5 h-5 text-white" />
+          <div className="w-8 h-8 bg-gradient-to-r from-white-600 to-white-700 rounded-lg flex items-center justify-center">
+            <img
+              src={logo}
+              alt="Logo"
+              className="w-7 h-7 object-contain rounded-full"
+            />
           </div>
           <div>
             <div className="font-bold text-sm">First Safety</div>
@@ -3457,8 +3489,12 @@ const Admin_Staff = () => {
           {/* Brand Header */}
           <div className="p-6 bg-gradient-to-r from-red-600 to-red-700 text-white">
             <div className="flex items-center space-x-3 mb-4">
-              <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-                <Shield className="w-7 h-7 text-white" />
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center">
+                <img
+                  src={logo}
+                  alt="Logo"
+                  className="h-8 w-8 rounded-full object-contain"
+                />
               </div>
               <div>
                 <div className="font-bold text-lg">First Safety</div>

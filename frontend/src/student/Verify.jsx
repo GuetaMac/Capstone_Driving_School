@@ -3,7 +3,6 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { Shield, Mail, Key, CheckCircle, AlertCircle } from "lucide-react";
 
-
 function Verify() {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -15,9 +14,9 @@ function Verify() {
     e.preventDefault();
     setIsLoading(true);
     setMessage("");
-    
+
     try {
-      const response = await fetch("http://localhost:5000/verify", {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/verify`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -28,7 +27,7 @@ function Verify() {
       if (response.ok) {
         setMessage("Account verified successfully! Redirecting to login...");
         setMessageType("success");
-        
+
         setTimeout(() => {
           window.location.href = "/login";
         }, 2000);
@@ -36,7 +35,9 @@ function Verify() {
         throw new Error("Verification failed");
       }
     } catch (error) {
-      setMessage("Invalid verification code or error occurred. Please try again.");
+      setMessage(
+        "Invalid verification code or error occurred. Please try again."
+      );
       setMessageType("error");
     } finally {
       setIsLoading(false);
@@ -44,7 +45,7 @@ function Verify() {
   };
 
   const handleCodeChange = (e) => {
-    const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+    const value = e.target.value.replace(/\D/g, "").slice(0, 6);
     setCode(value);
   };
 
@@ -54,15 +55,18 @@ function Verify() {
       setMessageType("error");
       return;
     }
-    
+
     try {
-      const response = await fetch("http://localhost:5000/resend-code", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email }),
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/resend-code`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email }),
+        }
+      );
 
       if (response.ok) {
         setMessage("Verification code resent to your email!");
@@ -74,13 +78,12 @@ function Verify() {
       setMessage("Failed to resend code. Please try again.");
       setMessageType("error");
     }
-    
+
     setTimeout(() => setMessage(""), 3000);
   };
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-
       <div className="relative w-full max-w-md">
         <div className="bg-white backdrop-blur-lg rounded-3xl shadow-2xl border border-gray-200 overflow-hidden">
           <div className="bg-gradient-to-r from-red-500 to-red-600 px-8 py-12 text-center relative overflow-hidden">
@@ -135,12 +138,14 @@ function Verify() {
               </div>
 
               {message && (
-                <div className={`p-4 rounded-xl flex items-center space-x-3 transition-all duration-300 ${
-                  messageType === 'success' 
-                    ? 'bg-green-50 text-green-800 border border-green-200' 
-                    : 'bg-red-50 text-red-800 border border-red-200'
-                }`}>
-                  {messageType === 'success' ? (
+                <div
+                  className={`p-4 rounded-xl flex items-center space-x-3 transition-all duration-300 ${
+                    messageType === "success"
+                      ? "bg-green-50 text-green-800 border border-green-200"
+                      : "bg-red-50 text-red-800 border border-red-200"
+                  }`}
+                >
+                  {messageType === "success" ? (
                     <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
                   ) : (
                     <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
@@ -173,15 +178,15 @@ function Verify() {
 
             <div className="mt-8 text-center space-y-4">
               <div className="text-sm text-gray-600">
-                Didn't receive the code?{' '}
-                <button 
+                Didn't receive the code?{" "}
+                <button
                   onClick={handleResendCode}
                   className="text-red-600 hover:text-red-700 font-semibold hover:underline transition-colors"
                 >
                   Resend Code
                 </button>
               </div>
-              
+
               <div className="flex items-center justify-center space-x-4 text-xs text-gray-500">
                 <span>© 2025 1st Safety Driving School</span>
                 <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
