@@ -824,6 +824,7 @@ const EnrollmentPage = () => {
   const [error, setError] = useState(null);
   const [selectedEnrollment, setSelectedEnrollment] = useState(null);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   // Define the questions object
   const questions = {
@@ -924,6 +925,8 @@ const EnrollmentPage = () => {
 
   const handleSubmitFeedback = async (e) => {
     e.preventDefault();
+    if (!selectedEnrollment) return;
+
     const token = localStorage.getItem("token");
     const formData = new FormData(e.target);
     const payload = Object.fromEntries(formData.entries());
@@ -939,11 +942,12 @@ const EnrollmentPage = () => {
 
     if (!confirmResult.isConfirmed) return;
 
+    setSubmitting(true);
     try {
+      const enrollmentIdNum = Number(selectedEnrollment.enrollment_id);
+
       const res = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/feedback/${
-          selectedEnrollment?.enrollment_id
-        }`,
+        `${import.meta.env.VITE_API_URL}/api/feedback/${enrollmentIdNum}`,
         {
           method: "POST",
           headers: {
@@ -979,6 +983,21 @@ const EnrollmentPage = () => {
         showConfirmButton: false,
       });
 
+      // update local state (use numeric compare to avoid === type mismatch)
+      setEnrollments((prevEnrollments) =>
+        prevEnrollments.map((enrollment) =>
+          Number(enrollment.enrollment_id) === enrollmentIdNum
+            ? { ...enrollment, has_feedback: true }
+            : enrollment
+        )
+      );
+
+      setSelectedEnrollment((prev) =>
+        prev && Number(prev.enrollment_id) === enrollmentIdNum
+          ? { ...prev, has_feedback: true }
+          : prev
+      );
+
       setShowFeedbackModal(false);
     } catch (err) {
       await Swal.fire({
@@ -986,6 +1005,8 @@ const EnrollmentPage = () => {
         title: "Error",
         text: `There was an error submitting your feedback: ${err.message}`,
       });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -1044,10 +1065,13 @@ const EnrollmentPage = () => {
               : `${import.meta.env.VITE_API_URL}${e.course_image}`;
           }
 
-          // Check kung online theoretical course
+          // Check if online theoretical course
           const isOnlineTheoretical =
             (e.course_name ?? "").toLowerCase() ===
             "online theoretical driving course";
+
+          // Check if has feedback from database
+          const hasFeedback = e.has_feedback === true || e.has_feedback === 1;
 
           return (
             <div
@@ -1074,7 +1098,7 @@ const EnrollmentPage = () => {
                   </h2>
 
                   <div className="space-y-2 mb-4">
-                    {/* Schedule at Instructor lalabas lang kung hindi OTDC */}
+                    {/* Schedule and Instructor only show if not OTDC */}
                     {!isOnlineTheoretical && (
                       <>
                         <div className="flex flex-col lg:flex-row lg:items-center text-gray-700">
@@ -1113,11 +1137,18 @@ const EnrollmentPage = () => {
                       >
                         Generate Certificate
                       </button>
+
+                      {/* Feedback button - disabled if feedback already submitted */}
                       <button
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 lg:px-6 py-2.5 rounded-lg font-medium transition-colors duration-200 shadow-sm text-sm lg:text-base"
-                        onClick={() => handleOpenFeedback(e)}
+                        className={`px-4 lg:px-6 py-2.5 rounded-lg font-medium transition-colors duration-200 shadow-sm text-sm lg:text-base ${
+                          hasFeedback
+                            ? "bg-gray-400 cursor-not-allowed text-gray-200"
+                            : "bg-blue-600 hover:bg-blue-700 text-white"
+                        }`}
+                        onClick={() => !hasFeedback && handleOpenFeedback(e)}
+                        disabled={hasFeedback}
                       >
-                        Give Feedback
+                        {hasFeedback ? "Feedback Submitted" : "Give Feedback"}
                       </button>
                     </div>
                   )}
@@ -1223,9 +1254,10 @@ const EnrollmentPage = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-green-600 rounded hover:bg-green-700 text-white text-sm lg:text-base order-1 sm:order-2"
+                  disabled={submitting}
+                  className="px-4 py-2 bg-green-600 rounded hover:bg-green-700 text-white text-sm lg:text-base order-1 sm:order-2 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Submit Feedback
+                  {submitting ? "Submitting..." : "Submit Feedback"}
                 </button>
               </div>
             </form>
@@ -1235,7 +1267,6 @@ const EnrollmentPage = () => {
     </div>
   );
 };
-
 const FeedbacksPage = () => {
   const [feedbacks, setFeedbacks] = useState([]);
   const [loading, setLoading] = useState(true);

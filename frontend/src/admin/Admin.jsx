@@ -7,6 +7,7 @@ import {
   BarChart3,
   Users,
   Shield,
+  Trash2,
   Settings,
   DollarSign,
   TrendingUp,
@@ -277,6 +278,17 @@ const DashboardPage = () => {
           </div>
         </div>
 
+        {/* Month Label */}
+        <div className="mb-4 text-center">
+          <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-700">
+            {new Date().toLocaleString("en-US", {
+              month: "long",
+              year: "numeric",
+            })}{" "}
+            Stats
+          </h2>
+        </div>
+
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 lg:gap-6">
           <StatCard
@@ -377,7 +389,7 @@ const EnrollmentsPage = () => {
         data = response.data;
       } else {
         const response = await fetch(
-          "${import.meta.env.VITE_API_URL}/enrollments"
+          `${import.meta.env.VITE_API_URL}/enrollments`
         );
         data = await response.json();
       }
@@ -572,6 +584,59 @@ const EnrollmentsPage = () => {
       console.error("Error updating payment status:", error);
       await Swal.fire("❌ Error", "Error updating payment status.", "error");
       if (resetStatus) resetStatus();
+    }
+  };
+
+  const deleteEnrollment = async (enrollmentId, studentName) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        await Swal.fire({
+          title: "Error",
+          text: "You need to be logged in to delete enrollments.",
+          icon: "error",
+        });
+        return;
+      }
+
+      const result = await Swal.fire({
+        title: "Delete Enrollment?",
+        text: `Are you sure you want to delete the enrollment for ${studentName}? This action cannot be undone.`,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#dc2626",
+        cancelButtonColor: "#6b7280",
+        confirmButtonText: "Yes, delete",
+        cancelButtonText: "Cancel",
+      });
+
+      if (!result.isConfirmed) {
+        return;
+      }
+
+      await axios.delete(
+        `${import.meta.env.VITE_API_URL}/api/admin/enrollments/${enrollmentId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      await Swal.fire({
+        title: "Deleted!",
+        text: "Enrollment has been deleted successfully.",
+        icon: "success",
+        timer: 2000,
+        showConfirmButton: false,
+      });
+
+      fetchEnrollments();
+    } catch (error) {
+      console.error("Error deleting enrollment:", error);
+      await Swal.fire({
+        title: "Error",
+        text: "Failed to delete enrollment. Please try again.",
+        icon: "error",
+      });
     }
   };
 
@@ -892,6 +957,18 @@ const EnrollmentsPage = () => {
           {e.status || "N/A"}
         </span>
       </td>
+      {hasAdminFeatures && (
+        <td className="px-6 py-4">
+          <button
+            onClick={() => deleteEnrollment(e.enrollment_id, e.student_name)}
+            className="inline-flex items-center px-3 py-1.5 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 hover:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors duration-200"
+            title="Delete enrollment"
+          >
+            <Trash2 className="h-4 w-4 mr-1" />
+            Delete
+          </button>
+        </td>
+      )}
     </tr>
   );
 
@@ -929,7 +1006,8 @@ const EnrollmentsPage = () => {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-sm text-gray-600">Instructor:</span>
-          {e.course_name === "" ? (
+          {e.course_name?.toLowerCase().includes("online") &&
+          e.course_name?.toLowerCase().includes("theoretical") ? (
             <span className="text-sm text-gray-500 italic">N/A (Online)</span>
           ) : e.instructor_name ? (
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -1025,6 +1103,20 @@ const EnrollmentsPage = () => {
             {e.status || "N/A"}
           </span>
         </div>
+
+        {hasAdminFeatures && (
+          <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+            <span className="text-sm text-gray-600">Actions:</span>
+            <button
+              onClick={() => deleteEnrollment(e.enrollment_id, e.student_name)}
+              className="inline-flex items-center px-3 py-1.5 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 hover:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors duration-200"
+              title="Delete enrollment"
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              Delete
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1332,6 +1424,11 @@ const EnrollmentsPage = () => {
                       <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
                       </th>
+                      {hasAdminFeatures && (
+                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -1473,7 +1570,6 @@ const EnrollmentsPage = () => {
     </div>
   );
 };
-
 const Schedules = ({ currentUser }) => {
   const [form, setForm] = useState({
     date: "",
@@ -1712,7 +1808,7 @@ const Schedules = ({ currentUser }) => {
             <button
               type="button"
               onClick={handleSubmit}
-              className="w-full py-4 bg-gradient-to-r from-red-600 to-red-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-[1.02] hover:shadow-lg flex items-center justify-center gap-2"
+              className="w-full py-4 bg-gradient-to-r from-red-600 to-red-600 hover:from-red-700 hover:to-red-700 text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-[1.02] hover:shadow-lg flex items-center justify-center gap-2"
             >
               <Plus className="w-5 h-5" />
               Create Schedule
@@ -2366,7 +2462,50 @@ const AttendancePage = () => {
     return matchesName && matchesYear && matchesMonth && matchesTab;
   });
 
+  // Calculate instructor totals based on current filters
+  const getInstructorTotals = () => {
+    // Filter without status to get total count for each instructor
+    const attendanceForTotals = attendance.filter((record) => {
+      const matchesName = record.instructor_name
+        .toLowerCase()
+        .includes(filterName.toLowerCase());
+
+      const recordDate = new Date(record.date);
+      const recordYear = recordDate.getFullYear().toString();
+      const recordMonth = String(recordDate.getMonth() + 1).padStart(2, "0");
+
+      const matchesYear = filterYear ? recordYear === filterYear : true;
+      const matchesMonth = filterMonth ? recordMonth === filterMonth : true;
+
+      const matchesTab = activeTab === "today" ? record.date === today : true;
+
+      return matchesName && matchesYear && matchesMonth && matchesTab;
+    });
+
+    // Group by instructor
+    const instructorTotals = {};
+    attendanceForTotals.forEach((record) => {
+      const key = `${record.user_id}`;
+      if (!instructorTotals[key]) {
+        instructorTotals[key] = {
+          total: 0,
+          present: 0,
+          absent: 0,
+        };
+      }
+      instructorTotals[key].total++;
+      if (record.status === "present") {
+        instructorTotals[key].present++;
+      } else {
+        instructorTotals[key].absent++;
+      }
+    });
+
+    return instructorTotals;
+  };
+
   const stats = getTodayStats();
+  const instructorTotals = getInstructorTotals();
 
   if (loading) {
     return (
@@ -2672,51 +2811,80 @@ const AttendancePage = () => {
                         <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Status
                         </th>
+                        <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Total
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {filteredAttendance.length > 0 ? (
-                        filteredAttendance.map((record) => (
-                          <tr
-                            key={record.id}
-                            className="hover:bg-gray-50 transition-colors"
-                          >
-                            <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
-                              {new Date(record.date).toLocaleDateString(
-                                "en-US",
-                                {
-                                  weekday: "short",
-                                  year: "numeric",
-                                  month: "short",
-                                  day: "numeric",
-                                }
-                              )}
-                            </td>
-                            <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">
-                              {record.instructor_name}
-                            </td>
-                            <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                              <span
-                                className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                  record.status === "present"
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-red-100 text-red-800"
-                                }`}
-                              >
-                                {record.status === "present" ? (
-                                  <CheckCircle className="h-3 w-3 mr-1" />
-                                ) : (
-                                  <XCircle className="h-3 w-3 mr-1" />
+                        filteredAttendance.map((record) => {
+                          const instructorTotal = instructorTotals[
+                            record.user_id
+                          ] || {
+                            total: 0,
+                            present: 0,
+                            absent: 0,
+                          };
+
+                          return (
+                            <tr
+                              key={record.id}
+                              className="hover:bg-gray-50 transition-colors"
+                            >
+                              <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
+                                {new Date(record.date).toLocaleDateString(
+                                  "en-US",
+                                  {
+                                    weekday: "short",
+                                    year: "numeric",
+                                    month: "short",
+                                    day: "numeric",
+                                  }
                                 )}
-                                {record.status.toUpperCase()}
-                              </span>
-                            </td>
-                          </tr>
-                        ))
+                              </td>
+                              <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">
+                                {record.instructor_name}
+                              </td>
+                              <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                                <span
+                                  className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                    record.status === "present"
+                                      ? "bg-green-100 text-green-800"
+                                      : "bg-red-100 text-red-800"
+                                  }`}
+                                >
+                                  {record.status === "present" ? (
+                                    <CheckCircle className="h-3 w-3 mr-1" />
+                                  ) : (
+                                    <XCircle className="h-3 w-3 mr-1" />
+                                  )}
+                                  {record.status.toUpperCase()}
+                                </span>
+                              </td>
+                              <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
+                                <div className="flex flex-col space-y-1">
+                                  {/* Show total count */}
+                                  <div className="font-medium text-blue-600"></div>
+                                  {/* Show present/absent breakdown */}
+                                  <div className="text-xs text-gray-500">
+                                    <span className="text-green-600">
+                                      {instructorTotal.present}P
+                                    </span>
+                                    {" / "}
+                                    <span className="text-red-600">
+                                      {instructorTotal.absent}A
+                                    </span>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
                       ) : (
                         <tr>
                           <td
-                            colSpan="3"
+                            colSpan="4"
                             className="px-3 sm:px-6 py-12 text-center"
                           >
                             <Filter className="h-12 w-12 text-gray-400 mx-auto mb-3" />
@@ -2743,7 +2911,7 @@ const AttendancePage = () => {
 const MaintenancePage = () => {
   const [reports, setReports] = useState([]);
   const [editingId, setEditingId] = useState(null);
-  const [formData, setFormData] = useState({ status: "", price: "" });
+  const [editingData, setEditingData] = useState({}); // Store editing data by ID
 
   useEffect(() => {
     fetchReports();
@@ -2764,14 +2932,41 @@ const MaintenancePage = () => {
   };
 
   const handleUpdateClick = (report) => {
-    setEditingId(report.id);
-    setFormData({
-      status: report.status || "Pending",
-      price: report.price || "",
+    // Use maintenance_id as the primary ID consistently
+    const reportId = report.maintenance_id;
+    console.log("Setting editing ID:", reportId, "for report:", report);
+    setEditingId(reportId);
+    setEditingData({
+      ...editingData,
+      [reportId]: {
+        status: report.status || "Pending",
+        price: report.price || "",
+      },
     });
   };
 
-  const handleSave = async (id) => {
+  const handleCancel = (report) => {
+    const reportId = report.maintenance_id;
+    setEditingId(null);
+    // Remove the editing data for this report
+    const newEditingData = { ...editingData };
+    delete newEditingData[reportId];
+    setEditingData(newEditingData);
+  };
+
+  const updateEditingData = (report, field, value) => {
+    const reportId = report.maintenance_id;
+    setEditingData({
+      ...editingData,
+      [reportId]: {
+        ...editingData[reportId],
+        [field]: value,
+      },
+    });
+  };
+
+  const handleSave = async (report) => {
+    const reportId = report.maintenance_id;
     const confirmResult = await Swal.fire({
       title: "Save Changes?",
       text: "Are you sure you want to update this maintenance report?",
@@ -2784,9 +2979,10 @@ const MaintenancePage = () => {
     if (!confirmResult.isConfirmed) return;
 
     try {
+      const dataToSave = editingData[reportId];
       await axios.put(
-        `${import.meta.env.VITE_API_URL}/api/admin/maintenance/${id}`,
-        formData,
+        `${import.meta.env.VITE_API_URL}/api/admin/maintenance/${reportId}`,
+        dataToSave,
         {
           headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         }
@@ -2801,6 +2997,11 @@ const MaintenancePage = () => {
       });
 
       setEditingId(null);
+      // Remove the editing data for this report
+      const newEditingData = { ...editingData };
+      delete newEditingData[reportId];
+      setEditingData(newEditingData);
+
       fetchReports();
     } catch (err) {
       console.error("Error updating report:", err);
@@ -2921,193 +3122,216 @@ const MaintenancePage = () => {
 
           {/* Mobile Card View */}
           <div className="block sm:hidden">
-            {reports.map((report) => (
-              <div key={report.id} className="border-b border-slate-100 p-4">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
-                      <svg
-                        className="w-4 h-4 text-slate-600"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 0h8v12H6V4z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-slate-800 text-sm">
-                        {report.vehicle_name}
-                      </p>
-                    </div>
-                  </div>
+            {reports.map((report) => {
+              const isEditing = editingId === report.id;
+              const currentData = editingData[report.id] || {};
 
-                  <div>
-                    <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">
-                      Issue Description
-                    </p>
-                    <p className="text-slate-700 text-sm mt-1">
-                      {report.description}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">
-                        Date Reported
-                      </p>
-                      <p className="text-slate-700 text-sm font-medium">
-                        {new Date(report.created_at).toLocaleDateString(
-                          "en-US",
-                          {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          }
-                        )}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {new Date(report.created_at).toLocaleTimeString(
-                          "en-US",
-                          {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          }
-                        )}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">
-                        Reported By
-                      </p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                          <span className="text-blue-600 font-semibold text-xs">
-                            {report.instructor_name.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                        <p className="font-medium text-slate-800 text-sm">
-                          {report.instructor_name}
+              return (
+                <div key={report.id} className="border-b border-slate-100 p-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
+                        <svg
+                          className="w-4 h-4 text-slate-600"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 0h8v12H6V4z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-slate-800 text-sm">
+                          {report.vehicle_name}
                         </p>
                       </div>
                     </div>
-                  </div>
 
-                  <div>
-                    <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-2">
-                      Status
-                    </p>
-                    {editingId === report.id ? (
-                      <select
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-sm"
-                        value={formData.status}
-                        onChange={(e) =>
-                          setFormData({ ...formData, status: e.target.value })
-                        }
-                      >
-                        <option value="Pending">Pending</option>
-                        <option value="In Progress">In Progress</option>
-                        <option value="Resolved">Resolved</option>
-                      </select>
-                    ) : (
-                      <span
-                        className={`inline-flex items-center gap-2 ${getStatusBadge(
-                          report.status || "Pending"
-                        )}`}
-                      >
-                        {getStatusIcon(report.status || "Pending")}
-                        {report.status || "Pending"}
-                      </span>
-                    )}
-                  </div>
+                    <div>
+                      <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">
+                        Issue Description
+                      </p>
+                      <p className="text-slate-700 text-sm mt-1">
+                        {report.description}
+                      </p>
+                    </div>
 
-                  <div>
-                    <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-2">
-                      Repair Cost
-                    </p>
-                    {editingId === report.id ? (
-                      <div className="relative">
-                        <span className="absolute left-3 top-2 text-slate-500 text-sm">
-                          ₱
-                        </span>
-                        <input
-                          type="number"
-                          className="w-full pl-8 pr-4 py-2 border border-slate-300 rounded-lg bg-white text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-sm"
-                          value={formData.price}
-                          placeholder="0.00"
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">
+                          Date Reported
+                        </p>
+                        <p className="text-slate-700 text-sm font-medium">
+                          {new Date(report.created_at).toLocaleDateString(
+                            "en-US",
+                            {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            }
+                          )}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {new Date(report.created_at).toLocaleTimeString(
+                            "en-US",
+                            {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }
+                          )}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">
+                          Reported By
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                            <span className="text-blue-600 font-semibold text-xs">
+                              {report.instructor_name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <p className="font-medium text-slate-800 text-sm">
+                            {report.instructor_name}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-2">
+                        Status
+                      </p>
+                      {isEditing ? (
+                        <select
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-sm"
+                          value={currentData.status || "Pending"}
                           onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              price: e.target.value,
-                            })
+                            updateEditingData(report, "status", e.target.value)
                           }
-                        />
-                      </div>
-                    ) : report.price != null ? (
-                      <div className="font-semibold text-slate-800 text-sm">
-                        ₱
-                        {parseFloat(report.price).toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </div>
-                    ) : (
-                      <span className="text-slate-400 italic text-sm">
-                        Not set
-                      </span>
-                    )}
-                  </div>
+                        >
+                          <option value="Pending">Pending</option>
+                          <option value="In Progress">In Progress</option>
+                          <option value="Resolved">Resolved</option>
+                        </select>
+                      ) : (
+                        <span
+                          className={`inline-flex items-center gap-2 ${getStatusBadge(
+                            report.status || "Pending"
+                          )}`}
+                        >
+                          {getStatusIcon(report.status || "Pending")}
+                          {report.status || "Pending"}
+                        </span>
+                      )}
+                    </div>
 
-                  <div className="pt-2">
-                    {editingId === report.id ? (
-                      <button
-                        onClick={() => handleSave(report.maintenance_id)}
-                        className="w-full inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 shadow-sm hover:shadow text-sm"
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 13l4 4L19 7"
+                    <div>
+                      <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-2">
+                        Repair Cost
+                      </p>
+                      {isEditing ? (
+                        <div className="relative">
+                          <span className="absolute left-3 top-2 text-slate-500 text-sm">
+                            ₱
+                          </span>
+                          <input
+                            type="number"
+                            className="w-full pl-8 pr-4 py-2 border border-slate-300 rounded-lg bg-white text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors text-sm"
+                            value={currentData.price || ""}
+                            placeholder="0.00"
+                            onChange={(e) =>
+                              updateEditingData(report, "price", e.target.value)
+                            }
                           />
-                        </svg>
-                        Save
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleUpdateClick(report)}
-                        className="w-full inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 shadow-sm hover:shadow text-sm"
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
+                        </div>
+                      ) : report.price != null ? (
+                        <div className="font-semibold text-slate-800 text-sm">
+                          ₱
+                          {parseFloat(report.price).toLocaleString("en-US", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 italic text-sm">
+                          Not set
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="pt-2 flex gap-2">
+                      {isEditing ? (
+                        <>
+                          <button
+                            onClick={() => handleSave(report)}
+                            className="flex-1 inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 shadow-sm hover:shadow text-sm"
+                          >
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                            Save
+                          </button>
+                          <button
+                            onClick={() => handleCancel(report)}
+                            className="flex-1 inline-flex items-center justify-center gap-2 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 shadow-sm hover:shadow text-sm"
+                          >
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M6 18L18 6M6 6l12 12"
+                              />
+                            </svg>
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => handleUpdateClick(report)}
+                          className="w-full inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 shadow-sm hover:shadow text-sm"
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                          />
-                        </svg>
-                        Update
-                      </button>
-                    )}
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                            />
+                          </svg>
+                          Update
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Desktop Table View */}
@@ -3139,173 +3363,206 @@ const MaintenancePage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {reports.map((report) => (
-                  <tr
-                    key={report.id}
-                    className="hover:bg-slate-50 transition-colors duration-150"
-                  >
-                    <td className="p-6">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center">
-                          <svg
-                            className="w-5 h-5 text-slate-600"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 0h8v12H6V4z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
+                {reports.map((report) => {
+                  const isEditing = editingId === report.maintenance_id;
+                  const currentData = editingData[report.maintenance_id] || {};
+
+                  return (
+                    <tr
+                      key={report.maintenance_id}
+                      className="hover:bg-slate-50 transition-colors duration-150"
+                    >
+                      <td className="p-6">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center">
+                            <svg
+                              className="w-5 h-5 text-slate-600"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 0h8v12H6V4z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-slate-800">
+                              {report.vehicle_name}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-semibold text-slate-800">
-                            {report.vehicle_name}
+                      </td>
+                      <td className="p-6">
+                        <p className="text-slate-700 leading-relaxed max-w-xs">
+                          {report.description}
+                        </p>
+                      </td>
+                      <td className="p-6">
+                        <div className="text-slate-700">
+                          <p className="font-medium">
+                            {new Date(report.created_at).toLocaleDateString(
+                              "en-US",
+                              {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              }
+                            )}
+                          </p>
+                          <p className="text-sm text-slate-500">
+                            {new Date(report.created_at).toLocaleTimeString(
+                              "en-US",
+                              {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }
+                            )}
                           </p>
                         </div>
-                      </div>
-                    </td>
-                    <td className="p-6">
-                      <p className="text-slate-700 leading-relaxed max-w-xs">
-                        {report.description}
-                      </p>
-                    </td>
-                    <td className="p-6">
-                      <div className="text-slate-700">
-                        <p className="font-medium">
-                          {new Date(report.created_at).toLocaleDateString(
-                            "en-US",
-                            {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            }
-                          )}
-                        </p>
-                        <p className="text-sm text-slate-500">
-                          {new Date(report.created_at).toLocaleTimeString(
-                            "en-US",
-                            {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            }
-                          )}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="p-6">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                          <span className="text-blue-600 font-semibold text-sm">
-                            {report.instructor_name.charAt(0).toUpperCase()}
-                          </span>
+                      </td>
+                      <td className="p-6">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                            <span className="text-blue-600 font-semibold text-sm">
+                              {report.instructor_name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <p className="font-medium text-slate-800">
+                            {report.instructor_name}
+                          </p>
                         </div>
-                        <p className="font-medium text-slate-800">
-                          {report.instructor_name}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="p-6">
-                      {editingId === report.id ? (
-                        <select
-                          className="w-full px-4 py-2 border border-slate-300 rounded-lg bg-white text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                          value={formData.status}
-                          onChange={(e) =>
-                            setFormData({ ...formData, status: e.target.value })
-                          }
-                        >
-                          <option value="Pending">Pending</option>
-                          <option value="In Progress">In Progress</option>
-                          <option value="Resolved">Resolved</option>
-                        </select>
-                      ) : (
-                        <span
-                          className={`inline-flex items-center gap-2 ${getStatusBadge(
-                            report.status || "Pending"
-                          )}`}
-                        >
-                          {getStatusIcon(report.status || "Pending")}
-                          {report.status || "Pending"}
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-6">
-                      {editingId === report.id ? (
-                        <div className="relative">
-                          <span className="absolute left-3 top-2 text-slate-500 text-sm">
-                            ₱
-                          </span>
-                          <input
-                            type="number"
-                            className="w-full pl-8 pr-4 py-2 border border-slate-300 rounded-lg bg-white text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                            value={formData.price}
-                            placeholder="0.00"
+                      </td>
+                      <td className="p-6">
+                        {isEditing ? (
+                          <select
+                            className="w-full px-4 py-2 border border-slate-300 rounded-lg bg-white text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                            value={currentData.status || "Pending"}
                             onChange={(e) =>
-                              setFormData({
-                                ...formData,
-                                price: e.target.value,
-                              })
+                              updateEditingData(
+                                report,
+                                "status",
+                                e.target.value
+                              )
                             }
-                          />
-                        </div>
-                      ) : report.price != null ? (
-                        <div className="font-semibold text-slate-800">
-                          ₱
-                          {parseFloat(report.price).toLocaleString("en-US", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </div>
-                      ) : (
-                        <span className="text-slate-400 italic">Not set</span>
-                      )}
-                    </td>
-                    <td className="p-6">
-                      {editingId === report.id ? (
-                        <button
-                          onClick={() => handleSave(report.maintenance_id)}
-                          className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 shadow-sm hover:shadow"
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M5 13l4 4L19 7"
-                            />
-                          </svg>
-                          Save
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleUpdateClick(report)}
-                          className="inline-flex items-center gap-2 bg-red-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 shadow-sm hover:shadow"
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
+                            <option value="Pending">Pending</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="Resolved">Resolved</option>
+                          </select>
+                        ) : (
+                          <span
+                            className={`inline-flex items-center gap-2 ${getStatusBadge(
+                              report.status || "Pending"
+                            )}`}
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                            {getStatusIcon(report.status || "Pending")}
+                            {report.status || "Pending"}
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-6">
+                        {isEditing ? (
+                          <div className="relative">
+                            <span className="absolute left-3 top-2 text-slate-500 text-sm">
+                              ₱
+                            </span>
+                            <input
+                              type="number"
+                              className="w-full pl-8 pr-4 py-2 border border-slate-300 rounded-lg bg-white text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                              value={currentData.price || ""}
+                              placeholder="0.00"
+                              onChange={(e) =>
+                                updateEditingData(
+                                  report,
+                                  "price",
+                                  e.target.value
+                                )
+                              }
                             />
-                          </svg>
-                          Update
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                          </div>
+                        ) : report.price != null ? (
+                          <div className="font-semibold text-slate-800">
+                            ₱
+                            {parseFloat(report.price).toLocaleString("en-US", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 italic">Not set</span>
+                        )}
+                      </td>
+                      <td className="p-6">
+                        <div className="flex gap-2">
+                          {isEditing ? (
+                            <>
+                              <button
+                                onClick={() => handleSave(report)}
+                                className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 shadow-sm hover:shadow"
+                              >
+                                <svg
+                                  className="w-4 h-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M5 13l4 4L19 7"
+                                  />
+                                </svg>
+                                Save
+                              </button>
+                              <button
+                                onClick={() => handleCancel(report)}
+                                className="inline-flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 shadow-sm hover:shadow"
+                              >
+                                <svg
+                                  className="w-4 h-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M6 18L18 6M6 6l12 12"
+                                  />
+                                </svg>
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => handleUpdateClick(report)}
+                              className="inline-flex items-center gap-2 bg-red-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 shadow-sm hover:shadow"
+                            >
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                />
+                              </svg>
+                              Update
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

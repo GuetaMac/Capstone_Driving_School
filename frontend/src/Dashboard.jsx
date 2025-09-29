@@ -24,6 +24,8 @@ import {
   Car,
   ListCheck,
   Menu,
+  Monitor,
+  Wrench,
 } from "lucide-react";
 import {
   User,
@@ -171,9 +173,11 @@ const DashboardPage = () => {
 
   const [stats, setStats] = useState({
     total_enrollments: 0,
+    total_online_tdc: 0,
     total_tdc: 0,
     total_pdc: 0,
     total_earnings: 0,
+    total_maintenance_price: 0,
   });
 
   useEffect(() => {
@@ -298,13 +302,30 @@ const DashboardPage = () => {
         </div>
       </div>
 
+      {/* Month Label */}
+      <div className="mb-4 text-center">
+        <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-700">
+          {new Date().toLocaleString("en-US", {
+            month: "long",
+            year: "numeric",
+          })}{" "}
+          Stats
+        </h2>
+      </div>
+
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
         <StatCard
           number={stats.total_enrollments}
           title="Total Enrollments"
           icon={<Users className="w-5 h-5 lg:w-6 lg:h-6" />}
           color="blue"
+        />
+        <StatCard
+          number={stats.total_online_tdc}
+          title="Online TDC"
+          icon={<Monitor className="w-5 h-5 lg:w-6 lg:h-6" />}
+          color="indigo"
         />
         <StatCard
           number={stats.total_tdc}
@@ -325,6 +346,14 @@ const DashboardPage = () => {
           title="Total Earnings"
           icon={<DollarSign className="w-5 h-5 lg:w-6 lg:h-6" />}
           color="purple"
+        />
+        <StatCard
+          number={`₱${stats.total_maintenance_price.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+          })}`}
+          title="Maintenance Expenses"
+          icon={<Wrench className="w-5 h-5 lg:w-6 lg:h-6" />}
+          color="red"
         />
       </div>
     </div>
@@ -755,7 +784,33 @@ const CoursesPage = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm({ ...form, [name]: value });
+
+    // Special validation for price field
+    if (name === "price") {
+      // Remove any non-numeric characters except decimal point
+      const numericValue = value.replace(/[^0-9.]/g, "");
+
+      // Prevent multiple decimal points
+      const parts = numericValue.split(".");
+      const cleanValue =
+        parts[0] + (parts.length > 1 ? "." + parts[1].slice(0, 2) : "");
+
+      // Check if value exceeds maximum allowed (99,999,999.99)
+      const numValue = parseFloat(cleanValue);
+      if (numValue > 99999999.99) {
+        Swal.fire({
+          title: "Invalid Price",
+          text: "Price cannot exceed ₱99,999,999.99",
+          icon: "warning",
+          confirmButtonColor: "#ef4444",
+        });
+        return; // Don't update state if value is too large
+      }
+
+      setForm({ ...form, [name]: cleanValue });
+    } else {
+      setForm({ ...form, [name]: value });
+    }
   };
 
   const handleImageChange = (e) => {
@@ -764,8 +819,39 @@ const CoursesPage = () => {
     setImagePreview(URL.createObjectURL(file));
   };
 
+  const validateForm = () => {
+    // Check if price is valid
+    const priceValue = parseFloat(form.price);
+    if (isNaN(priceValue) || priceValue <= 0) {
+      Swal.fire({
+        title: "Invalid Price",
+        text: "Please enter a valid price greater than 0",
+        icon: "error",
+        confirmButtonColor: "#ef4444",
+      });
+      return false;
+    }
+
+    if (priceValue > 99999999.99) {
+      Swal.fire({
+        title: "Price Too High",
+        text: "Price cannot exceed ₱99,999,999.99",
+        icon: "error",
+        confirmButtonColor: "#ef4444",
+      });
+      return false;
+    }
+
+    return true;
+  };
+
   const handleAddOrUpdate = async (e) => {
     e.preventDefault();
+
+    // Validate form before proceeding
+    if (!validateForm()) {
+      return;
+    }
 
     const action = form.course_id ? "update" : "add";
     const confirmResult = await Swal.fire({
@@ -818,7 +904,20 @@ const CoursesPage = () => {
       fetchCourses();
     } catch (err) {
       console.error("Error:", err);
-      Swal.fire("Error", "Something went wrong.", "error");
+
+      // Check if it's the numeric overflow error
+      if (
+        err.response?.data?.code === "22003" ||
+        err.message?.includes("numeric field overflow")
+      ) {
+        Swal.fire(
+          "Error",
+          "Price value is too large. Please enter a smaller amount.",
+          "error"
+        );
+      } else {
+        Swal.fire("Error", "Something went wrong.", "error");
+      }
     }
   };
 
@@ -957,13 +1056,17 @@ const CoursesPage = () => {
                 Price (₱)
               </label>
               <input
-                type="number"
+                type="text"
                 name="price"
                 value={form.price}
                 onChange={handleChange}
+                placeholder="0.00"
                 required
                 className="mt-1 sm:mt-2 block w-full border border-gray-300 rounded-lg shadow-sm text-sm sm:text-base py-2 px-3"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Maximum: ₱99,999,999.99
+              </p>
             </div>
           </div>
 
@@ -984,18 +1087,64 @@ const CoursesPage = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Course Image
             </label>
+
+            {/* Hidden file input */}
             <input
               type="file"
               accept="image/*"
               onChange={handleImageChange}
-              className="block w-full text-xs sm:text-sm text-gray-700"
+              className="hidden"
+              id="file-input"
             />
-            {imagePreview && (
-              <img
-                src={imagePreview}
-                alt="Preview"
-                className="mt-4 h-32 sm:h-40 rounded-lg object-cover border"
-              />
+
+            {/* Custom file upload button */}
+            {!imagePreview ? (
+              <label
+                htmlFor="file-input"
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer transition"
+              >
+                <svg
+                  className="w-5 h-5 mr-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                  />
+                </svg>
+                Choose Image
+              </label>
+            ) : (
+              <div className="relative inline-block">
+                <img
+                  src={imagePreview}
+                  alt="Preview"
+                  className="h-32 sm:h-40 rounded-lg object-cover border"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setImage(null);
+                    setImagePreview(null);
+                    document.getElementById("file-input").value = "";
+                  }}
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600 transition"
+                >
+                  ×
+                </button>
+                <div className="mt-2">
+                  <label
+                    htmlFor="file-input"
+                    className="inline-flex items-center px-3 py-1 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer transition"
+                  >
+                    Change Image
+                  </label>
+                </div>
+              </div>
             )}
           </div>
 
@@ -1155,41 +1304,59 @@ const CoursesPage = () => {
 const StudentsRecords = () => {
   const [records, setRecords] = useState([]);
   const [branches, setBranches] = useState([]);
+  const [years, setYears] = useState([]);
   const [selectedBranch, setSelectedBranch] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [selectedYear, setSelectedYear] = useState("");
   const [loading, setLoading] = useState(false);
+  // export handler
+  const handleExport = () => {
+    let url = `${import.meta.env.VITE_API_URL}/api/manager/export-records`;
 
-  // fetch branches for dropdown
+    const params = new URLSearchParams();
+    if (selectedBranch) params.append("branch_id", selectedBranch);
+    if (selectedMonth) params.append("month", selectedMonth);
+    if (selectedYear) params.append("year", selectedYear);
+
+    if (params.toString()) url += `?${params.toString()}`;
+
+    window.open(url, "_blank"); // directly download CSV file
+  };
+
+  // fetch branches
   useEffect(() => {
     fetch(`${import.meta.env.VITE_API_URL}/api/branches/records`)
       .then((res) => res.json())
-      .then((data) => {
-        console.log(" Branches fetched:", data);
-        setBranches(data);
-      })
+      .then((data) => setBranches(data))
       .catch((err) => console.error("❌ Error fetching branches:", err));
   }, []);
 
-  // fetch student records (all or filtered)
+  // fetch years
+  useEffect(() => {
+    fetch(`${import.meta.env.VITE_API_URL}/api/manager/years`)
+      .then((res) => res.json())
+      .then((data) => setYears(data))
+      .catch((err) => console.error("❌ Error fetching years:", err));
+  }, []);
+
+  // fetch student records
   useEffect(() => {
     setLoading(true);
     let url = `${import.meta.env.VITE_API_URL}/api/manager/student-records`;
 
-    // Only add branch_id parameter if a branch is selected and it's not empty
-    if (selectedBranch && selectedBranch !== "") {
-      url += `?branch_id=${encodeURIComponent(selectedBranch)}`;
-    }
+    const params = new URLSearchParams();
+    if (selectedBranch) params.append("branch_id", selectedBranch);
+    if (selectedMonth) params.append("month", selectedMonth);
+    if (selectedYear) params.append("year", selectedYear);
 
-    console.log("🔍 Fetching from URL:", url);
+    if (params.toString()) url += `?${params.toString()}`;
 
     fetch(url)
       .then((res) => {
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`);
-        }
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
         return res.json();
       })
       .then((data) => {
-        console.log("📌 Records fetched:", data);
         setRecords(Array.isArray(data) ? data : []);
         setLoading(false);
       })
@@ -1198,24 +1365,18 @@ const StudentsRecords = () => {
         setRecords([]);
         setLoading(false);
       });
-  }, [selectedBranch]);
-
-  const handleBranchChange = (e) => {
-    const value = e.target.value;
-    console.log("🔄 Branch changed to:", value);
-    setSelectedBranch(value);
-  };
+  }, [selectedBranch, selectedMonth, selectedYear]);
 
   return (
     <div className="p-4">
       <h2 className="text-xl font-bold mb-4">Student Records</h2>
 
-      {/* Branch filter dropdown */}
-      <div className="mb-4">
-        <label className="mr-2 font-semibold">Filter by Branch:</label>
+      {/* Filters */}
+      <div className="flex gap-4 mb-4">
+        {/* Branch Dropdown */}
         <select
           value={selectedBranch}
-          onChange={handleBranchChange}
+          onChange={(e) => setSelectedBranch(e.target.value)}
           className="border p-2 rounded"
           disabled={loading}
         >
@@ -1226,7 +1387,36 @@ const StudentsRecords = () => {
             </option>
           ))}
         </select>
-        {loading && <span className="ml-2 text-gray-500">Loading...</span>}
+
+        {/* Month Dropdown */}
+        <select
+          value={selectedMonth}
+          onChange={(e) => setSelectedMonth(e.target.value)}
+          className="border p-2 rounded"
+          disabled={loading}
+        >
+          <option value="">All Months</option>
+          {Array.from({ length: 12 }, (_, i) => (
+            <option key={i + 1} value={i + 1}>
+              {new Date(0, i).toLocaleString("default", { month: "long" })}
+            </option>
+          ))}
+        </select>
+
+        {/* Year Dropdown (Dynamic) */}
+        <select
+          value={selectedYear}
+          onChange={(e) => setSelectedYear(e.target.value)}
+          className="border p-2 rounded"
+          disabled={loading}
+        >
+          <option value="">All Years</option>
+          {years.map((yr) => (
+            <option key={yr} value={yr}>
+              {yr}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Records Table */}
@@ -1251,6 +1441,12 @@ const StudentsRecords = () => {
                 <th className="border border-gray-300 p-2 text-left">Course</th>
                 <th className="border border-gray-300 p-2 text-left">
                   Enrollment Date
+                </th>
+                <th className="border border-gray-300 p-2 text-left">
+                  Amount Paid
+                </th>
+                <th className="border border-gray-300 p-2 text-left">
+                  Payment Status
                 </th>
               </tr>
             </thead>
@@ -1279,10 +1475,27 @@ const StudentsRecords = () => {
                   <td className="border border-gray-300 p-2">
                     {new Date(rec.enrollment_date).toLocaleDateString()}
                   </td>
+                  <td className="border border-gray-300 p-2">
+                    {rec.amount_paid !== null ? `₱${rec.amount_paid}` : "N/A"}
+                  </td>
+                  <td className="border border-gray-300 p-2">
+                    {rec.payment_status || "N/A"}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          <div className="flex justify-between mb-4">
+            <div className="flex gap-4">
+              {/* filters here (branch, month, year) */}
+            </div>
+            <button
+              onClick={handleExport}
+              className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700"
+            >
+              Export CSV
+            </button>
+          </div>
         </div>
       )}
 
@@ -1290,8 +1503,8 @@ const StudentsRecords = () => {
       {!loading && (
         <div className="mt-4 text-sm text-gray-600">
           Showing {records.length} record{records.length !== 1 ? "s" : ""}
-          {selectedBranch && selectedBranch !== "" && (
-            <span> for selected branch</span>
+          {(selectedBranch || selectedMonth || selectedYear) && (
+            <span> (filtered)</span>
           )}
         </div>
       )}
@@ -1307,7 +1520,6 @@ const AnnouncementsPage = () => {
   const [selectedBranch, setSelectedBranch] = useState("");
   const [announcements, setAnnouncements] = useState([]);
   const [editingId, setEditingId] = useState(null);
-  const [showForm, setShowForm] = useState(false);
   const [alert, setAlert] = useState(null);
 
   const fetchBranches = async () => {
@@ -1397,7 +1609,6 @@ const AnnouncementsPage = () => {
       setContent("");
       setBranchId("");
       setEditingId(null);
-      setShowForm(false);
       fetchAnnouncements();
     } catch (err) {
       console.error("Failed to submit announcement:", err);
@@ -1440,7 +1651,6 @@ const AnnouncementsPage = () => {
     setContent(announcement.content);
     setBranchId(announcement.branch_id || "");
     setEditingId(announcement.announcement_id);
-    setShowForm(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -1449,7 +1659,6 @@ const AnnouncementsPage = () => {
     setTitle("");
     setContent("");
     setBranchId("");
-    setShowForm(false);
   };
 
   const formatDate = (dateString) => {
@@ -1468,24 +1677,13 @@ const AnnouncementsPage = () => {
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="py-4 sm:py-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                  Announcements
-                </h1>
-                <p className="mt-1 sm:mt-2 text-sm text-gray-600">
-                  Manage and broadcast important announcements to all branches
-                </p>
-              </div>
-              <div className="w-full sm:w-auto">
-                <button
-                  onClick={() => setShowForm(!showForm)}
-                  className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Announcement
-                </button>
-              </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                Announcements
+              </h1>
+              <p className="mt-1 sm:mt-2 text-sm text-gray-600">
+                Manage and broadcast important announcements to all branches
+              </p>
             </div>
           </div>
         </div>
@@ -1523,99 +1721,82 @@ const AnnouncementsPage = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
           {/* Form Section */}
           <div className="lg:col-span-1 order-2 lg:order-1">
-            <div
-              className={`bg-white rounded-xl shadow-sm border transition-all duration-300 ${
-                showForm
-                  ? "opacity-100 transform translate-y-0"
-                  : "opacity-50 transform translate-y-2"
-              }`}
-            >
+            <div className="bg-white rounded-xl shadow-sm border">
               <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
                 <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
                   {editingId ? "Edit Announcement" : "Create New Announcement"}
                 </h2>
               </div>
 
-              {showForm && (
-                <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Title
-                    </label>
-                    <input
-                      type="text"
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-colors duration-200"
-                      placeholder="Enter announcement title"
-                    />
-                  </div>
+              <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Title
+                  </label>
+                  <input
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-colors duration-200"
+                    placeholder="Enter announcement title"
+                  />
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Content
-                    </label>
-                    <textarea
-                      value={content}
-                      onChange={(e) => setContent(e.target.value)}
-                      className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-colors duration-200"
-                      rows="4"
-                      placeholder="Enter announcement content"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Content
+                  </label>
+                  <textarea
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-colors duration-200"
+                    rows="4"
+                    placeholder="Enter announcement content"
+                  />
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Target Branch
-                    </label>
-                    <select
-                      value={branchId}
-                      onChange={(e) => setBranchId(e.target.value)}
-                      className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-colors duration-200"
-                    >
-                      <option value="">All Branches</option>
-                      {branches.map((branch) => (
-                        <option key={branch.branch_id} value={branch.branch_id}>
-                          {branch.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Target Branch
+                  </label>
+                  <select
+                    value={branchId}
+                    onChange={(e) => setBranchId(e.target.value)}
+                    className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-colors duration-200"
+                  >
+                    <option value="">All Branches</option>
+                    {branches.map((branch) => (
+                      <option key={branch.branch_id} value={branch.branch_id}>
+                        {branch.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-                  <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-3">
+                  <button
+                    onClick={handleSubmit}
+                    disabled={loading}
+                    className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 font-medium text-sm sm:text-base"
+                  >
+                    {loading
+                      ? "Processing..."
+                      : editingId
+                      ? "Update Announcement"
+                      : "Post Announcement"}
+                  </button>
+
+                  {editingId && (
                     <button
-                      onClick={handleSubmit}
-                      disabled={loading}
-                      className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 font-medium text-sm sm:text-base"
+                      type="button"
+                      onClick={handleCancelEdit}
+                      className="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200 font-medium text-sm sm:text-base"
                     >
-                      {loading
-                        ? "Processing..."
-                        : editingId
-                        ? "Update Announcement"
-                        : "Post Announcement"}
+                      Cancel
                     </button>
-
-                    {editingId && (
-                      <button
-                        type="button"
-                        onClick={handleCancelEdit}
-                        className="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200 font-medium text-sm sm:text-base"
-                      >
-                        Cancel
-                      </button>
-                    )}
-                  </div>
+                  )}
                 </div>
-              )}
-
-              {!showForm && (
-                <div className="p-6 text-center text-gray-500">
-                  <Plus className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">
-                    Click "New Announcement" to get started
-                  </p>
-                </div>
-              )}
+              </div>
             </div>
           </div>
 
@@ -1654,7 +1835,7 @@ const AnnouncementsPage = () => {
                       No announcements found
                     </h3>
                     <p className="text-sm text-gray-500">
-                      Create your first announcement to get started.
+                      Create your first announcement using the form on the left.
                     </p>
                   </div>
                 ) : (
@@ -3127,8 +3308,60 @@ const AttendancePage = () => {
     );
   });
 
+  // Calculate instructor totals based on current filters (excluding status filter for total count)
+  const getInstructorTotals = () => {
+    // Filter without status to get total count for each instructor
+    const attendanceForTotals = attendance.filter((record) => {
+      const matchesName = record.instructor_name
+        .toLowerCase()
+        .includes(filterName.toLowerCase());
+
+      const recordDate = new Date(record.date);
+      const recordYear = recordDate.getFullYear().toString();
+      const recordMonth = String(recordDate.getMonth() + 1).padStart(2, "0");
+
+      const matchesYear = filterYear ? recordYear === filterYear : true;
+      const matchesMonth = filterMonth ? recordMonth === filterMonth : true;
+      const matchesBranch = filterBranch
+        ? record.branch_id.toString() === filterBranch
+        : true;
+
+      const matchesTab = activeTab === "today" ? record.date === today : true;
+
+      return (
+        matchesName &&
+        matchesYear &&
+        matchesMonth &&
+        matchesBranch &&
+        matchesTab
+      );
+    });
+
+    // Group by instructor
+    const instructorTotals = {};
+    attendanceForTotals.forEach((record) => {
+      const key = `${record.user_id}`;
+      if (!instructorTotals[key]) {
+        instructorTotals[key] = {
+          total: 0,
+          present: 0,
+          absent: 0,
+        };
+      }
+      instructorTotals[key].total++;
+      if (record.status === "present") {
+        instructorTotals[key].present++;
+      } else {
+        instructorTotals[key].absent++;
+      }
+    });
+
+    return instructorTotals;
+  };
+
   const stats = getTodayStats();
   const branchStats = getBranchStats();
+  const instructorTotals = getInstructorTotals();
 
   if (loading) {
     return (
@@ -3433,72 +3666,105 @@ const AttendancePage = () => {
                   <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Total
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
+                // Replace the table row section in your AttendancePage
+                component with this fixed version:
                 {filteredAttendance.length > 0 ? (
-                  filteredAttendance.map((record) => (
-                    <tr
-                      key={record.attendance_id || record.id}
-                      className="hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
-                        <div className="sm:hidden">
-                          {new Date(record.date).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </div>
-                        <div className="hidden sm:block">
-                          {new Date(record.date).toLocaleDateString("en-US", {
-                            weekday: "short",
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </div>
-                      </td>
-                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-xs sm:text-sm font-medium text-gray-900">
-                            {record.instructor_name}
+                  filteredAttendance.map((record) => {
+                    const instructorTotal = instructorTotals[
+                      record.user_id
+                    ] || {
+                      total: 0,
+                      present: 0,
+                      absent: 0,
+                    };
+
+                    return (
+                      <tr
+                        key={record.attendance_id || record.id}
+                        className="hover:bg-gray-50 transition-colors"
+                      >
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
+                          <div className="sm:hidden">
+                            {new Date(record.date).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                            })}
                           </div>
-                          <div className="text-xs text-gray-500">
-                            @{record.username}
+                          <div className="hidden sm:block">
+                            {new Date(record.date).toLocaleDateString("en-US", {
+                              weekday: "short",
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })}
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
-                        <div className="truncate max-w-[100px] sm:max-w-none">
-                          {record.branch_name}
-                        </div>
-                      </td>
-                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            record.status === "present"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-red-100 text-red-800"
-                          }`}
-                        >
-                          {record.status === "present" ? (
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                          ) : (
-                            <XCircle className="h-3 w-3 mr-1" />
-                          )}
-                          <span className="hidden sm:inline">
-                            {record.status.toUpperCase()}
+                        </td>
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                          <div>
+                            <div className="text-xs sm:text-sm font-medium text-gray-900">
+                              {record.instructor_name}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              @{record.username}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
+                          <div className="truncate max-w-[100px] sm:max-w-none">
+                            {record.branch_name}
+                          </div>
+                        </td>
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              record.status === "present"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-red-100 text-red-800"
+                            }`}
+                          >
+                            {record.status === "present" ? (
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                            ) : (
+                              <XCircle className="h-3 w-3 mr-1" />
+                            )}
+                            <span className="hidden sm:inline">
+                              {record.status.toUpperCase()}
+                            </span>
+                            <span className="sm:hidden">
+                              {record.status === "present" ? "P" : "A"}
+                            </span>
                           </span>
-                          <span className="sm:hidden">
-                            {record.status === "present" ? "P" : "A"}
-                          </span>
-                        </span>
-                      </td>
-                    </tr>
-                  ))
+                        </td>
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
+                          <div className="flex flex-col space-y-1">
+                            {/* Show total count */}
+                            <div className="font-medium text-blue-600">
+                              {instructorTotal.total} total
+                            </div>
+                            {/* Show present/absent breakdown */}
+                            <div className="text-xs text-gray-500">
+                              <span className="text-green-600">
+                                {instructorTotal.present}P
+                              </span>
+                              {" / "}
+                              <span className="text-red-600">
+                                {instructorTotal.absent}A
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
-                    <td colSpan="4" className="px-3 sm:px-6 py-12 text-center">
+                    <td colSpan="5" className="px-3 sm:px-6 py-12 text-center">
                       <Filter className="h-8 sm:h-12 w-8 sm:w-12 text-gray-400 mx-auto mb-3" />
                       <p className="text-gray-600 text-sm sm:text-base">
                         No attendance records found

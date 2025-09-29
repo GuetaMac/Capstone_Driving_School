@@ -11,6 +11,7 @@ const nodemailer = require("nodemailer");
 const { v4: uuidv4 } = require("uuid");
 const fs = require("fs");
 const PDFDocument = require("pdfkit");
+const { Parser } = require("json2csv");
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -598,6 +599,7 @@ app.get("/enrollments", authenticateToken, async (req, res) => {
     s.is_theoretical,
     e.payment_status,
     e.status,
+    e.has_feedback,
     u.name AS instructor_name
   FROM enrollments e
   LEFT JOIN schedules s ON e.schedule_id = s.schedule_id
@@ -1625,24 +1627,24 @@ app.post("/api/feedback/:enrollmentId", async (req, res) => {
     // Fixed SQL query with proper string quotes
     const result = await pool.query(
       `INSERT INTO feedback (
-        enrollment_id,
-        training_course_q1, training_course_q2, training_course_q3, training_course_q4, training_course_q5,
-        instructor_q1, instructor_q2, instructor_q3, instructor_q4, instructor_q5,
-        admin_q1, admin_q2, admin_q3,
-        classroom_q1, classroom_q2, classroom_q3, classroom_q4, classroom_q5,
-        vehicle_q1, vehicle_q2, vehicle_q3,
-        instructor_comments,
-        comments
-      )
-      VALUES (
-        $1, $2, $3, $4, $5, $6,
-        $7, $8, $9, $10, $11,
-        $12, $13, $14,
-        $15, $16, $17, $18, $19,
-        $20, $21, $22,
-        $23, $24
-      )
-      RETURNING feedback_id`,
+    enrollment_id,
+    training_course_q1, training_course_q2, training_course_q3, training_course_q4, training_course_q5,
+    instructor_q1, instructor_q2, instructor_q3, instructor_q4, instructor_q5,
+    admin_q1, admin_q2, admin_q3,
+    classroom_q1, classroom_q2, classroom_q3, classroom_q4, classroom_q5,
+    vehicle_q1, vehicle_q2, vehicle_q3,
+    instructor_comments,
+    comments
+  )
+  VALUES (
+    $1, $2, $3, $4, $5, $6,
+    $7, $8, $9, $10, $11,
+    $12, $13, $14,
+    $15, $16, $17, $18, $19,
+    $20, $21, $22,
+    $23, $24
+  )
+  RETURNING feedback_id`,
       [
         enrollmentId,
         training_course_q1,
@@ -1671,8 +1673,14 @@ app.post("/api/feedback/:enrollmentId", async (req, res) => {
       ]
     );
 
+    // Update enrollment flag before sending response
+    await pool.query(
+      "UPDATE enrollments SET has_feedback = TRUE WHERE enrollment_id = $1",
+      [enrollmentId]
+    );
+
     console.log("Feedback inserted successfully:", result.rows[0]);
-    res.status(200).json({
+    return res.status(200).json({
       message: "Feedback submitted successfully!",
       feedback_id: result.rows[0].feedback_id,
     });
@@ -2159,27 +2167,30 @@ app.get(
         `
   
     SELECT 
-        COUNT(*) AS total_enrollments,
-        COALESCE(SUM(e.amount_paid), 0) AS total_earnings,
-        COUNT(*) FILTER (
-            WHERE e.instructor_id IS NULL
-              AND c.name NOT ILIKE 'Online Theoretical Driving Course'
-        ) AS no_instructor_assigned,
-        COUNT(*) FILTER (
-            WHERE e.payment_status != 'Fully Paid'
-        ) AS unpaid_count,
-        (
-            SELECT COALESCE(SUM(m.price), 0)
-            FROM maintenance_reports m
-            JOIN users iu ON m.instructor_id = iu.user_id
-            WHERE m.status = 'Resolved'
-              AND iu.branch_id = $1
-        ) AS total_expenses
+    COUNT(*) AS total_enrollments,
+    COALESCE(SUM(e.amount_paid), 0) AS total_earnings,
+    COUNT(*) FILTER (
+        WHERE e.instructor_id IS NULL
+          AND c.name NOT ILIKE 'Online Theoretical Driving Course'
+    ) AS no_instructor_assigned,
+    COUNT(*) FILTER (
+        WHERE e.payment_status != 'Fully Paid'
+    ) AS unpaid_count,
+    (
+        SELECT COALESCE(SUM(m.price), 0)
+        FROM maintenance_reports m
+        JOIN users iu ON m.instructor_id = iu.user_id
+        WHERE m.status = 'Resolved'
+          AND iu.branch_id = $1
+          AND DATE_TRUNC('month', m.created_at) = DATE_TRUNC('month', CURRENT_DATE)
+    ) AS total_expenses
     FROM enrollments e
     LEFT JOIN schedules s ON e.schedule_id = s.schedule_id
     JOIN users u ON e.user_id = u.user_id
     JOIN courses c ON e.course_id = c.course_id
-    WHERE (s.branch_id = $1 OR u.branch_id = $1);
+    WHERE (s.branch_id = $1 OR u.branch_id = $1)
+      AND DATE_TRUNC('month', e.enrollment_date) = DATE_TRUNC('month', CURRENT_DATE);
+
 
 
       `,
@@ -2194,26 +2205,41 @@ app.get(
   }
 );
 
-//GET SUMMARY FOR MANAGER DASHBOARD
+// GET SUMMARY FOR MANAGER DASHBOARD (CURRENT MONTH + Online TDC + Maintenance Price)
 app.get("/api/dashboard-stats", async (req, res) => {
   try {
     const query = `
-     SELECT
-    COUNT(*) AS total_enrollments,
-    SUM(CASE WHEN c.name ILIKE '%THEORETICAL DRIVING COURSE%' THEN 1 ELSE 0 END) AS total_tdc,
-    SUM(CASE WHEN c.name NOT ILIKE '%THEORETICAL DRIVING COURSE%' THEN 1 ELSE 0 END) AS total_pdc,
-    COALESCE(SUM(e.amount_paid), 0) AS total_earnings
-FROM enrollments e
-JOIN courses c ON e.course_id = c.course_id;
-
+      WITH enrollment_stats AS (
+        SELECT
+          COUNT(*) AS total_enrollments,
+          SUM(CASE WHEN c.name ILIKE '%ONLINE THEORETICAL DRIVING COURSE%' THEN 1 ELSE 0 END) AS total_online_tdc,
+          SUM(CASE WHEN c.name ILIKE '%THEORETICAL DRIVING COURSE%' 
+                   AND c.name NOT ILIKE '%ONLINE%' THEN 1 ELSE 0 END) AS total_tdc,
+          SUM(CASE WHEN c.name NOT ILIKE '%THEORETICAL DRIVING COURSE%' THEN 1 ELSE 0 END) AS total_pdc,
+          COALESCE(SUM(e.amount_paid), 0) AS total_earnings
+        FROM enrollments e
+        JOIN courses c ON e.course_id = c.course_id
+        WHERE DATE_TRUNC('month', e.enrollment_date) = DATE_TRUNC('month', CURRENT_DATE)
+      ),
+      maintenance_stats AS (
+        SELECT COALESCE(SUM(price), 0) AS total_maintenance_price
+        FROM maintenance_reports
+        WHERE DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE)
+      )
+      SELECT *
+      FROM enrollment_stats, maintenance_stats;
     `;
+
     const { rows } = await pool.query(query);
     const stats = rows[0];
+
     res.json({
       total_enrollments: parseInt(stats.total_enrollments, 10),
+      total_online_tdc: parseInt(stats.total_online_tdc, 10),
       total_tdc: parseInt(stats.total_tdc, 10),
       total_pdc: parseInt(stats.total_pdc, 10),
       total_earnings: parseFloat(stats.total_earnings),
+      total_maintenance_price: parseFloat(stats.total_maintenance_price),
     });
   } catch (err) {
     console.error("Error fetching dashboard stats:", err);
@@ -2251,10 +2277,11 @@ app.get("/api/admin/student-records", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch student records" });
   }
 });
-// get student records for manager (with optional branch filter)
+
+//  Student Records API
 app.get("/api/manager/student-records", async (req, res) => {
   try {
-    const { branch_id } = req.query;
+    const { branch_id, month, year } = req.query;
     let query = `
       SELECT
         u.user_id,
@@ -2264,34 +2291,70 @@ app.get("/api/manager/student-records", async (req, res) => {
         e.address,
         b.name AS branch_name,
         c.name AS course_name,
-        e.enrollment_date
+        e.enrollment_date,
+        e.payment_status,
+        e.amount_paid
       FROM enrollments e
       JOIN users u ON e.user_id = u.user_id
       JOIN branches b ON u.branch_id = b.branch_id
       JOIN courses c ON e.course_id = c.course_id
+      WHERE 1=1
     `;
 
     let params = [];
+    let idx = 1;
 
-    // Filter by branch_id if provided
-    if (branch_id && branch_id !== "") {
-      query += ` WHERE u.branch_id = $1`; // Use u.branch_id instead of b.branch_id
-      params.push(parseInt(branch_id)); // Ensure it's an integer
+    if (branch_id) {
+      query += ` AND u.branch_id = $${idx++}`;
+      params.push(parseInt(branch_id));
+    }
+
+    if (month) {
+      query += ` AND EXTRACT(MONTH FROM e.enrollment_date) = $${idx++}`;
+      params.push(parseInt(month));
+    }
+
+    if (year) {
+      query += ` AND EXTRACT(YEAR FROM e.enrollment_date) = $${idx++}`;
+      params.push(parseInt(year));
     }
 
     query += ` ORDER BY e.enrollment_date DESC`;
 
-    console.log("🔍 Query:", query);
-    console.log("📋 Params:", params);
-
     const result = await pool.query(query, params);
-
-    console.log(`✅ Found ${result.rows.length} records`);
-
     res.json(result.rows);
   } catch (err) {
     console.error("❌ Error fetching student records:", err);
     res.status(500).json({ error: "Failed to fetch student records" });
+  }
+});
+
+// 📌 Fetch Branches
+app.get("/api/branches/records", async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT branch_id, name FROM branches ORDER BY name ASC"
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("❌ Error fetching branches:", err);
+    res.status(500).json({ error: "Failed to fetch branches" });
+  }
+});
+
+//  Fetch Available Years
+app.get("/api/manager/years", async (req, res) => {
+  try {
+    const query = `
+      SELECT DISTINCT EXTRACT(YEAR FROM enrollment_date)::INT AS year
+      FROM enrollments
+      ORDER BY year DESC
+    `;
+    const result = await pool.query(query);
+    res.json(result.rows.map((r) => r.year));
+  } catch (err) {
+    console.error("❌ Error fetching years:", err);
+    res.status(500).json({ error: "Failed to fetch years" });
   }
 });
 
@@ -2794,7 +2857,7 @@ app.get("/api/attendance/today", authenticateToken, async (req, res) => {
 
 app.put("/change-password", authenticateToken, async (req, res) => {
   const { oldPassword, newPassword } = req.body;
-  const userId = req.user.userId; 
+  const userId = req.user.userId;
 
   try {
     const result = await pool.query(
@@ -2826,6 +2889,167 @@ app.put("/change-password", authenticateToken, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
+app.get("/api/feedback/status", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Query feedback table to get enrollments na may feedback na
+    const query = `
+      SELECT DISTINCT enrollment_id 
+      FROM feedback 
+      WHERE user_id = ? OR enrollment_id IN (
+        SELECT enrollment_id FROM enrollments WHERE user_id = ?
+      )
+    `;
+
+    const results = await db.query(query, [userId, userId]);
+    const submittedEnrollments = results.map((row) => row.enrollment_id);
+
+    res.json({ submittedEnrollments });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to check feedback status" });
+  }
+});
+
+// 📌 Export Student Records as CSV
+app.get("/api/manager/export-records", async (req, res) => {
+  try {
+    const { branch_id, month, year } = req.query;
+    let query = `
+      SELECT
+        u.name AS student_name,
+        u.email,
+        e.contact_number,
+        e.address,
+        b.name AS branch_name,
+        c.name AS course_name,
+        e.enrollment_date,
+        e.amount_paid,
+        e.payment_status
+      FROM enrollments e
+      JOIN users u ON e.user_id = u.user_id
+      JOIN branches b ON u.branch_id = b.branch_id
+      JOIN courses c ON e.course_id = c.course_id
+      WHERE 1=1
+    `;
+
+    let params = [];
+    let idx = 1;
+
+    if (branch_id) {
+      query += ` AND u.branch_id = $${idx++}`;
+      params.push(parseInt(branch_id));
+    }
+    if (month) {
+      query += ` AND EXTRACT(MONTH FROM e.enrollment_date) = $${idx++}`;
+      params.push(parseInt(month));
+    }
+    if (year) {
+      query += ` AND EXTRACT(YEAR FROM e.enrollment_date) = $${idx++}`;
+      params.push(parseInt(year));
+    }
+
+    query += ` ORDER BY e.enrollment_date DESC`;
+
+    const result = await pool.query(query, params);
+
+    const fields = [
+      "student_name",
+      "email",
+      "contact_number",
+      "address",
+      "branch_name",
+      "course_name",
+      "enrollment_date",
+      "amount_paid",
+      "payment_status",
+    ];
+
+    const parser = new Parser({ fields });
+    const csv = parser.parse(result.rows);
+
+    res.header("Content-Type", "text/csv");
+    res.attachment("student_records.csv");
+    return res.send(csv);
+  } catch (err) {
+    console.error("❌ Error exporting student records:", err);
+    res.status(500).json({ error: "Failed to export student records" });
+  }
+});
+
+app.delete(
+  "/api/admin/enrollments/:enrollmentId",
+  authenticateToken,
+  async (req, res) => {
+    const { enrollmentId } = req.params;
+    const adminBranchId = req.user.branch_id;
+
+    try {
+      // Verify enrollment exists and belongs to admin's branch
+      const checkResult = await pool.query(
+        `SELECT e.enrollment_id, e.user_id, e.course_id,
+              u.name AS student_name, c.name AS course_name,
+              s.branch_id, u.branch_id AS student_branch_id
+       FROM enrollments e
+       JOIN users u ON e.user_id = u.user_id
+       JOIN courses c ON e.course_id = c.course_id
+       LEFT JOIN schedules s ON e.schedule_id = s.schedule_id
+       WHERE e.enrollment_id = $1`,
+        [enrollmentId]
+      );
+
+      if (checkResult.rows.length === 0) {
+        return res.status(404).json({ error: "Enrollment not found" });
+      }
+
+      const enrollment = checkResult.rows[0];
+      const hasAccess =
+        enrollment.branch_id === adminBranchId ||
+        (enrollment.course_name === "ONLINE THEORETICAL DRIVING COURSE" &&
+          enrollment.student_branch_id === adminBranchId);
+
+      if (!hasAccess) {
+        return res.status(403).json({
+          error: "You don't have permission to delete this enrollment",
+        });
+      }
+
+      await pool.query("BEGIN");
+      const deleteResult = await pool.query(
+        `DELETE FROM enrollments WHERE enrollment_id = $1`,
+        [enrollmentId]
+      );
+
+      if (deleteResult.rowCount === 0) {
+        await pool.query("ROLLBACK");
+        return res
+          .status(404)
+          .json({ error: "Enrollment not found or already deleted" });
+      }
+
+      await pool.query("COMMIT");
+
+      console.log(
+        `✅ Enrollment deleted: ID ${enrollmentId}, Student: ${enrollment.student_name}`
+      );
+
+      res.json({
+        message: "Enrollment deleted successfully",
+        deleted_enrollment: {
+          enrollment_id: enrollmentId,
+          student_name: enrollment.student_name,
+          course_name: enrollment.course_name,
+        },
+      });
+    } catch (error) {
+      console.error("❌ Error deleting enrollment:", error);
+      res
+        .status(500)
+        .json({ error: "Failed to delete enrollment. Please try again." });
+    }
+  }
+);
 
 app.listen(port, "0.0.0.0", () => {
   console.log(`Server running on http://0.0.0.0:${port}`);

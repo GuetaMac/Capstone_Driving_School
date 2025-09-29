@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { FaFacebook, FaInstagram, FaTwitter } from "react-icons/fa";
 import { Menu, X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
 
 function LandingPage() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -28,6 +30,7 @@ function LandingPage() {
   const isLoggedIn = localStorage.getItem("userToken");
   const userRole = localStorage.getItem("role");
   const userId = localStorage.getItem("userId");
+  const navigate = useNavigate();
 
   // Default testimonials if no featured comments are available
   const defaultTestimonials = [
@@ -95,13 +98,25 @@ function LandingPage() {
 
   const handleEnrollClick = (course) => {
     if (!isLoggedIn || userRole !== "student") {
-      alert("Please log in as a student to enroll.");
+      Swal.fire({
+        title: "Login Required",
+        text: "Please log in as a student to enroll in this course.",
+        icon: "info",
+        showCancelButton: true,
+        confirmButtonColor: "#ef4444",
+        cancelButtonColor: "#6b7280",
+        confirmButtonText: "Go to Login",
+        cancelButtonText: "Cancel",
+      }).then((result) => {
+        if (result.isConfirmed) {
+          navigate("/login");
+        }
+      });
       return;
     }
     setSelectedCourse(course);
     setShowEnrollModal(true);
   };
-
   // Close mobile menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
