@@ -3051,6 +3051,174 @@ app.delete(
   }
 );
 
+// Add this to your Express backend server
+// No additional packages needed - uses native fetch
+
+app.post("/api/generate-insights", async (req, res) => {
+  try {
+    const { chartType, data, context } = req.body;
+
+    // Validate input
+    if (!chartType || !data || !context) {
+      return res.status(400).json({
+        error: "Missing required fields: chartType, data, or context",
+      });
+    }
+
+    // Create a simple, concise prompt
+    const prompt = `Analyze this ${chartType} data briefly:
+
+${JSON.stringify(data, null, 2)}
+
+Context: ${context}
+
+Give me 3-4 SHORT insights using simple words. Make each point 1 sentence only. Focus on what's important and what to do.`;
+
+    // Call Google Gemini API (using gemini-2.0-flash - more stable)
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: prompt,
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.7,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 250,
+            candidateCount: 1,
+            stopSequences: [],
+          },
+          safetySettings: [
+            {
+              category: "HARM_CATEGORY_HARASSMENT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE",
+            },
+            {
+              category: "HARM_CATEGORY_HATE_SPEECH",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE",
+            },
+            {
+              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE",
+            },
+            {
+              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE",
+            },
+          ],
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("Gemini API Error:", errorData);
+
+      // Handle specific error cases
+      if (response.status === 429) {
+        return res.status(429).json({
+          error: "Rate limit exceeded. Please try again in a moment.",
+        });
+      }
+
+      if (response.status === 401) {
+        return res.status(500).json({
+          error: "Invalid API key. Please check your Gemini API configuration.",
+        });
+      }
+
+      throw new Error(`Gemini API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+
+    // Log the full response for debugging
+    console.log("Gemini API Response:", JSON.stringify(result, null, 2));
+
+    // Extract the generated text with better error handling
+    if (result.candidates && result.candidates.length > 0) {
+      const candidate = result.candidates[0];
+
+      // Check if content and parts exist
+      if (
+        candidate.content &&
+        candidate.content.parts &&
+        candidate.content.parts.length > 0
+      ) {
+        const insights = candidate.content.parts[0].text;
+
+        res.json({
+          insights,
+          success: true,
+        });
+      } else if (candidate.finishReason === "MAX_TOKENS") {
+        // Handle MAX_TOKENS error
+        throw new Error(
+          "Response was too long and got cut off. Please try again with a smaller dataset."
+        );
+      } else if (candidate.finishReason === "SAFETY") {
+        // Handle safety filter
+        throw new Error(
+          "Content was blocked by safety filters. Please try with different data."
+        );
+      } else {
+        console.error("No parts in response. Candidate:", candidate);
+        throw new Error("No content generated - response may be empty");
+      }
+    } else if (result.error) {
+      console.error("Gemini API returned error:", result.error);
+      throw new Error(result.error.message || "Gemini API error");
+    } else {
+      console.error("No candidates in response:", result);
+      throw new Error("No insights generated - empty response");
+    }
+  } catch (error) {
+    console.error("Generate Insights Error:", error);
+    res.status(500).json({
+      error: "Failed to generate insights. Please try again.",
+      details: error.message,
+    });
+  }
+});
+
+// Optional: Health check endpoint to test API key
+app.get("/api/check-gemini", async (req, res) => {
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash?key=${process.env.GEMINI_API_KEY}`
+    );
+
+    if (response.ok) {
+      res.json({
+        status: "Gemini API is configured correctly",
+        success: true,
+      });
+    } else {
+      res.status(500).json({
+        status: "Gemini API key may be invalid",
+        success: false,
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      status: "Failed to connect to Gemini API",
+      success: false,
+      error: error.message,
+    });
+  }
+});
 app.listen(port, "0.0.0.0", () => {
   console.log(`Server running on http://0.0.0.0:${port}`);
 });

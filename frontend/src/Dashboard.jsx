@@ -26,6 +26,7 @@ import {
   Menu,
   Monitor,
   Wrench,
+  Sparkles,
 } from "lucide-react";
 import {
   User,
@@ -2509,12 +2510,13 @@ const AnalyticsPage = () => {
   const [error, setError] = useState(null);
   const [selectedBranch, setSelectedBranch] = useState("");
   const [branches, setBranches] = useState([]);
-
-  // New filter states
   const [selectedYear, setSelectedYear] = useState("");
   const [selectedMonth, setSelectedMonth] = useState("");
 
-  // Generate year options (current year and past 5 years)
+  // Insights state for each chart
+  const [insights, setInsights] = useState({});
+  const [loadingInsights, setLoadingInsights] = useState({});
+
   const generateYearOptions = () => {
     const currentYear = new Date().getFullYear();
     const years = [];
@@ -2524,7 +2526,6 @@ const AnalyticsPage = () => {
     return years;
   };
 
-  // Month options
   const monthOptions = [
     { value: "", label: "All Months" },
     { value: "1", label: "January" },
@@ -2541,11 +2542,45 @@ const AnalyticsPage = () => {
     { value: "12", label: "December" },
   ];
 
+  // Function to generate insights
+  const generateInsights = async (chartId, chartType, chartData, context) => {
+    setLoadingInsights((prev) => ({ ...prev, [chartId]: true }));
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/generate-insights`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            chartType,
+            data: chartData,
+            context,
+          }),
+        }
+      );
+
+      if (!response.ok) throw new Error("Failed to generate insights");
+
+      const result = await response.json();
+      setInsights((prev) => ({ ...prev, [chartId]: result.insights }));
+    } catch (error) {
+      console.error("Error generating insights:", error);
+      setInsights((prev) => ({
+        ...prev,
+        [chartId]: "Failed to generate insights. Please try again.",
+      }));
+    } finally {
+      setLoadingInsights((prev) => ({ ...prev, [chartId]: false }));
+    }
+  };
+
   const fetchAnalytics = async (branchId = "", year = "", month = "") => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-
       if (branchId) params.append("branch_id", branchId);
       if (year) params.append("year", year);
       if (month) params.append("month", month);
@@ -2555,9 +2590,8 @@ const AnalyticsPage = () => {
       }`;
 
       const res = await fetch(url);
-      if (!res.ok) {
-        throw new Error("Failed to fetch analytics data");
-      }
+      if (!res.ok) throw new Error("Failed to fetch analytics data");
+
       const fetchedData = await res.json();
       setData(fetchedData);
       setBranches(fetchedData.branches || []);
@@ -2631,15 +2665,62 @@ const AnalyticsPage = () => {
     </div>
   );
 
-  const ChartContainer = ({ title, children, className = "" }) => (
+  const ChartContainer = ({
+    title,
+    children,
+    chartId,
+    chartType,
+    chartData,
+    context,
+    className = "",
+  }) => (
     <div
       className={`bg-white rounded-xl shadow-lg p-4 sm:p-6 hover:shadow-xl transition-all duration-300 ${className}`}
     >
-      <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-4 sm:mb-6 flex items-center">
-        <div className="w-1 h-4 sm:h-6 bg-blue-500 rounded mr-2 sm:mr-3"></div>
-        <span className="truncate">{title}</span>
-      </h3>
+      <div className="flex items-center justify-between mb-4 sm:mb-6">
+        <h3 className="text-lg sm:text-xl font-bold text-gray-800 flex items-center">
+          <div className="w-1 h-4 sm:h-6 bg-blue-500 rounded mr-2 sm:mr-3"></div>
+          <span className="truncate">{title}</span>
+        </h3>
+        <button
+          onClick={() =>
+            generateInsights(chartId, chartType, chartData, context)
+          }
+          disabled={loadingInsights[chartId]}
+          className="flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+        >
+          {loadingInsights[chartId] ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              <span className="hidden sm:inline">Generating...</span>
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-4 h-4" />
+              <span className="hidden sm:inline">Generate Insights</span>
+              <span className="sm:hidden">AI</span>
+            </>
+          )}
+        </button>
+      </div>
+
       {children}
+
+      {insights[chartId] && (
+        <div className="mt-4 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
+          <div className="flex items-start space-x-2">
+            <Lightbulb className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h4 className="font-semibold text-purple-900 mb-2">
+                AI Insights
+              </h4>
+              <div className="text-sm text-gray-700 whitespace-pre-line">
+                {insights[chartId]}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -2721,10 +2802,25 @@ const AnalyticsPage = () => {
     ? Math.round(totalStudents / data.courseStats.length)
     : 0;
 
+  // Context for insights
+  const getFilterContext = () => {
+    let context = "Analyzing data";
+    if (selectedBranch)
+      context += ` for ${
+        branches.find((b) => b.branch_id === selectedBranch)?.name
+      }`;
+    if (selectedYear) context += ` in year ${selectedYear}`;
+    if (selectedMonth)
+      context += ` for ${
+        monthOptions.find((m) => m.value === selectedMonth)?.label
+      }`;
+    return context;
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       <div className="p-3 sm:p-6 max-w-7xl mx-auto">
-        {/* Header with Enhanced Filters */}
+        {/* Header with Filters (same as before) */}
         <div className="mb-6 sm:mb-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between">
             <div className="mb-4 md:mb-0">
@@ -2733,7 +2829,7 @@ const AnalyticsPage = () => {
               </h1>
               <div className="flex flex-col sm:flex-row sm:items-center">
                 <p className="text-gray-600 text-sm sm:text-base">
-                  Comprehensive insights into your educational platform
+                  AI-Powered insights for your educational platform
                 </p>
                 {data.branchInfo && (
                   <span className="mt-1 sm:mt-0 sm:ml-2 px-2 sm:px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs sm:text-sm font-medium inline-block w-fit">
@@ -2743,10 +2839,9 @@ const AnalyticsPage = () => {
               </div>
             </div>
 
-            {/* Enhanced Filter Section */}
+            {/* Filters - Same as original */}
             <div className="flex flex-col space-y-3">
               <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
-                {/* Branch Filter */}
                 <div className="flex items-center space-x-2 w-full sm:w-auto">
                   <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500 flex-shrink-0" />
                   <select
@@ -2762,8 +2857,6 @@ const AnalyticsPage = () => {
                     ))}
                   </select>
                 </div>
-
-                {/* Year Filter */}
                 <div className="flex items-center space-x-2 w-full sm:w-auto">
                   <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500 flex-shrink-0" />
                   <select
@@ -2779,8 +2872,6 @@ const AnalyticsPage = () => {
                     ))}
                   </select>
                 </div>
-
-                {/* Month Filter */}
                 <div className="flex items-center space-x-2 w-full sm:w-auto">
                   <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500 flex-shrink-0" />
                   <select
@@ -2795,8 +2886,6 @@ const AnalyticsPage = () => {
                     ))}
                   </select>
                 </div>
-
-                {/* Clear Filters Button */}
                 {(selectedBranch || selectedYear || selectedMonth) && (
                   <button
                     onClick={clearFilters}
@@ -2810,7 +2899,7 @@ const AnalyticsPage = () => {
             </div>
           </div>
 
-          {/* Active Filters Display */}
+          {/* Active Filters Display - Same as original */}
           {(selectedBranch || selectedYear || selectedMonth) && (
             <div className="mt-3 sm:mt-4 flex flex-wrap gap-2">
               <span className="text-xs sm:text-sm text-gray-600 mr-2">
@@ -2839,7 +2928,7 @@ const AnalyticsPage = () => {
           )}
         </div>
 
-        {/* Stats Cards */}
+        {/* Stats Cards - Same as original */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
           <StatCard
             title="Total Revenue"
@@ -2867,164 +2956,130 @@ const AnalyticsPage = () => {
           />
         </div>
 
-        {/* Charts Grid */}
+        {/* Charts with AI Insights */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8 mb-6 sm:mb-8">
-          {/* Enrollment Trends */}
-          <ChartContainer title="Monthly Enrollment Trends">
-            <ResponsiveContainer
-              width="100%"
-              height={250}
-              className="sm:h-[300px]"
-            >
+          <ChartContainer
+            title="Monthly Enrollment Trends"
+            chartId="enrollment-trends"
+            chartType="Enrollment Trends"
+            chartData={data.enrollmentTrends}
+            context={`${getFilterContext()}. Total enrollments per month showing growth patterns.`}
+          >
+            <ResponsiveContainer width="100%" height={250}>
               <LineChart data={data.enrollmentTrends || []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis
                   dataKey="month"
                   tick={{ fontSize: 10 }}
-                  className="sm:text-xs"
                   stroke="#6b7280"
                 />
-                <YAxis
-                  tick={{ fontSize: 10 }}
-                  className="sm:text-xs"
-                  stroke="#6b7280"
-                />
+                <YAxis tick={{ fontSize: 10 }} stroke="#6b7280" />
                 <Tooltip content={<CustomTooltip />} />
                 <Line
                   type="monotone"
                   dataKey="enrollments"
                   stroke="#3B82F6"
                   strokeWidth={2}
-                  className="sm:strokeWidth-3"
                   dot={{ fill: "#3B82F6", strokeWidth: 1, r: 4 }}
-                  classname="sm:r-6"
                   activeDot={{ r: 6, fill: "#1D4ED8" }}
-                  classNAme="sm:r-8"
                 />
               </LineChart>
             </ResponsiveContainer>
           </ChartContainer>
 
-          {/* Students per Course */}
-          <ChartContainer title="Students per Course">
-            <ResponsiveContainer
-              width="100%"
-              height={250}
-              className="sm:h-[300px]"
-            >
+          <ChartContainer
+            title="Students per Course"
+            chartId="students-per-course"
+            chartType="Course Distribution"
+            chartData={data.courseStats}
+            context={`${getFilterContext()}. Distribution of ${totalStudents} students across ${
+              data.courseStats?.length || 0
+            } courses.`}
+          >
+            <ResponsiveContainer width="100%" height={250}>
               <BarChart data={data.courseStats || []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis
                   dataKey="courseName"
                   tick={{ fontSize: 8 }}
-                  className="sm:text-xs"
                   stroke="#6b7280"
                   interval={0}
                   angle={-45}
                   textAnchor="end"
                   height={50}
-                  classname="sm:height-60"
                 />
-                <YAxis
-                  tick={{ fontSize: 10 }}
-                  className="sm:text-xs"
-                  stroke="#6b7280"
-                />
+                <YAxis tick={{ fontSize: 10 }} stroke="#6b7280" />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar
-                  dataKey="students"
-                  fill="#10B981"
-                  radius={[2, 2, 0, 0]}
-                  className="sm:radius-[4, 4, 0, 0]"
-                />
+                <Bar dataKey="students" fill="#10B981" radius={[2, 2, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </ChartContainer>
         </div>
 
-        {/* Top and Least Courses Row */}
+        {/* Top and Least Courses */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8 mb-6 sm:mb-8">
-          {/* Top 5 Most Enrolled */}
-          <ChartContainer title="Top 5 Most Enrolled Courses">
-            <ResponsiveContainer
-              width="100%"
-              height={250}
-              className="sm:h-[300px]"
-            >
+          <ChartContainer
+            title="Top 5 Most Enrolled Courses"
+            chartId="top-courses"
+            chartType="Top Performing Courses"
+            chartData={data.topCourses}
+            context={`${getFilterContext()}. Top 5 most popular courses by enrollment.`}
+          >
+            <ResponsiveContainer width="100%" height={250}>
               <BarChart layout="vertical" data={data.topCourses || []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis
-                  type="number"
-                  tick={{ fontSize: 10 }}
-                  className="sm:text-xs"
-                  stroke="#6b7280"
-                />
+                <XAxis type="number" tick={{ fontSize: 10 }} stroke="#6b7280" />
                 <YAxis
                   dataKey="courseName"
                   type="category"
                   tick={{ fontSize: 9 }}
-                  className="sm:text-xs"
                   stroke="#6b7280"
                   width={80}
-                  classname="sm:width-120"
                 />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar
-                  dataKey="students"
-                  fill="#3B82F6"
-                  radius={[0, 2, 2, 0]}
-                  className="sm:radius-[0, 4, 4, 0]"
-                />
+                <Bar dataKey="students" fill="#3B82F6" radius={[0, 2, 2, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </ChartContainer>
 
-          {/* Least Enrolled */}
-          <ChartContainer title="5 Least Enrolled Courses">
-            <ResponsiveContainer
-              width="100%"
-              height={250}
-              className="sm:h-[300px]"
-            >
+          <ChartContainer
+            title="5 Least Enrolled Courses"
+            chartId="least-courses"
+            chartType="Underperforming Courses"
+            chartData={data.leastCourses}
+            context={`${getFilterContext()}. Courses with lowest enrollment that may need attention.`}
+          >
+            <ResponsiveContainer width="100%" height={250}>
               <BarChart layout="vertical" data={data.leastCourses || []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis
-                  type="number"
-                  tick={{ fontSize: 10 }}
-                  className="sm:text-xs"
-                  stroke="#6b7280"
-                />
+                <XAxis type="number" tick={{ fontSize: 10 }} stroke="#6b7280" />
                 <YAxis
                   dataKey="courseName"
                   type="category"
                   tick={{ fontSize: 9 }}
-                  className="sm:text-xs"
                   stroke="#6b7280"
                   width={80}
-                  classname="sm:width-120"
                 />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar
-                  dataKey="students"
-                  fill="#EF4444"
-                  radius={[0, 2, 2, 0]}
-                  className="sm:radius-[0, 4, 4, 0]"
-                />
+                <Bar dataKey="students" fill="#EF4444" radius={[0, 2, 2, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </ChartContainer>
         </div>
 
-        {/* Revenue Charts Row */}
+        {/* Revenue Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8 mb-6 sm:mb-8">
-          {/* Revenue per Course - PIE CHART */}
-          <ChartContainer title="Revenue Distribution by Course">
+          <ChartContainer
+            title="Revenue Distribution by Course"
+            chartId="revenue-distribution"
+            chartType="Revenue Distribution"
+            chartData={data.revenuePerCourse}
+            context={`${getFilterContext()}. Total revenue: ₱${parseInt(
+              data.totalRevenue || 0
+            ).toLocaleString()} across courses.`}
+          >
             {data.revenuePerCourse && data.revenuePerCourse.length > 0 ? (
-              <ResponsiveContainer
-                width="100%"
-                height={300}
-                className="sm:h-[350px]"
-              >
+              <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
                     data={data.revenuePerCourse.map((item) => ({
@@ -3034,7 +3089,6 @@ const AnalyticsPage = () => {
                     cx="50%"
                     cy="50%"
                     outerRadius={80}
-                    className="sm:outerRadius-120"
                     innerRadius={0}
                     paddingAngle={2}
                     dataKey="revenue"
@@ -3044,12 +3098,20 @@ const AnalyticsPage = () => {
                     {data.revenuePerCourse.map((entry, index) => (
                       <Cell
                         key={`cell-${index}`}
-                        fill={COLORS[index % COLORS.length]}
+                        fill={
+                          [
+                            "#3B82F6",
+                            "#10B981",
+                            "#F59E0B",
+                            "#EF4444",
+                            "#8B5CF6",
+                          ][index % 5]
+                        }
                       />
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(value, name) => [
+                    formatter={(value) => [
                       `₱${parseInt(value).toLocaleString()}`,
                       "Revenue",
                     ]}
@@ -3058,45 +3120,39 @@ const AnalyticsPage = () => {
                   <Legend
                     verticalAlign="bottom"
                     height={40}
-                    className="sm:height-50"
                     wrapperStyle={{ paddingTop: "15px" }}
-                    classname="sm:paddingTop-20px"
                   />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-60 sm:h-80">
+              <div className="flex items-center justify-center h-60">
                 <div className="text-center text-gray-500">
-                  <BookOpen className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 opacity-50" />
-                  <p className="font-medium text-sm sm:text-base">
+                  <BookOpen className="w-8 h-8 mx-auto mb-3 opacity-50" />
+                  <p className="font-medium text-sm">
                     No revenue data available
-                  </p>
-                  <p className="text-xs sm:text-sm">
-                    Revenue will appear when courses have fully paid enrollments
                   </p>
                 </div>
               </div>
             )}
           </ChartContainer>
 
-          {/* Monthly Revenue Trend */}
-          <ChartContainer title="Monthly Revenue Trend">
-            <ResponsiveContainer
-              width="100%"
-              height={300}
-              className="sm:h-[350px]"
-            >
+          <ChartContainer
+            title="Monthly Revenue Trend"
+            chartId="revenue-trend"
+            chartType="Monthly Revenue"
+            chartData={data.monthlyRevenue}
+            context={`${getFilterContext()}. Revenue trends showing growth patterns over time.`}
+          >
+            <ResponsiveContainer width="100%" height={300}>
               <LineChart data={data.monthlyRevenue || []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis
                   dataKey="month"
                   tick={{ fontSize: 10 }}
-                  className="sm:text-xs"
                   stroke="#6b7280"
                 />
                 <YAxis
                   tick={{ fontSize: 10 }}
-                  className="sm:text-xs"
                   stroke="#6b7280"
                   tickFormatter={(value) => `₱${(value / 1000).toFixed(0)}K`}
                 />
@@ -3105,18 +3161,14 @@ const AnalyticsPage = () => {
                     `₱${parseInt(value).toLocaleString()}`,
                     "Revenue",
                   ]}
-                  labelStyle={{ color: "#374151" }}
                 />
                 <Line
                   type="monotone"
                   dataKey="revenue"
                   stroke="#F59E0B"
                   strokeWidth={2}
-                  className="sm:strokeWidth-3"
                   dot={{ fill: "#F59E0B", strokeWidth: 1, r: 4 }}
-                  classname="sm:strokeWidth-2 sm:r-6"
                   activeDot={{ r: 6, fill: "#D97706" }}
-                  classNAme="sm:r-8"
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -3630,22 +3682,6 @@ const AttendancePage = () => {
                   </span>
                 )}
               </span>
-              <div className="flex space-x-3 sm:space-x-4">
-                <span className="text-green-600">
-                  Present:{" "}
-                  {
-                    filteredAttendance.filter((r) => r.status === "present")
-                      .length
-                  }
-                </span>
-                <span className="text-red-600">
-                  Absent:{" "}
-                  {
-                    filteredAttendance.filter((r) => r.status === "absent")
-                      .length
-                  }
-                </span>
-              </div>
             </div>
           </div>
 
@@ -3672,8 +3708,6 @@ const AttendancePage = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                // Replace the table row section in your AttendancePage
-                component with this fixed version:
                 {filteredAttendance.length > 0 ? (
                   filteredAttendance.map((record) => {
                     const instructorTotal = instructorTotals[
@@ -3743,10 +3777,6 @@ const AttendancePage = () => {
                         </td>
                         <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
                           <div className="flex flex-col space-y-1">
-                            {/* Show total count */}
-                            <div className="font-medium text-blue-600">
-                              {instructorTotal.total} total
-                            </div>
                             {/* Show present/absent breakdown */}
                             <div className="text-xs text-gray-500">
                               <span className="text-green-600">
@@ -4025,9 +4055,8 @@ const SettingsPage = () => {
 const ManagerDashboard = () => {
   const [activePage, setActivePage] = useState("Dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  // Get the user from localStorage
   const user = JSON.parse(localStorage.getItem("user"));
-  const name = user?.name || "Student"; // fallback kung wala
+  const name = user?.name || "Student";
 
   const navigationItems = [
     { name: "Dashboard", icon: <BarChart3 className="w-5 h-5" /> },
@@ -4035,10 +4064,7 @@ const ManagerDashboard = () => {
     { name: "Courses", icon: <LucideBookOpen className="w-5 h-5" /> },
     { name: "Student Records", icon: <Users className="w-5 h-5" /> },
     { name: "Analytics", icon: <BarChart3 className="w-5 h-5" /> },
-    {
-      name: "Announcements",
-      icon: <MegaphoneIcon className="w-5 h-5" />,
-    },
+    { name: "Announcements", icon: <MegaphoneIcon className="w-5 h-5" /> },
     { name: "Feedbacks", icon: <Shield className="w-5 h-5" /> },
     { name: "Attendance", icon: <ListCheck className="w-5 h-5" /> },
     { name: "Settings", icon: <Settings className="w-5 h-5" /> },
@@ -4046,12 +4072,12 @@ const ManagerDashboard = () => {
 
   const handleNavClick = (pageName) => {
     setActivePage(pageName);
-    setSidebarOpen(false); // Close sidebar on mobile after navigation
+    setSidebarOpen(false);
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Mobile Header */}
+      {/* Mobile Header - Static (Not Fixed) */}
       <div className="lg:hidden bg-white shadow-lg border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <div className="w-8 h-8 bg-gradient-to-r from-white-600 to-white-700 rounded-lg flex items-center justify-center">
@@ -4078,96 +4104,91 @@ const ManagerDashboard = () => {
         </button>
       </div>
 
-      <div className="flex">
-        {/* Mobile Overlay */}
-        {sidebarOpen && (
-          <div
-            className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-
-        {/* Sidebar */}
+      {/* Overlay for mobile */}
+      {sidebarOpen && (
         <div
-          className={`
-          fixed lg:static inset-y-0 left-0 z-50
-          w-64 bg-white shadow-xl border-r border-gray-200 min-h-screen
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar - Fixed on Desktop, Overlay on Mobile */}
+      <div
+        className={`
+          fixed top-0 bottom-0 left-0 z-50
+          w-64 bg-white shadow-xl border-r border-gray-200
+          overflow-y-auto
           transform transition-transform duration-300 ease-in-out
-          ${
-            sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-          }
+          lg:translate-x-0
+          ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
         `}
-        >
-          {/* Brand Header */}
-          <div className="p-6 bg-gradient-to-r from-red-600 to-red-700 text-white">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center">
-                <img
-                  src={logo}
-                  alt="Logo"
-                  className="h-8 w-8 rounded-full object-contain"
-                />
-              </div>
-              <div>
-                <div className="font-bold text-lg">First Safety</div>
-                <div className="text-red-100 text-sm">Driving School</div>
-              </div>
+      >
+        {/* Brand Header */}
+        <div className="p-6 bg-gradient-to-r from-red-600 to-red-700 text-white">
+          <div className="flex items-center space-x-3 mb-4">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center">
+              <img
+                src={logo}
+                alt="Logo"
+                className="h-8 w-8 rounded-full object-contain"
+              />
+            </div>
+            <div>
+              <div className="font-bold text-lg">First Safety</div>
+              <div className="text-red-100 text-sm">Driving School</div>
             </div>
           </div>
-
-          {/* User Profile */}
-          <div className="p-4 border-b border-gray-200">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-red-500 to-red-600 rounded-full flex items-center justify-center shadow-lg">
-                <User className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <div className="font-semibold text-gray-900">{name}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Navigation */}
-          <nav className="p-4 space-y-2">
-            {navigationItems.map(({ name, icon }) => (
-              <button
-                key={name}
-                onClick={() => handleNavClick(name)}
-                className={`flex items-center w-full px-4 py-3 rounded-lg font-medium text-sm cursor-pointer transition-colors
-                  ${
-                    activePage === name
-                      ? "bg-red-600 text-white"
-                      : "text-gray-700 hover:bg-gray-100"
-                  }`}
-              >
-                <span className="mr-3">{icon}</span>
-                <span className="truncate">{name}</span>
-              </button>
-            ))}
-          </nav>
         </div>
 
-        {/* Main Content */}
-        <main className="flex-1 min-w-0">
-          {/* Content Area */}
-          <div className="p-4 lg:p-8 max-w-7xl mx-auto">
-            {/* Page Content */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 min-h-[calc(100vh-200px)] lg:min-h-[calc(100vh-250px)]">
-              {activePage === "Dashboard" && <DashboardPage />}
-              {activePage === "Records" && <RecordsPage />}
-              {activePage === "Courses" && <CoursesPage />}
-              {activePage === "Student Records" && <StudentsRecords />}
-              {activePage === "Analytics" && <AnalyticsPage />}
-              {activePage === "Announcements" && <AnnouncementsPage />}
-              {activePage === "Feedbacks" && <FeedbackPage />}
-              {activePage === "Attendance" && <AttendancePage />}
-              {activePage === "Settings" && <SettingsPage />}
+        {/* User Profile */}
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-to-r from-red-500 to-red-600 rounded-full flex items-center justify-center shadow-lg">
+              <User className="w-5 h-5 text-white" />
             </div>
+            <div>
+              <div className="font-semibold text-gray-900">{name}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Navigation */}
+        <nav className="p-4 space-y-2">
+          {navigationItems.map(({ name, icon }) => (
+            <button
+              key={name}
+              onClick={() => handleNavClick(name)}
+              className={`flex items-center w-full px-4 py-3 rounded-lg font-medium text-sm cursor-pointer transition-colors
+                ${
+                  activePage === name
+                    ? "bg-red-600 text-white"
+                    : "text-gray-700 hover:bg-gray-100"
+                }`}
+            >
+              <span className="mr-3">{icon}</span>
+              <span className="truncate">{name}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Main Content */}
+      <div className="lg:ml-64">
+        <main className="p-4 lg:p-8 max-w-7xl mx-auto">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 min-h-[calc(100vh-120px)] lg:min-h-[calc(100vh-64px)]">
+            {activePage === "Dashboard" && <DashboardPage />}
+            {activePage === "Records" && <RecordsPage />}
+            {activePage === "Courses" && <CoursesPage />}
+            {activePage === "Student Records" && <StudentsRecords />}
+            {activePage === "Analytics" && <AnalyticsPage />}
+            {activePage === "Announcements" && <AnnouncementsPage />}
+            {activePage === "Feedbacks" && <FeedbackPage />}
+            {activePage === "Attendance" && <AttendancePage />}
+            {activePage === "Settings" && <SettingsPage />}
           </div>
         </main>
       </div>
     </div>
   );
 };
-
 export default ManagerDashboard;

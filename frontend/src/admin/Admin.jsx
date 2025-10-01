@@ -3696,7 +3696,7 @@ const Admin_Staff = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Mobile Header */}
+      {/* Mobile Header - Static (Not Fixed) */}
       <div className="lg:hidden bg-white shadow-lg border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <div className="w-8 h-8 bg-gradient-to-r from-white-600 to-white-700 rounded-lg flex items-center justify-center">
@@ -3723,96 +3723,92 @@ const Admin_Staff = () => {
         </button>
       </div>
 
-      <div className="flex">
-        {/* Mobile Overlay */}
-        {sidebarOpen && (
-          <div
-            className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-
-        {/* Sidebar */}
+      {/* Mobile Overlay */}
+      {sidebarOpen && (
         <div
-          className={`
-          fixed lg:static inset-y-0 left-0 z-50
-          w-64 bg-white shadow-xl border-r border-gray-200 min-h-screen
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar - Fixed on Desktop, Overlay on Mobile */}
+      <div
+        className={`
+          fixed top-0 bottom-0 left-0 z-50
+          w-64 bg-white shadow-xl border-r border-gray-200
+          overflow-y-auto
           transform transition-transform duration-300 ease-in-out
-          ${
-            sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-          }
+          lg:translate-x-0
+          ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
         `}
-        >
-          {/* Brand Header */}
-          <div className="p-6 bg-gradient-to-r from-red-600 to-red-700 text-white">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center">
-                <img
-                  src={logo}
-                  alt="Logo"
-                  className="h-8 w-8 rounded-full object-contain"
-                />
-              </div>
-              <div>
-                <div className="font-bold text-lg">First Safety</div>
-                <div className="text-red-100 text-sm">Driving School</div>
-              </div>
+      >
+        {/* Brand Header */}
+        <div className="p-6 bg-gradient-to-r from-red-600 to-red-700 text-white">
+          <div className="flex items-center space-x-3 mb-4">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center">
+              <img
+                src={logo}
+                alt="Logo"
+                className="h-8 w-8 rounded-full object-contain"
+              />
+            </div>
+            <div>
+              <div className="font-bold text-lg">First Safety</div>
+              <div className="text-red-100 text-sm">Driving School</div>
             </div>
           </div>
-
-          {/* User Profile */}
-          <div className="p-4 border-b border-gray-200">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-red-500 to-red-600 rounded-full flex items-center justify-center shadow-lg">
-                <User className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <div className="font-semibold text-gray-900">
-                  Administrative Staff
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Navigation */}
-          <nav className="p-4 space-y-2">
-            {navigationItems.map(({ name, icon }) => (
-              <button
-                key={name}
-                onClick={() => handleNavClick(name)}
-                className={`flex items-center w-full px-4 py-3 rounded-lg font-medium text-sm cursor-pointer transition-colors
-                  ${
-                    activePage === name
-                      ? "bg-red-600 text-white"
-                      : "text-gray-700 hover:bg-gray-100"
-                  }`}
-              >
-                <span className="mr-3">{icon}</span>
-                <span className="truncate">{name}</span>
-              </button>
-            ))}
-          </nav>
         </div>
 
-        {/* Main Content */}
-        <main className="flex-1 min-w-0">
-          {/* Content Area */}
-          <div className="p-4 lg:p-8 max-w-7xl mx-auto">
-            {/* Page Content */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 min-h-[calc(100vh-200px)] lg:min-h-[calc(100vh-250px)]">
-              {activePage === "Dashboard" && <DashboardPage />}
-              {activePage === "Enrollments" && <EnrollmentsPage />}
-              {activePage === "Records" && <Records />}
-              {activePage === "Schedules" && <Schedules />}
-              {activePage === "FeedbackPage" && <FeedbackPage />}
-              {activePage === "Attendance" && <AttendancePage />}
-              {activePage === "Maintenance" && <MaintenancePage />}
+        {/* User Profile */}
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-to-r from-red-500 to-red-600 rounded-full flex items-center justify-center shadow-lg">
+              <User className="w-5 h-5 text-white" />
             </div>
+            <div>
+              <div className="font-semibold text-gray-900">
+                Administrative Staff
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Navigation */}
+        <nav className="p-4 space-y-2">
+          {navigationItems.map(({ name, icon }) => (
+            <button
+              key={name}
+              onClick={() => handleNavClick(name)}
+              className={`flex items-center w-full px-4 py-3 rounded-lg font-medium text-sm cursor-pointer transition-colors
+                ${
+                  activePage === name
+                    ? "bg-red-600 text-white"
+                    : "text-gray-700 hover:bg-gray-100"
+                }`}
+            >
+              <span className="mr-3">{icon}</span>
+              <span className="truncate">{name}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Main Content */}
+      <div className="lg:ml-64">
+        <main className="p-4 lg:p-8 max-w-7xl mx-auto">
+          {/* Page Content */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 min-h-[calc(100vh-120px)] lg:min-h-[calc(100vh-64px)]">
+            {activePage === "Dashboard" && <DashboardPage />}
+            {activePage === "Enrollments" && <EnrollmentsPage />}
+            {activePage === "Records" && <Records />}
+            {activePage === "Schedules" && <Schedules />}
+            {activePage === "FeedbackPage" && <FeedbackPage />}
+            {activePage === "Attendance" && <AttendancePage />}
+            {activePage === "Maintenance" && <MaintenancePage />}
           </div>
         </main>
       </div>
     </div>
   );
 };
-
 export default Admin_Staff;
