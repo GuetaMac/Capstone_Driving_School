@@ -452,9 +452,14 @@ app.post(
     const {
       course_id,
       schedule_id,
+      schedule_ids, // NEW: For multiple schedules (practical courses)
       address,
       contact_number,
       gcash_reference_number,
+      birthday,
+      age,
+      nationality,
+      civil_status,
     } = req.body;
 
     const user_id = req.user.userId;
@@ -482,8 +487,9 @@ app.post(
         const result = await client.query(
           `INSERT INTO enrollments (
             user_id, course_id, address, contact_number, 
-            gcash_reference_number, proof_of_payment, enrollment_date
-          ) VALUES ($1, $2, $3, $4, $5, $6, NOW()) RETURNING *`,
+            gcash_reference_number, proof_of_payment, enrollment_date,
+            birthday, age, nationality, civil_status
+          ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10) RETURNING *`,
           [
             user_id,
             course_id,
@@ -491,6 +497,10 @@ app.post(
             contact_number,
             gcash_reference_number,
             proof_of_payment,
+            birthday,
+            age,
+            nationality,
+            civil_status,
           ]
         );
 
@@ -501,7 +511,92 @@ app.post(
         });
       }
 
-      // 🟢 Normal flow (with schedule)
+      // 🟢 NEW: Handle multiple schedules for PRACTICAL courses
+      if (schedule_ids) {
+        const scheduleIdsArray = JSON.parse(schedule_ids);
+
+        if (!Array.isArray(scheduleIdsArray) || scheduleIdsArray.length === 0) {
+          await client.query("ROLLBACK");
+          return res
+            .status(400)
+            .json({ error: "Invalid schedule_ids format." });
+        }
+
+        // Validate all schedules exist and have available slots
+        for (const sid of scheduleIdsArray) {
+          const scheduleInfo = await client.query(
+            `SELECT schedule_id, slots FROM schedules 
+             WHERE schedule_id = $1 FOR UPDATE`,
+            [sid]
+          );
+
+          if (scheduleInfo.rows.length === 0) {
+            await client.query("ROLLBACK");
+            return res
+              .status(404)
+              .json({ error: `Schedule ${sid} not found.` });
+          }
+
+          if (scheduleInfo.rows[0].slots <= 0) {
+            await client.query("ROLLBACK");
+            return res.status(400).json({
+              error: `Schedule ${sid} has no available slots.`,
+            });
+          }
+        }
+
+        // Create main enrollment record (without schedule_id for multi-schedule)
+        const enrollmentResult = await client.query(
+          `INSERT INTO enrollments (
+            user_id, course_id, address, contact_number, 
+            gcash_reference_number, proof_of_payment, enrollment_date,
+            birthday, age, nationality, civil_status
+          ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10) RETURNING *`,
+          [
+            user_id,
+            course_id,
+            address,
+            contact_number,
+            gcash_reference_number,
+            proof_of_payment,
+            birthday,
+            age,
+            nationality,
+            civil_status,
+          ]
+        );
+
+        const enrollment_id = enrollmentResult.rows[0].enrollment_id;
+
+        // Create enrollment_schedules records for each selected schedule
+        for (let i = 0; i < scheduleIdsArray.length; i++) {
+          const sid = scheduleIdsArray[i];
+
+          // Insert into enrollment_schedules junction table
+          await client.query(
+            `INSERT INTO enrollment_schedules (enrollment_id, schedule_id, day_number)
+             VALUES ($1, $2, $3)`,
+            [enrollment_id, sid, i + 1]
+          );
+
+          // Decrease slot count for each schedule
+          await client.query(
+            `UPDATE schedules SET slots = slots - 1 WHERE schedule_id = $1`,
+            [sid]
+          );
+        }
+
+        await client.query("COMMIT");
+
+        return res.json({
+          message:
+            "✅ Enrollment with multiple schedules submitted successfully!",
+          enrollment: enrollmentResult.rows[0],
+          schedules_count: scheduleIdsArray.length,
+        });
+      }
+
+      // 🟢 Normal flow (single schedule - for THEORETICAL courses)
       const scheduleInfo = await client.query(
         `SELECT schedule_id, slots, is_theoretical, group_id 
          FROM schedules WHERE schedule_id = $1 FOR UPDATE`,
@@ -540,8 +635,9 @@ app.post(
       const result = await client.query(
         `INSERT INTO enrollments (
           user_id, course_id, schedule_id, address, contact_number, 
-          gcash_reference_number, proof_of_payment, enrollment_date
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) RETURNING *`,
+          gcash_reference_number, proof_of_payment, enrollment_date,
+          birthday, age, nationality, civil_status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8, $9, $10, $11) RETURNING *`,
         [
           user_id,
           course_id,
@@ -550,6 +646,10 @@ app.post(
           contact_number,
           gcash_reference_number,
           proof_of_payment,
+          birthday,
+          age,
+          nationality,
+          civil_status,
         ]
       );
 
@@ -581,43 +681,108 @@ app.post(
     }
   }
 );
-
 // Get all enrollments for the authenticated user
 app.get("/enrollments", authenticateToken, async (req, res) => {
   const userId = req.user.userId;
 
   try {
-    const result = await pool.query(
+    // First, get all enrollments
+    const enrollmentsResult = await pool.query(
       `
-  SELECT 
-    e.enrollment_id,
-    c.name AS course_name,
-    c.image AS course_image,
-    s.date AS start_date,
-    s.start_time,
-    s.end_time,
-    s.is_theoretical,
-    e.payment_status,
-    e.status,
-    e.has_feedback,
-    u.name AS instructor_name
-  FROM enrollments e
-  LEFT JOIN schedules s ON e.schedule_id = s.schedule_id
-  JOIN courses c ON e.course_id = c.course_id
-  LEFT JOIN users u ON e.instructor_id = u.user_id 
-  WHERE e.user_id = $1
-  ORDER BY e.enrollment_date DESC;
-  `,
+      SELECT 
+        e.enrollment_id,
+        e.course_id,
+        e.schedule_id,
+        e.payment_status,
+        e.status,
+        e.has_feedback,
+        e.instructor_id,
+        c.name AS course_name,
+        c.image AS course_image
+      FROM enrollments e
+      JOIN courses c ON e.course_id = c.course_id
+      WHERE e.user_id = $1
+      ORDER BY e.enrollment_date DESC
+      `,
       [userId]
     );
 
-    res.json(result.rows);
+    // For each enrollment, fetch schedule details
+    const enrollmentsWithSchedules = await Promise.all(
+      enrollmentsResult.rows.map(async (enrollment) => {
+        let scheduleData = null;
+        let multipleSchedules = [];
+
+        // Check if single schedule (theoretical courses)
+        if (enrollment.schedule_id) {
+          const scheduleResult = await pool.query(
+            `
+            SELECT 
+              date AS start_date,
+              start_time,
+              end_time,
+              is_theoretical
+            FROM schedules
+            WHERE schedule_id = $1
+            `,
+            [enrollment.schedule_id]
+          );
+
+          if (scheduleResult.rows.length > 0) {
+            scheduleData = scheduleResult.rows[0];
+          }
+        } else {
+          // Check for multiple schedules (practical courses)
+          const multiScheduleResult = await pool.query(
+            `
+            SELECT 
+              s.date AS start_date,
+              s.start_time,
+              s.end_time,
+              s.is_theoretical,
+              es.day_number
+            FROM enrollment_schedules es
+            JOIN schedules s ON es.schedule_id = s.schedule_id
+            WHERE es.enrollment_id = $1
+            ORDER BY es.day_number ASC
+            `,
+            [enrollment.enrollment_id]
+          );
+
+          multipleSchedules = multiScheduleResult.rows;
+        }
+
+        // Get instructor name if assigned
+        let instructorName = null;
+        if (enrollment.instructor_id) {
+          const instructorResult = await pool.query(
+            `SELECT name FROM users WHERE user_id = $1`,
+            [enrollment.instructor_id]
+          );
+          if (instructorResult.rows.length > 0) {
+            instructorName = instructorResult.rows[0].name;
+          }
+        }
+
+        return {
+          ...enrollment,
+          start_date: scheduleData?.start_date || null,
+          start_time: scheduleData?.start_time || null,
+          end_time: scheduleData?.end_time || null,
+          is_theoretical: scheduleData?.is_theoretical || false,
+          instructor_name: instructorName,
+          multiple_schedules:
+            multipleSchedules.length > 0 ? multipleSchedules : null,
+        };
+      })
+    );
+
+    res.json(enrollmentsWithSchedules);
   } catch (err) {
     console.error("Error fetching enrollments:", err);
-    res.status(500).json({ error: "❌ Failed to load enrollments" });
+    res.status(500).json({ error: "Failed to load enrollments" });
   }
 });
-
 // Check if user has active enrollment
 app.get("/api/check-active-enrollment", authenticateToken, async (req, res) => {
   const userId = req.user.userId;
@@ -643,6 +808,7 @@ app.get("/api/admin/enrollments", authenticateToken, async (req, res) => {
   const adminBranchId = req.user.branch_id;
 
   try {
+    // First, get basic enrollment data
     const result = await pool.query(
       `
       SELECT
@@ -676,24 +842,59 @@ app.get("/api/admin/enrollments", authenticateToken, async (req, res) => {
       LEFT JOIN users ins   ON e.instructor_id = ins.user_id   
       WHERE (
           (s.branch_id = $1) OR
-          (c.name = 'ONLINE THEORETICAL DRIVING COURSE' AND e.schedule_id IS NULL AND u.branch_id = $1)
+          (c.name = 'ONLINE THEORETICAL DRIVING COURSE' AND e.schedule_id IS NULL AND u.branch_id = $1) OR
+          (e.schedule_id IS NULL AND u.branch_id = $1)
       )
       ORDER BY e.enrollment_date DESC
       `,
       [adminBranchId]
     );
 
-    const enrollmentsWithImageURL = result.rows.map((row) => {
-      if (row.proof_of_payment) {
-        const filename = row.proof_of_payment
-          .replace(/^.*[\\\/]/, "")
-          .replace("/uploads/", "");
-        row.proof_of_payment = `${filename}`;
-      }
-      return row;
-    });
+    // For each enrollment, check if it has multiple schedules
+    const enrollmentsWithSchedules = await Promise.all(
+      result.rows.map(async (enrollment) => {
+        // Check for multiple schedules in enrollment_schedules table
+        const multiScheduleResult = await pool.query(
+          `
+          SELECT 
+            s.schedule_id,
+            s.date AS start_date,
+            s.start_time,
+            s.end_time,
+            s.is_theoretical,
+            es.day_number,
+            s.branch_id
+          FROM enrollment_schedules es
+          JOIN schedules s ON es.schedule_id = s.schedule_id
+          WHERE es.enrollment_id = $1 AND s.branch_id = $2
+          ORDER BY es.day_number ASC
+          `,
+          [enrollment.enrollment_id, adminBranchId]
+        );
 
-    res.json(enrollmentsWithImageURL);
+        // If multiple schedules exist, use the first one for start_date/time
+        if (multiScheduleResult.rows.length > 0) {
+          const firstSchedule = multiScheduleResult.rows[0];
+          enrollment.start_date = firstSchedule.start_date;
+          enrollment.start_time = firstSchedule.start_time;
+          enrollment.end_time = firstSchedule.end_time;
+          enrollment.is_theoretical = firstSchedule.is_theoretical;
+          enrollment.multiple_schedules = multiScheduleResult.rows;
+        }
+
+        // Handle proof of payment filename
+        if (enrollment.proof_of_payment) {
+          const filename = enrollment.proof_of_payment
+            .replace(/^.*[\\\/]/, "")
+            .replace("/uploads/", "");
+          enrollment.proof_of_payment = filename;
+        }
+
+        return enrollment;
+      })
+    );
+
+    res.json(enrollmentsWithSchedules);
   } catch (err) {
     console.error("❌ Error fetching enrollments:", err);
     res.status(500).json({ error: "Could not fetch enrollments" });
@@ -920,7 +1121,7 @@ app.get("/api/instructors", authenticateToken, async (req, res) => {
   }
 });
 
-// Assign instructor to enrollment (manual by admin)
+/// Assign instructor to enrollment (manual by admin)
 app.patch(
   "/api/admin/enrollments/:id/assign-instructor",
   authenticateToken,
@@ -942,21 +1143,19 @@ app.patch(
         return res.status(404).json({ message: "Enrollment not found." });
       }
 
-      if (check.rows[0].instructor_id) {
-        return res
-          .status(400)
-          .json({ message: "Instructor already assigned." });
-      }
+      const currentInstructorId = check.rows[0].instructor_id;
 
-      // Assign instructor manually by admin (override any logic from schedule)
+      // Allow reassignment - update instructor regardless if one is already assigned
       await pool.query(
         "UPDATE enrollments SET instructor_id = $1 WHERE enrollment_id = $2",
         [instructor_id, enrollmentId]
       );
 
-      res.json({
-        message: "✅ Instructor assigned to enrollment successfully.",
-      });
+      const message = currentInstructorId
+        ? "✅ Instructor reassigned successfully."
+        : "✅ Instructor assigned to enrollment successfully.";
+
+      res.json({ message });
     } catch (err) {
       console.error("❌ Error assigning instructor:", err);
       res.status(500).json({ message: "Server error" });
@@ -964,37 +1163,95 @@ app.patch(
   }
 );
 
-// Instructor route to get enrollments for their assigned students
 app.get("/api/instructor/enrollments", authenticateToken, async (req, res) => {
   const instructorId = req.user.userId;
 
   try {
+    // Get all enrollments assigned to this instructor
     const result = await pool.query(
       `
       SELECT 
         e.enrollment_id,
+        e.schedule_id,
+        e.course_id,
         c.name AS course_name,
-        s.date AS start_date,
-        s.start_time,
-        s.end_time,
         u.name AS student_name,
         u.email AS student_email,
-        e.status,
-        CASE 
-          WHEN c.name ILIKE '%theoretical%' THEN s.date + INTERVAL '1 day'
-          ELSE NULL
-        END AS end_date
+        e.status
       FROM enrollments e
       JOIN courses c ON e.course_id = c.course_id
-      JOIN schedules s ON e.schedule_id = s.schedule_id
       JOIN users u ON e.user_id = u.user_id
       WHERE e.instructor_id = $1
-      ORDER BY s.date, s.start_time
+      ORDER BY e.enrollment_date DESC
       `,
       [instructorId]
     );
 
-    res.json(result.rows);
+    // For each enrollment, get schedule details
+    const enrollmentsWithSchedules = await Promise.all(
+      result.rows.map(async (enrollment) => {
+        const isTheoretical = enrollment.course_name
+          .toLowerCase()
+          .includes("theoretical");
+
+        // Check if single schedule (theoretical courses)
+        if (enrollment.schedule_id) {
+          const scheduleResult = await pool.query(
+            `
+            SELECT 
+              date AS start_date,
+              start_time,
+              end_time
+            FROM schedules
+            WHERE schedule_id = $1
+            `,
+            [enrollment.schedule_id]
+          );
+
+          if (scheduleResult.rows.length > 0) {
+            enrollment.start_date = scheduleResult.rows[0].start_date;
+            enrollment.start_time = scheduleResult.rows[0].start_time;
+            enrollment.end_time = scheduleResult.rows[0].end_time;
+
+            // Add end_date for theoretical courses (next day)
+            if (isTheoretical) {
+              const startDate = new Date(scheduleResult.rows[0].start_date);
+              startDate.setDate(startDate.getDate() + 1);
+              enrollment.end_date = startDate.toISOString().split("T")[0];
+            }
+          }
+        } else {
+          // Check for multiple schedules (practical courses)
+          const multiScheduleResult = await pool.query(
+            `
+            SELECT 
+              s.date AS start_date,
+              s.start_time,
+              s.end_time,
+              es.day_number
+            FROM enrollment_schedules es
+            JOIN schedules s ON es.schedule_id = s.schedule_id
+            WHERE es.enrollment_id = $1
+            ORDER BY es.day_number ASC
+            `,
+            [enrollment.enrollment_id]
+          );
+
+          if (multiScheduleResult.rows.length > 0) {
+            // Use first schedule for main display
+            const firstSchedule = multiScheduleResult.rows[0];
+            enrollment.start_date = firstSchedule.start_date;
+            enrollment.start_time = firstSchedule.start_time;
+            enrollment.end_time = firstSchedule.end_time;
+            enrollment.multiple_schedules = multiScheduleResult.rows;
+          }
+        }
+
+        return enrollment;
+      })
+    );
+
+    res.json(enrollmentsWithSchedules);
   } catch (err) {
     console.error("❌ Error fetching instructor enrollments:", err);
     res.status(500).json({ error: "Failed to fetch enrollments" });
@@ -2248,8 +2505,9 @@ app.get("/api/dashboard-stats", async (req, res) => {
 });
 
 // ✅ Get student records per branch
+// ✅ Get student records per branch (with extra fields)
 app.get("/api/admin/student-records", authenticateToken, async (req, res) => {
-  const adminBranchId = req.user.branch_id; // galing sa JWT
+  const adminBranchId = req.user.branch_id;
 
   try {
     const result = await pool.query(
@@ -2260,11 +2518,19 @@ app.get("/api/admin/student-records", authenticateToken, async (req, res) => {
         u.email,
         e.contact_number,
         e.address,
-        u.branch_id,
-        c.name AS course_name
+        e.birthday,
+        e.age,
+        e.civil_status,
+        e.nationality,
+        e.enrollment_date,
+        e.payment_status,
+        e.amount_paid,
+        c.name AS course_name,
+        b.name AS branch_name
       FROM enrollments e
       JOIN users u ON e.user_id = u.user_id
       JOIN courses c ON e.course_id = c.course_id
+      JOIN branches b ON u.branch_id = b.branch_id
       WHERE u.branch_id = $1
       ORDER BY e.enrollment_date DESC
       `,
@@ -2278,7 +2544,6 @@ app.get("/api/admin/student-records", authenticateToken, async (req, res) => {
   }
 });
 
-//  Student Records API
 app.get("/api/manager/student-records", async (req, res) => {
   try {
     const { branch_id, month, year } = req.query;
@@ -2292,8 +2557,12 @@ app.get("/api/manager/student-records", async (req, res) => {
         b.name AS branch_name,
         c.name AS course_name,
         e.enrollment_date,
+        e.amount_paid,
         e.payment_status,
-        e.amount_paid
+        e.birthday,
+        e.age,
+        e.civil_status,
+        e.nationality
       FROM enrollments e
       JOIN users u ON e.user_id = u.user_id
       JOIN branches b ON u.branch_id = b.branch_id
@@ -2308,12 +2577,10 @@ app.get("/api/manager/student-records", async (req, res) => {
       query += ` AND u.branch_id = $${idx++}`;
       params.push(parseInt(branch_id));
     }
-
     if (month) {
       query += ` AND EXTRACT(MONTH FROM e.enrollment_date) = $${idx++}`;
       params.push(parseInt(month));
     }
-
     if (year) {
       query += ` AND EXTRACT(YEAR FROM e.enrollment_date) = $${idx++}`;
       params.push(parseInt(year));
@@ -2926,7 +3193,11 @@ app.get("/api/manager/export-records", async (req, res) => {
         c.name AS course_name,
         e.enrollment_date,
         e.amount_paid,
-        e.payment_status
+        e.payment_status,
+        e.birthday,
+        e.age,
+        e.civil_status,
+        e.nationality
       FROM enrollments e
       JOIN users u ON e.user_id = u.user_id
       JOIN branches b ON u.branch_id = b.branch_id
@@ -2954,6 +3225,17 @@ app.get("/api/manager/export-records", async (req, res) => {
 
     const result = await pool.query(query, params);
 
+    // Map rows to format dates
+    const formattedRows = result.rows.map((row) => ({
+      ...row,
+      enrollment_date: row.enrollment_date
+        ? new Date(row.enrollment_date).toLocaleDateString("en-US")
+        : "",
+      birthday: row.birthday
+        ? new Date(row.birthday).toLocaleDateString("en-US")
+        : "",
+    }));
+
     const fields = [
       "student_name",
       "email",
@@ -2962,16 +3244,20 @@ app.get("/api/manager/export-records", async (req, res) => {
       "branch_name",
       "course_name",
       "enrollment_date",
+      "birthday",
+      "age",
+      "civil_status",
+      "nationality",
       "amount_paid",
       "payment_status",
     ];
 
     const parser = new Parser({ fields });
-    const csv = parser.parse(result.rows);
+    const csv = parser.parse(formattedRows);
 
     res.header("Content-Type", "text/csv");
     res.attachment("student_records.csv");
-    return res.send(csv);
+    res.send(csv);
   } catch (err) {
     console.error("❌ Error exporting student records:", err);
     res.status(500).json({ error: "Failed to export student records" });

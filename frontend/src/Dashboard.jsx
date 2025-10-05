@@ -1430,25 +1430,19 @@ const StudentsRecords = () => {
           <table className="w-full border-collapse border border-gray-300">
             <thead>
               <tr className="bg-gray-200">
-                <th className="border border-gray-300 p-2 text-left">Name</th>
-                <th className="border border-gray-300 p-2 text-left">Email</th>
-                <th className="border border-gray-300 p-2 text-left">
-                  Contact
-                </th>
-                <th className="border border-gray-300 p-2 text-left">
-                  Address
-                </th>
-                <th className="border border-gray-300 p-2 text-left">Branch</th>
-                <th className="border border-gray-300 p-2 text-left">Course</th>
-                <th className="border border-gray-300 p-2 text-left">
-                  Enrollment Date
-                </th>
-                <th className="border border-gray-300 p-2 text-left">
-                  Amount Paid
-                </th>
-                <th className="border border-gray-300 p-2 text-left">
-                  Payment Status
-                </th>
+                <th className="border p-2 text-left">Name</th>
+                <th className="border p-2 text-left">Email</th>
+                <th className="border p-2 text-left">Contact</th>
+                <th className="border p-2 text-left">Address</th>
+                <th className="border p-2 text-left">Branch</th>
+                <th className="border p-2 text-left">Course</th>
+                <th className="border p-2 text-left">Enrollment Date</th>
+                <th className="border p-2 text-left">Birthday</th>
+                <th className="border p-2 text-left">Age</th>
+                <th className="border p-2 text-left">Civil Status</th>
+                <th className="border p-2 text-left">Nationality</th>
+                <th className="border p-2 text-left">Amount Paid</th>
+                <th className="border p-2 text-left">Payment Status</th>
               </tr>
             </thead>
             <tbody>
@@ -1457,31 +1451,27 @@ const StudentsRecords = () => {
                   key={`${rec.user_id}-${rec.course_name}`}
                   className="hover:bg-gray-50"
                 >
-                  <td className="border border-gray-300 p-2">
-                    {rec.student_name}
-                  </td>
-                  <td className="border border-gray-300 p-2">{rec.email}</td>
-                  <td className="border border-gray-300 p-2">
-                    {rec.contact_number || "N/A"}
-                  </td>
-                  <td className="border border-gray-300 p-2">
-                    {rec.address || "N/A"}
-                  </td>
-                  <td className="border border-gray-300 p-2">
-                    {rec.branch_name}
-                  </td>
-                  <td className="border border-gray-300 p-2">
-                    {rec.course_name}
-                  </td>
-                  <td className="border border-gray-300 p-2">
+                  <td className="border p-2">{rec.student_name}</td>
+                  <td className="border p-2">{rec.email}</td>
+                  <td className="border p-2">{rec.contact_number || "N/A"}</td>
+                  <td className="border p-2">{rec.address || "N/A"}</td>
+                  <td className="border p-2">{rec.branch_name}</td>
+                  <td className="border p-2">{rec.course_name}</td>
+                  <td className="border p-2">
                     {new Date(rec.enrollment_date).toLocaleDateString()}
                   </td>
-                  <td className="border border-gray-300 p-2">
+                  <td className="border p-2">
+                    {rec.birthday
+                      ? new Date(rec.birthday).toLocaleDateString()
+                      : "N/A"}
+                  </td>
+                  <td className="border p-2">{rec.age || "N/A"}</td>
+                  <td className="border p-2">{rec.civil_status || "N/A"}</td>
+                  <td className="border p-2">{rec.nationality || "N/A"}</td>
+                  <td className="border p-2">
                     {rec.amount_paid !== null ? `₱${rec.amount_paid}` : "N/A"}
                   </td>
-                  <td className="border border-gray-300 p-2">
-                    {rec.payment_status || "N/A"}
-                  </td>
+                  <td className="border p-2">{rec.payment_status || "N/A"}</td>
                 </tr>
               ))}
             </tbody>

@@ -13,6 +13,14 @@ import {
   LogOut,
   Menu,
   X,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  MapPin,
+  CreditCard,
+  Phone,
+  FileImage,
+  AlertCircle,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import { FcFeedback } from "react-icons/fc";
@@ -169,6 +177,7 @@ const DashboardPage = () => {
       day: "numeric",
       year: "numeric",
     });
+
   const fmtTime = (t) => {
     const [h, m] = t.split(":");
     const dt = new Date();
@@ -182,26 +191,43 @@ const DashboardPage = () => {
       .toLowerCase();
   };
 
+  // Handle schedule label for multiple schedules
   let scheduleLabel = "—";
-  if (
-    enrollment?.start_date &&
-    enrollment?.start_time &&
-    enrollment?.end_time
-  ) {
-    const start = new Date(enrollment.start_date);
-    const startTime = enrollment.start_time;
-    const endTime = enrollment.end_time;
 
-    if (enrollment.is_theoretical) {
-      const nextDay = new Date(start);
-      nextDay.setDate(start.getDate() + 1);
-      scheduleLabel = `${fmtDate(start)} to ${fmtDate(nextDay)} — ${fmtTime(
-        startTime
-      )} to ${fmtTime(endTime)}`;
-    } else {
-      scheduleLabel = `${fmtDate(start)} — ${fmtTime(startTime)} to ${fmtTime(
-        endTime
-      )}`;
+  if (enrollment) {
+    const hasMultipleSchedules =
+      enrollment.multiple_schedules && enrollment.multiple_schedules.length > 0;
+
+    if (hasMultipleSchedules) {
+      // Multiple schedules - show summary
+      const schedCount = enrollment.multiple_schedules.length;
+      const firstSched = enrollment.multiple_schedules[0];
+      const lastSched = enrollment.multiple_schedules[schedCount - 1];
+
+      scheduleLabel = `${schedCount} sessions: ${fmtDate(
+        new Date(firstSched.start_date)
+      )} - ${fmtDate(new Date(lastSched.start_date))}`;
+    } else if (
+      enrollment.start_date &&
+      enrollment.start_time &&
+      enrollment.end_time
+    ) {
+      // Single schedule
+      const start = new Date(enrollment.start_date);
+      const startTime = enrollment.start_time;
+      const endTime = enrollment.end_time;
+
+      if (enrollment.is_theoretical) {
+        const nextDay = new Date(start);
+        nextDay.setDate(start.getDate() + 1);
+        scheduleLabel = `${fmtDate(start)} to ${fmtDate(nextDay)} — ${fmtTime(
+          startTime
+        )} to ${fmtTime(endTime)}`;
+      } else {
+        scheduleLabel = `${fmtDate(start)} — ${fmtTime(startTime)} to ${fmtTime(
+          endTime
+        )}`;
+      }
     }
   }
 
@@ -282,6 +308,7 @@ const DashboardPage = () => {
             </div>
           </div>
         </div>
+
         {/* Mission Statement - Mobile Optimized */}
         <div className="bg-gradient-to-r from-red-600 to-red-700 rounded-lg sm:rounded-2xl p-4 sm:p-6 lg:p-8 mb-6 sm:mb-8 text-white shadow-xl">
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
@@ -431,23 +458,115 @@ const CoursesPage = () => {
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [courseSchedules, setCourseSchedules] = useState([]);
   const [showEnrollModal, setShowEnrollModal] = useState(false);
+  const [scheduleType, setScheduleType] = useState("");
+  const [filteredSchedules, setFilteredSchedules] = useState([]);
+  const [selectedSchedules, setSelectedSchedules] = useState([]);
+  const [currentStep, setCurrentStep] = useState(1);
 
   const [address, setAddress] = useState("");
   const [contactNumber, setContactNumber] = useState("");
   const [referenceNumber, setReferenceNumber] = useState("");
   const [proofImage, setProofImage] = useState(null);
   const [scheduleId, setScheduleId] = useState("");
+  const [birthday, setBirthday] = useState("");
+  const [age, setAge] = useState("");
+  const [nationality, setNationality] = useState("");
+  const [civilStatus, setCivilStatus] = useState("");
+
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDates, setSelectedDates] = useState([]);
 
   useEffect(() => {
     fetch(`${import.meta.env.VITE_API_URL}/courses`)
       .then((res) => res.json())
       .then(setCourses)
-      .catch((err) => console.error("❌ Error fetching courses:", err));
+      .catch((err) => console.error("Error fetching courses:", err));
   }, []);
+
+  const calculateAge = (birthDate) => {
+    const today = new Date();
+    const birth = new Date(birthDate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && today.getDate() < birth.getDate())
+    ) {
+      age--;
+    }
+    return age;
+  };
+
+  const handleBirthdayChange = (e) => {
+    const selectedDate = e.target.value;
+    setBirthday(selectedDate);
+    if (selectedDate) {
+      const calculatedAge = calculateAge(selectedDate);
+      setAge(calculatedAge.toString());
+    } else {
+      setAge("");
+    }
+  };
+
+  const isBeginnerCourse = (courseName) => {
+    return courseName.toLowerCase().includes("beginner");
+  };
+
+  const isPracticalCourse = (courseName) => {
+    return !courseName.toLowerCase().includes("theoretical");
+  };
+
+  const getScheduleDuration = (startTime, endTime) => {
+    const start = parseInt(startTime.split(":")[0]);
+    const end = parseInt(endTime.split(":")[0]);
+    return end - start;
+  };
+
+  const categorizeSchedule = (schedule) => {
+    const duration = getScheduleDuration(
+      schedule.start_time,
+      schedule.end_time
+    );
+    const startHour = parseInt(schedule.start_time.split(":")[0]);
+
+    if (duration === 9) return { type: "2days", session: "day1" };
+    if (duration === 4) {
+      if (startHour === 8) return { type: "both", session: "morning" };
+      if (startHour === 13) return { type: "both", session: "afternoon" };
+    }
+    return { type: "other", session: "other" };
+  };
+
+  useEffect(() => {
+    if (scheduleType && courseSchedules.length > 0) {
+      const filtered = courseSchedules.filter((schedule) => {
+        const category = categorizeSchedule(schedule);
+        if (scheduleType === "2days") {
+          return category.type === "2days" || category.type === "both";
+        } else if (scheduleType === "3days") {
+          return category.type === "both";
+        }
+        return false;
+      });
+      setFilteredSchedules(filtered);
+    } else if (
+      !scheduleType &&
+      courseSchedules.length > 0 &&
+      isPracticalCourse(selectedCourse?.name)
+    ) {
+      const filtered = courseSchedules.filter((schedule) => {
+        const category = categorizeSchedule(schedule);
+        return category.type === "both";
+      });
+      setFilteredSchedules(filtered);
+    } else {
+      setFilteredSchedules(courseSchedules);
+    }
+  }, [scheduleType, courseSchedules, selectedCourse]);
 
   const fetchCourseSchedules = async (course_id, onlyTheory) => {
     try {
-      const token = localStorage.getItem("token");
+      const token = window.localStorage?.getItem("token");
       const res = await fetch(
         `${import.meta.env.VITE_API_URL}/api/schedules?course_id=${course_id}`,
         { headers: { Authorization: `Bearer ${token}` } }
@@ -474,26 +593,21 @@ const CoursesPage = () => {
   };
 
   const handleEnrollClick = async (course) => {
-    const token = localStorage.getItem("token");
+    const token = window.localStorage?.getItem("token");
     if (!token) return alert("Please log in first.");
 
     try {
       const res = await fetch(
         `${import.meta.env.VITE_API_URL}/api/check-active-enrollment`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
       const data = await res.json();
 
       if (data.hasActive) {
-        return Swal.fire({
-          title: "You already have an active enrollment.",
-          text: "Please complete it before enrolling in a new course.",
-          icon: "warning",
-          confirmButtonText: "OK",
-        });
+        return alert(
+          "You already have an active enrollment. Please complete it before enrolling in a new course."
+        );
       }
 
       const onlyTheory = course.name.toLowerCase().includes("theoretical");
@@ -503,6 +617,15 @@ const CoursesPage = () => {
       setReferenceNumber("");
       setProofImage(null);
       setScheduleId("");
+      setScheduleType("");
+      setFilteredSchedules([]);
+      setSelectedSchedules([]);
+      setSelectedDates([]);
+      setBirthday("");
+      setAge("");
+      setNationality("");
+      setCivilStatus("");
+      setCurrentStep(1);
       fetchCourseSchedules(course.course_id, onlyTheory);
       setShowEnrollModal(true);
     } catch (error) {
@@ -533,32 +656,234 @@ const CoursesPage = () => {
       })
       .replace(/,/g, "");
 
+  const getDaysInMonth = (date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay();
+
+    return { daysInMonth, startingDayOfWeek, year, month };
+  };
+
+  const getSchedulesForDate = (date) => {
+    const isBeginner = isBeginnerCourse(selectedCourse?.name);
+    const isPractical = isPracticalCourse(selectedCourse?.name);
+
+    const schedulesForDate = filteredSchedules.filter((sched) => {
+      const schedDate = new Date(sched.start_date);
+      return schedDate.toDateString() === date.toDateString();
+    });
+
+    if (isPractical && isBeginner && scheduleType === "2days") {
+      if (selectedDates.length === 0) {
+        return schedulesForDate.filter((s) => {
+          const duration = getScheduleDuration(s.start_time, s.end_time);
+          return duration === 9;
+        });
+      } else if (selectedDates.length === 1) {
+        return schedulesForDate.filter((s) => {
+          const duration = getScheduleDuration(s.start_time, s.end_time);
+          return duration === 4;
+        });
+      }
+    }
+
+    return schedulesForDate;
+  };
+
+  const hasAvailableSlots = (schedules) => {
+    return schedules.some((s) => s.slots > 0);
+  };
+
+  const handleDateClick = (date, schedules) => {
+    if (schedules.length === 0) return;
+    if (!hasAvailableSlots(schedules)) return;
+
+    const dateStr = date.toISOString().split("T")[0];
+    const isPractical = isPracticalCourse(selectedCourse.name);
+    const isBeginner = isBeginnerCourse(selectedCourse.name);
+
+    if (!isPractical) {
+      setSelectedDates([{ date: dateStr, schedules }]);
+      return;
+    }
+
+    if (isBeginner && scheduleType === "2days") {
+      const requiredDays = 2;
+      const existingIndex = selectedDates.findIndex((d) => d.date === dateStr);
+
+      if (existingIndex >= 0) {
+        setSelectedDates(selectedDates.filter((_, i) => i !== existingIndex));
+      } else if (selectedDates.length < requiredDays) {
+        const dayNumber = selectedDates.length + 1;
+
+        if (dayNumber === 1) {
+          const fullDaySchedules = schedules.filter((s) => {
+            const duration = getScheduleDuration(s.start_time, s.end_time);
+            return duration === 9;
+          });
+
+          if (fullDaySchedules.length === 0) {
+            alert("Day 1 must be a full day session (8am-5pm)");
+            return;
+          }
+
+          setSelectedDates([
+            ...selectedDates,
+            { date: dateStr, schedules: fullDaySchedules, dayNumber },
+          ]);
+        } else if (dayNumber === 2) {
+          const fourHourSchedules = schedules.filter((s) => {
+            const duration = getScheduleDuration(s.start_time, s.end_time);
+            return duration === 4;
+          });
+
+          if (fourHourSchedules.length === 0) {
+            alert("Day 2 must be a 4-hour session (morning or afternoon)");
+            return;
+          }
+
+          setSelectedDates([
+            ...selectedDates,
+            { date: dateStr, schedules: fourHourSchedules, dayNumber },
+          ]);
+        }
+      } else {
+        alert("You can only select 2 days for the 2-day schedule");
+      }
+    } else {
+      const requiredDays = isBeginner && scheduleType === "3days" ? 3 : 2;
+      const existingIndex = selectedDates.findIndex((d) => d.date === dateStr);
+
+      if (existingIndex >= 0) {
+        setSelectedDates(selectedDates.filter((_, i) => i !== existingIndex));
+      } else if (selectedDates.length < requiredDays) {
+        const fourHourSchedules = schedules.filter((s) => {
+          const duration = getScheduleDuration(s.start_time, s.end_time);
+          return duration === 4;
+        });
+
+        if (fourHourSchedules.length === 0) {
+          alert("Please select a 4-hour session (morning or afternoon)");
+          return;
+        }
+
+        setSelectedDates([
+          ...selectedDates,
+          {
+            date: dateStr,
+            schedules: fourHourSchedules,
+            dayNumber: selectedDates.length + 1,
+          },
+        ]);
+      } else {
+        alert(`You can only select ${requiredDays} days`);
+      }
+    }
+  };
+
+  const handleScheduleSelect = (dateStr, scheduleId) => {
+    const updatedDates = selectedDates.map((d) => {
+      if (d.date === dateStr) {
+        return { ...d, selectedScheduleId: scheduleId };
+      }
+      return d;
+    });
+    setSelectedDates(updatedDates);
+  };
+
+  const validateStep = () => {
+    if (currentStep === 1) {
+      const isOnlineTheory = selectedCourse.name
+        .toLowerCase()
+        .includes("online theoretical");
+
+      if (isOnlineTheory) return true;
+
+      const isPractical = isPracticalCourse(selectedCourse.name);
+      const isBeginner = isBeginnerCourse(selectedCourse.name);
+
+      if (isPractical && isBeginner && !scheduleType) {
+        alert("Please choose a schedule type (2-day or 3-day)");
+        return false;
+      }
+
+      if (isPractical) {
+        const requiredDays = isBeginner
+          ? scheduleType === "2days"
+            ? 2
+            : 3
+          : 2;
+
+        if (selectedDates.length !== requiredDays) {
+          alert(`Please select ${requiredDays} schedule dates`);
+          return false;
+        }
+
+        const allSchedulesSelected = selectedDates.every(
+          (d) => d.selectedScheduleId
+        );
+        if (!allSchedulesSelected) {
+          alert("Please select a time slot for each date");
+          return false;
+        }
+      } else if (!isPractical && selectedDates.length === 0) {
+        alert("Please select a schedule");
+        return false;
+      } else if (
+        !isPractical &&
+        selectedDates.length > 0 &&
+        !selectedDates[0].selectedScheduleId
+      ) {
+        alert("Please select a time slot");
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const handleNext = () => {
+    if (validateStep()) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const token = localStorage.getItem("token");
+    const token = window.localStorage?.getItem("token");
     if (!token) {
-      return Swal.fire("Unauthorized", "You must be logged in.", "warning");
+      return alert("You must be logged in.");
     }
 
     const isOnlineTheory = selectedCourse.name
       .toLowerCase()
       .includes("online theoretical");
 
-    if (!isOnlineTheory && !scheduleId) {
-      return Swal.fire("Missing Info", "Please select a schedule.", "info");
-    }
-
     const formData = new FormData();
     formData.append("course_id", selectedCourse.course_id);
 
     if (!isOnlineTheory) {
-      formData.append("schedule_id", scheduleId);
+      const isPractical = isPracticalCourse(selectedCourse.name);
+
+      if (isPractical) {
+        const scheduleIds = selectedDates.map((d) => d.selectedScheduleId);
+        formData.append("schedule_ids", JSON.stringify(scheduleIds));
+      } else {
+        formData.append("schedule_id", selectedDates[0]?.selectedScheduleId);
+      }
     }
 
     formData.append("address", address);
     formData.append("contact_number", contactNumber);
     formData.append("gcash_reference_number", referenceNumber);
     formData.append("proof_image", proofImage);
+    formData.append("birthday", birthday);
+    formData.append("age", age);
+    formData.append("nationality", nationality);
+    formData.append("civil_status", civilStatus);
 
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/enroll`, {
@@ -568,249 +893,907 @@ const CoursesPage = () => {
       });
 
       if (res.ok) {
-        Swal.fire("Success!", "Your enrollment has been submitted.", "success");
+        alert("Success! Your enrollment has been submitted.");
         setShowEnrollModal(false);
       } else {
         const data = await res.json();
-        Swal.fire("Error", data.error || "Enrollment failed.", "error");
+        alert(data.error || "Enrollment failed.");
       }
     } catch (error) {
       console.error(error);
-      Swal.fire("Error", "Something went wrong. Please try again.", "error");
+      alert("Something went wrong. Please try again.");
     }
   };
 
-  return (
-    <div className="p-4 sm:p-6">
-      <h1 className="text-xl sm:text-2xl font-bold mb-4 text-red-600 text-center">
-        Available Courses
-      </h1>
+  const renderCalendar = () => {
+    const { daysInMonth, startingDayOfWeek, year, month } =
+      getDaysInMonth(currentMonth);
+    const days = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-      {/* Responsive Course Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {courses.length === 0 ? (
-          <p className="text-center text-gray-500 col-span-full">
-            No courses available.
-          </p>
-        ) : (
-          courses.map((course) => (
-            <div
-              key={course.course_id}
-              className="flex flex-col border rounded-lg p-4 sm:p-6 shadow hover:shadow-lg transition"
-            >
-              {course.image ? (
-                <img
-                  src={`${import.meta.env.VITE_API_URL}${course.image}`}
-                  alt={course.name}
-                  className="w-full h-40 sm:h-48 object-cover rounded mb-3 sm:mb-4"
-                />
-              ) : (
-                <div className="w-full h-40 sm:h-48 bg-gray-200 rounded mb-3 sm:mb-4 flex items-center justify-center text-gray-500">
-                  No Image
-                </div>
-              )}
+    const isBeginner = isBeginnerCourse(selectedCourse?.name);
+    const isPractical = isPracticalCourse(selectedCourse?.name);
 
-              <h3 className="text-lg sm:text-xl font-semibold mb-1 text-red-600">
-                {course.name}
-              </h3>
-              <p className="text-xs sm:text-sm text-gray-500 mb-2">
-                ({course.codename})
-              </p>
-              <p className="text-sm sm:text-base text-gray-700 mb-2">
-                {course.description}
-              </p>
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      days.push(
+        <div key={`empty-${i}`} className="h-16 sm:h-24 bg-gray-50"></div>
+      );
+    }
 
-              {(course.type || course.mode) && (
-                <p className="text-xs sm:text-sm text-gray-500 mb-4">
-                  {course.type && `Type: ${course.type}`}
-                  {course.type && course.mode && " | "}
-                  {course.mode && `Mode: ${course.mode}`}
-                </p>
-              )}
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(year, month, day);
+      const schedules = getSchedulesForDate(date);
+      const dateStr = date.toISOString().split("T")[0];
+      const isSelected = selectedDates.some((d) => d.date === dateStr);
+      const isPast = date < today;
+      const hasSchedules = schedules.length > 0;
+      const hasSlots = hasAvailableSlots(schedules);
+      const isFullyBooked = hasSchedules && !hasSlots;
 
-              <p className="text-base sm:text-lg font-bold text-gray-800 mb-4">
-                ₱{course.price}
-              </p>
+      let scheduleBadge = null;
+      if (
+        hasSchedules &&
+        !isPast &&
+        isPractical &&
+        isBeginner &&
+        scheduleType === "2days"
+      ) {
+        const has9Hour = schedules.some(
+          (s) => getScheduleDuration(s.start_time, s.end_time) === 9
+        );
+        const has4Hour = schedules.some(
+          (s) => getScheduleDuration(s.start_time, s.end_time) === 4
+        );
 
-              <button
-                onClick={() => handleEnrollClick(course)}
-                className="mt-auto px-3 sm:px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-sm sm:text-base"
+        if (selectedDates.length === 0 && has9Hour) {
+          scheduleBadge = (
+            <span className="text-[9px] sm:text-[10px] font-semibold text-blue-600">
+              FULL
+            </span>
+          );
+        } else if (selectedDates.length === 1 && has4Hour) {
+          scheduleBadge = (
+            <span className="text-[9px] sm:text-[10px] font-semibold text-purple-600">
+              4HR
+            </span>
+          );
+        }
+      }
+
+      days.push(
+        <div
+          key={day}
+          onClick={() => !isPast && handleDateClick(date, schedules)}
+          className={`h-16 sm:h-24 border p-1 transition-all ${
+            isPast
+              ? "bg-gray-100 cursor-not-allowed opacity-50"
+              : isSelected
+              ? "bg-red-100 border-red-500 border-2 cursor-pointer"
+              : hasSchedules && hasSlots
+              ? "bg-white hover:bg-green-50 border-green-200 cursor-pointer hover:shadow-md"
+              : isFullyBooked
+              ? "bg-red-50 border-red-200 cursor-not-allowed"
+              : "bg-gray-50 cursor-not-allowed"
+          }`}
+        >
+          <div className="flex flex-col h-full">
+            <div className="flex justify-between items-start">
+              <span
+                className={`text-xs sm:text-sm font-semibold ${
+                  isSelected
+                    ? "text-red-600"
+                    : isFullyBooked
+                    ? "text-red-400"
+                    : "text-gray-700"
+                }`}
               >
-                Enroll Now
-              </button>
+                {day}
+              </span>
+              {scheduleBadge}
             </div>
-          ))
-        )}
-      </div>
+            {hasSchedules && !isPast && (
+              <div className="flex-1 flex flex-col items-center justify-center gap-0.5 sm:gap-1">
+                <div
+                  className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${
+                    isSelected
+                      ? "bg-red-600"
+                      : hasSlots
+                      ? "bg-green-500"
+                      : "bg-red-500"
+                  }`}
+                ></div>
+                {hasSlots && !isSelected && (
+                  <span className="text-[8px] sm:text-[9px] text-gray-600 font-medium">
+                    {schedules.reduce((sum, s) => sum + s.slots, 0)} slots
+                  </span>
+                )}
+              </div>
+            )}
+            {isSelected && (
+              <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-red-600 ml-auto" />
+            )}
+          </div>
+        </div>
+      );
+    }
 
-      {/* Modal */}
-      {showEnrollModal && selectedCourse && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
-          <div className="bg-white p-4 sm:p-6 rounded-lg shadow-lg w-full max-w-lg relative overflow-y-auto max-h-[90vh]">
-            {/* Close Button */}
-            <button
-              onClick={() => setShowEnrollModal(false)}
-              className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-2xl"
-            >
-              &times;
-            </button>
+    return days;
+  };
 
-            <h2 className="text-lg sm:text-xl font-bold mb-2 text-red-600">
-              Enroll in {selectedCourse.name}
-            </h2>
+  const nextMonth = () => {
+    setCurrentMonth(
+      new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1)
+    );
+  };
 
-            <p className="text-xs sm:text-sm text-gray-700 mb-1">
-              <strong>GCash Number:</strong> 09171234567
+  const prevMonth = () => {
+    setCurrentMonth(
+      new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1)
+    );
+  };
+
+  const isOnlineTheoretical = selectedCourse?.name
+    .toLowerCase()
+    .includes("online theoretical");
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-3 sm:p-6">
+      <div className="max-w-7xl mx-auto">
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-6 sm:mb-8 text-red-600 text-center">
+          Available Courses
+        </h1>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          {courses.length === 0 ? (
+            <p className="text-center text-gray-500 col-span-full">
+              No courses available.
             </p>
-            <p className="text-xs sm:text-sm text-gray-700 mb-4">
-              <strong>Downpayment:</strong> ₱
-              {(selectedCourse.price * 0.5).toFixed(2)} (50% of ₱
-              {selectedCourse.price})
-            </p>
+          ) : (
+            courses.map((course) => (
+              <div
+                key={course.course_id}
+                className="flex flex-col bg-white border border-gray-200 rounded-xl shadow-md hover:shadow-xl transition-shadow overflow-hidden"
+              >
+                {course.image ? (
+                  <img
+                    src={`${import.meta.env.VITE_API_URL}${course.image}`}
+                    alt={course.name}
+                    className="w-full h-40 sm:h-48 object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-40 sm:h-48 bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
+                    <span className="text-gray-400 text-base sm:text-lg">
+                      No Image
+                    </span>
+                  </div>
+                )}
 
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
-              {/* Schedule */}
-              {!selectedCourse.name
-                .toLowerCase()
-                .includes("online theoretical") && (
-                <div>
-                  <label className="block font-medium mb-1 text-sm sm:text-base">
-                    Select Schedule
-                  </label>
-                  {courseSchedules.length > 0 ? (
-                    <select
-                      value={scheduleId}
-                      onChange={(e) => setScheduleId(e.target.value)}
-                      className="w-full border rounded px-2 sm:px-3 py-2 text-sm sm:text-base"
-                      required
-                    >
-                      <option value="">-- choose schedule --</option>
-                      {courseSchedules.map((sched) => {
-                        const start = new Date(sched.start_date);
-                        const startStr = formatDate(start);
-                        if (sched.is_theoretical) {
-                          const end = new Date(sched.end_date);
-                          const endStr = formatDate(end);
-                          return (
-                            <option
-                              key={sched.schedule_id}
-                              value={sched.schedule_id}
-                            >
-                              {startStr} to {endStr} -{" "}
-                              {formatTime(sched.start_time)} to{" "}
-                              {formatTime(sched.end_time)}
-                            </option>
-                          );
-                        }
-                        return (
-                          <option
-                            key={sched.schedule_id}
-                            value={sched.schedule_id}
-                          >
-                            {startStr} - {formatTime(sched.start_time)} to{" "}
-                            {formatTime(sched.end_time)}
-                          </option>
-                        );
-                      })}
-                    </select>
-                  ) : (
-                    <p className="text-xs sm:text-sm text-gray-500">
-                      No schedules available.
+                <div className="p-4 sm:p-6 flex flex-col flex-1">
+                  <h3 className="text-lg sm:text-xl font-bold mb-2 text-red-600">
+                    {course.name}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-gray-500 mb-3">
+                    ({course.codename})
+                  </p>
+                  <p className="text-sm sm:text-base text-gray-700 mb-4 flex-1">
+                    {course.description}
+                  </p>
+
+                  {(course.type || course.mode) && (
+                    <p className="text-xs sm:text-sm text-gray-500 mb-4">
+                      {course.type && `Type: ${course.type}`}
+                      {course.type && course.mode && " | "}
+                      {course.mode && `Mode: ${course.mode}`}
                     </p>
                   )}
-                </div>
-              )}
 
-              {/* Address */}
-              <div>
-                <label className="block font-medium mb-1 text-sm sm:text-base">
-                  Address
-                </label>
-                <input
-                  type="text"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  className="w-full border rounded px-2 sm:px-3 py-2 text-sm sm:text-base"
-                  required
-                />
-              </div>
+                  <p className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">
+                    ₱{course.price}
+                  </p>
 
-              {/* Contact Number */}
-              <div>
-                <label className="block font-medium mb-1 text-sm sm:text-base">
-                  Contact Number
-                </label>
-                <input
-                  type="text"
-                  value={contactNumber}
-                  onChange={(e) => setContactNumber(e.target.value)}
-                  className="w-full border rounded px-2 sm:px-3 py-2 text-sm sm:text-base"
-                  pattern="^09\d{9}$"
-                  title="Must start with 09 and contain 11 digits"
-                  required
-                />
-              </div>
-
-              {/* GCash Reference Number */}
-              <div>
-                <label className="block font-medium mb-1 text-sm sm:text-base">
-                  GCash Reference Number
-                </label>
-                <input
-                  type="text"
-                  value={referenceNumber}
-                  onChange={(e) => setReferenceNumber(e.target.value)}
-                  className="w-full border rounded px-2 sm:px-3 py-2 text-sm sm:text-base"
-                  pattern="^\d{11}$"
-                  title="Must be exactly 11 digits"
-                  required
-                />
-              </div>
-
-              {/* Proof of Payment */}
-              <div>
-                <label className="block font-medium mb-1 text-sm sm:text-base">
-                  Proof of Payment (Image)
-                </label>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
-                  <label
-                    htmlFor="proofImage"
-                    className="bg-red-500 text-white px-3 sm:px-4 py-2 rounded cursor-pointer hover:bg-red-600 text-sm sm:text-base"
+                  <button
+                    onClick={() => handleEnrollClick(course)}
+                    className="w-full px-4 py-2.5 sm:py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all font-semibold text-sm sm:text-base"
                   >
-                    Choose File
-                  </label>
-                  <span className="text-xs sm:text-sm text-gray-600">
-                    {proofImage ? proofImage.name : "No file selected"}
-                  </span>
+                    Enroll Now
+                  </button>
                 </div>
-                <input
-                  id="proofImage"
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setProofImage(e.target.files[0])}
-                  className="hidden"
-                  required
-                />
               </div>
+            ))
+          )}
+        </div>
+      </div>
 
-              {/* Buttons */}
-              <div className="flex flex-col sm:flex-row justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowEnrollModal(false)}
-                  className="px-3 sm:px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 text-sm sm:text-base"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-3 sm:px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-sm sm:text-base"
-                >
-                  Submit Enrollment
-                </button>
+      {showEnrollModal && selectedCourse && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-2 sm:p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="bg-gradient-to-r from-red-500 to-red-600 p-4 sm:p-6 text-white relative">
+              <button
+                onClick={() => setShowEnrollModal(false)}
+                className="absolute top-2 right-2 sm:top-4 sm:right-4 text-white hover:bg-white hover:bg-opacity-20 rounded-full p-1.5 sm:p-2 transition"
+              >
+                <X className="w-5 h-5 sm:w-6 sm:h-6" />
+              </button>
+              <h2 className="text-lg sm:text-2xl font-bold mb-2 pr-8">
+                Enroll in {selectedCourse.name}
+              </h2>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm">
+                <span className="flex items-center gap-1">
+                  <CreditCard className="w-3 h-3 sm:w-4 sm:h-4" />
+                  GCash: 09171234567
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="font-semibold">
+                    Downpayment: ₱{(selectedCourse.price * 0.5).toFixed(2)}
+                  </span>
+                </span>
               </div>
-            </form>
+            </div>
+
+            {!isOnlineTheoretical && (
+              <div className="px-3 sm:px-6 py-3 sm:py-4 bg-gray-50 border-b">
+                <div className="flex items-center justify-between w-full">
+                  {["Schedule", "Personal Info", "Payment"].map(
+                    (step, index) => (
+                      <div key={index} className="flex items-center flex-1">
+                        <div className="flex flex-col sm:flex-row items-center sm:items-center gap-1 sm:gap-2">
+                          <div
+                            className={`flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full font-semibold text-xs sm:text-sm flex-shrink-0 ${
+                              currentStep > index + 1
+                                ? "bg-green-500 text-white"
+                                : currentStep === index + 1
+                                ? "bg-red-500 text-white"
+                                : "bg-gray-300 text-gray-600"
+                            }`}
+                          >
+                            {currentStep > index + 1 ? "✓" : index + 1}
+                          </div>
+                          <span
+                            className={`text-[10px] sm:text-sm font-medium text-center sm:text-left ${
+                              currentStep === index + 1
+                                ? "text-red-600"
+                                : "text-gray-600"
+                            }`}
+                          >
+                            {step}
+                          </span>
+                        </div>
+                        {index < 2 && (
+                          <div className="flex-1 h-0.5 bg-gray-300 mx-1 sm:mx-2 min-w-[20px] sm:min-w-[40px]"></div>
+                        )}
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+            )}
+
+            {isOnlineTheoretical && (
+              <div className="px-3 sm:px-6 py-3 sm:py-4 bg-gray-50 border-b">
+                <div className="flex items-center justify-between w-full">
+                  {["Personal Info", "Payment"].map((step, index) => (
+                    <div key={index} className="flex items-center flex-1">
+                      <div className="flex flex-col sm:flex-row items-center sm:items-center gap-1 sm:gap-2">
+                        <div
+                          className={`flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full font-semibold text-xs sm:text-sm flex-shrink-0 ${
+                            currentStep > index + 1
+                              ? "bg-green-500 text-white"
+                              : currentStep === index + 1
+                              ? "bg-red-500 text-white"
+                              : "bg-gray-300 text-gray-600"
+                          }`}
+                        >
+                          {currentStep > index + 1 ? "✓" : index + 1}
+                        </div>
+                        <span
+                          className={`text-[10px] sm:text-sm font-medium text-center sm:text-left ${
+                            currentStep === index + 1
+                              ? "text-red-600"
+                              : "text-gray-600"
+                          }`}
+                        >
+                          {step}
+                        </span>
+                      </div>
+                      {index < 1 && (
+                        <div className="flex-1 h-0.5 bg-gray-300 mx-1 sm:mx-2 min-w-[20px] sm:min-w-[40px]"></div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex-1 overflow-y-auto p-3 sm:p-6">
+              <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+                {!isOnlineTheoretical && currentStep === 1 && (
+                  <div className="space-y-4 sm:space-y-6">
+                    {isPracticalCourse(selectedCourse.name) &&
+                      isBeginnerCourse(selectedCourse.name) && (
+                        <div className="space-y-3">
+                          <label className="block text-base sm:text-lg font-semibold text-gray-800">
+                            Choose Schedule Type
+                          </label>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                            {["2days", "3days"].map((type) => (
+                              <div
+                                key={type}
+                                onClick={() => {
+                                  setScheduleType(type);
+                                  setSelectedSchedules([]);
+                                  setSelectedDates([]);
+                                }}
+                                className={`border-2 rounded-lg sm:rounded-xl p-3 sm:p-4 cursor-pointer transition-all ${
+                                  scheduleType === type
+                                    ? "border-red-500 bg-red-50 shadow-md"
+                                    : "border-gray-300 hover:border-red-300 hover:shadow"
+                                }`}
+                              >
+                                <div className="flex items-start gap-2 sm:gap-3">
+                                  <input
+                                    type="radio"
+                                    name="scheduleType"
+                                    value={type}
+                                    checked={scheduleType === type}
+                                    onChange={() => {
+                                      setScheduleType(type);
+                                      setSelectedSchedules([]);
+                                      setSelectedDates([]);
+                                    }}
+                                    className="mt-1"
+                                  />
+                                  <div>
+                                    <div className="font-bold text-gray-800 text-sm sm:text-base">
+                                      {type === "2days"
+                                        ? "2-Day Schedule"
+                                        : "3-Day Schedule"}
+                                    </div>
+                                    <div className="text-xs sm:text-sm text-gray-600 mt-1">
+                                      {type === "2days" ? (
+                                        <>
+                                          Day 1: 8am-5pm (9hrs) • Day 2: 4hrs
+                                          session
+                                        </>
+                                      ) : (
+                                        <>3 sessions of 4 hours each</>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                    {(isPracticalCourse(selectedCourse.name)
+                      ? isBeginnerCourse(selectedCourse.name)
+                        ? scheduleType
+                        : true
+                      : true) && (
+                      <div className="space-y-3 sm:space-y-4">
+                        {isPracticalCourse(selectedCourse.name) &&
+                          isBeginnerCourse(selectedCourse.name) &&
+                          scheduleType === "2days" && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+                              <div className="flex items-start gap-2">
+                                <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                                <div className="text-xs sm:text-sm text-blue-800">
+                                  <p className="font-semibold mb-1">
+                                    2-Day Schedule Instructions:
+                                  </p>
+                                  <ol className="list-decimal list-inside space-y-1">
+                                    <li>
+                                      First, select your{" "}
+                                      <strong>Day 1 (Full Day 8am-5pm)</strong>{" "}
+                                      from the calendar below
+                                    </li>
+                                    <li>
+                                      Then, select your{" "}
+                                      <strong>Day 2 (4 hours)</strong> - choose
+                                      morning OR afternoon session
+                                    </li>
+                                  </ol>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                        {isPracticalCourse(selectedCourse.name) &&
+                          isBeginnerCourse(selectedCourse.name) &&
+                          scheduleType === "3days" && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+                              <div className="flex items-start gap-2">
+                                <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                                <div className="text-xs sm:text-sm text-blue-800">
+                                  <p className="font-semibold mb-1">
+                                    3-Day Schedule Instructions:
+                                  </p>
+                                  <p>
+                                    Select 3 dates with 4-hour sessions each.
+                                    You can choose morning (8am-12pm) OR
+                                    afternoon (1pm-5pm) for each day.
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                        {isPracticalCourse(selectedCourse.name) &&
+                          !isBeginnerCourse(selectedCourse.name) && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+                              <div className="flex items-start gap-2">
+                                <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                                <div className="text-xs sm:text-sm text-blue-800">
+                                  <p className="font-semibold mb-1">
+                                    2-Day Schedule Instructions:
+                                  </p>
+                                  <p>
+                                    Select 2 dates with 4-hour sessions each.
+                                    You can choose morning (8am-12pm) OR
+                                    afternoon (1pm-5pm) for each day.
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                          <label className="block text-base sm:text-lg font-semibold text-gray-800 flex items-center gap-2">
+                            <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
+                            <span className="text-sm sm:text-base">
+                              {isPracticalCourse(selectedCourse.name) &&
+                              isBeginnerCourse(selectedCourse.name) &&
+                              scheduleType === "2days" &&
+                              selectedDates.length === 0
+                                ? "Step 1: Select Day 1 (Full Day 8am-5pm)"
+                                : isPracticalCourse(selectedCourse.name) &&
+                                  isBeginnerCourse(selectedCourse.name) &&
+                                  scheduleType === "2days" &&
+                                  selectedDates.length === 1
+                                ? "Step 2: Select Day 2 (4-hour session)"
+                                : "Select Schedule Dates"}
+                            </span>
+                          </label>
+                          <div className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm flex-wrap">
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-green-500"></div>
+                              <span>Available</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-red-500"></div>
+                              <span>Full</span>
+                            </div>
+                            {isPracticalCourse(selectedCourse.name) &&
+                              isBeginnerCourse(selectedCourse.name) &&
+                              scheduleType === "2days" && (
+                                <>
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-[10px] sm:text-xs font-semibold text-blue-600 bg-blue-100 px-1 rounded">
+                                      FULL
+                                    </span>
+                                    <span>9hrs</span>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-[10px] sm:text-xs font-semibold text-purple-600 bg-purple-100 px-1 rounded">
+                                      4HR
+                                    </span>
+                                    <span>4hrs</span>
+                                  </div>
+                                </>
+                              )}
+                          </div>
+                        </div>
+
+                        <div className="flex justify-between items-center mb-3 sm:mb-4">
+                          <button
+                            type="button"
+                            onClick={prevMonth}
+                            className="px-3 py-1.5 sm:px-4 sm:py-2 bg-gray-200 rounded-lg hover:bg-gray-300 text-sm sm:text-base"
+                          >
+                            ← Prev
+                          </button>
+                          <h3 className="text-base sm:text-xl font-bold text-gray-800">
+                            {currentMonth.toLocaleDateString("en-US", {
+                              month: "long",
+                              year: "numeric",
+                            })}
+                          </h3>
+                          <button
+                            type="button"
+                            onClick={nextMonth}
+                            className="px-3 py-1.5 sm:px-4 sm:py-2 bg-gray-200 rounded-lg hover:bg-gray-300 text-sm sm:text-base"
+                          >
+                            Next →
+                          </button>
+                        </div>
+
+                        <div className="bg-white border rounded-lg overflow-hidden">
+                          <div className="grid grid-cols-7 bg-gray-100">
+                            {[
+                              "Sun",
+                              "Mon",
+                              "Tue",
+                              "Wed",
+                              "Thu",
+                              "Fri",
+                              "Sat",
+                            ].map((day) => (
+                              <div
+                                key={day}
+                                className="text-center py-1.5 sm:py-2 font-semibold text-gray-700 text-[10px] sm:text-sm"
+                              >
+                                {day}
+                              </div>
+                            ))}
+                          </div>
+                          <div className="grid grid-cols-7">
+                            {renderCalendar()}
+                          </div>
+                        </div>
+
+                        {selectedDates.length > 0 && (
+                          <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4">
+                            <h4 className="font-semibold text-red-800 mb-3 text-sm sm:text-base">
+                              Selected Dates ({selectedDates.length})
+                              {isPracticalCourse(selectedCourse.name) &&
+                                isBeginnerCourse(selectedCourse.name) &&
+                                scheduleType && (
+                                  <span className="text-xs sm:text-sm font-normal text-red-600 ml-2">
+                                    (Need {scheduleType === "2days" ? "2" : "3"}{" "}
+                                    dates)
+                                  </span>
+                                )}
+                            </h4>
+                            <div className="space-y-2 sm:space-y-3">
+                              {selectedDates.map((dateObj, index) => (
+                                <div
+                                  key={dateObj.date}
+                                  className="bg-white p-2.5 sm:p-3 rounded-lg border border-red-200"
+                                >
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="font-semibold text-gray-800 text-xs sm:text-sm">
+                                      Day {dateObj.dayNumber || index + 1}:{" "}
+                                      {new Date(
+                                        dateObj.date
+                                      ).toLocaleDateString("en-US", {
+                                        month: "short",
+                                        day: "numeric",
+                                        year: "numeric",
+                                      })}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setSelectedDates(
+                                          selectedDates.filter(
+                                            (_, i) => i !== index
+                                          )
+                                        )
+                                      }
+                                      className="text-red-600 hover:text-red-800"
+                                    >
+                                      <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                    </button>
+                                  </div>
+                                  <select
+                                    value={dateObj.selectedScheduleId || ""}
+                                    onChange={(e) =>
+                                      handleScheduleSelect(
+                                        dateObj.date,
+                                        e.target.value
+                                      )
+                                    }
+                                    className="w-full border rounded-lg px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm"
+                                    required
+                                  >
+                                    <option value="">
+                                      -- select time slot --
+                                    </option>
+                                    {dateObj.schedules.map((sched) => {
+                                      const duration = getScheduleDuration(
+                                        sched.start_time,
+                                        sched.end_time
+                                      );
+                                      const sessionLabel =
+                                        duration === 9
+                                          ? "(Full Day)"
+                                          : parseInt(
+                                              sched.start_time.split(":")[0]
+                                            ) === 8
+                                          ? "(Morning)"
+                                          : "(Afternoon)";
+                                      const isFullyBooked = sched.slots <= 0;
+
+                                      return (
+                                        <option
+                                          key={sched.schedule_id}
+                                          value={sched.schedule_id}
+                                          disabled={isFullyBooked}
+                                        >
+                                          {formatTime(sched.start_time)} -{" "}
+                                          {formatTime(sched.end_time)}{" "}
+                                          {sessionLabel}
+                                          {isFullyBooked
+                                            ? " - FULLY BOOKED"
+                                            : ` (${sched.slots} slots)`}
+                                        </option>
+                                      );
+                                    })}
+                                  </select>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {((isOnlineTheoretical && currentStep === 1) ||
+                  (!isOnlineTheoretical && currentStep === 2)) && (
+                  <div className="space-y-3 sm:space-y-4">
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center gap-2 mb-3 sm:mb-4">
+                      <User className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
+                      Personal Information
+                    </h3>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                      <div>
+                        <label className="block font-medium text-gray-700 mb-2 text-sm sm:text-base">
+                          Birthday
+                        </label>
+                        <input
+                          type="date"
+                          value={birthday}
+                          onChange={handleBirthdayChange}
+                          max={new Date().toISOString().split("T")[0]}
+                          className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 sm:px-4 focus:border-red-500 focus:outline-none text-sm sm:text-base"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-medium text-gray-700 mb-2 text-sm sm:text-base">
+                          Age
+                        </label>
+                        <input
+                          type="number"
+                          value={age}
+                          readOnly
+                          className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 sm:px-4 bg-gray-100 text-sm sm:text-base"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-medium text-gray-700 mb-2 text-sm sm:text-base">
+                          Nationality
+                        </label>
+                        <input
+                          type="text"
+                          value={nationality}
+                          onChange={(e) => setNationality(e.target.value)}
+                          className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 sm:px-4 focus:border-red-500 focus:outline-none text-sm sm:text-base"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-medium text-gray-700 mb-2 text-sm sm:text-base">
+                          Civil Status
+                        </label>
+                        <select
+                          value={civilStatus}
+                          onChange={(e) => setCivilStatus(e.target.value)}
+                          className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 sm:px-4 focus:border-red-500 focus:outline-none text-sm sm:text-base"
+                          required
+                        >
+                          <option value="">-- select civil status --</option>
+                          <option value="Single">Single</option>
+                          <option value="Married">Married</option>
+                          <option value="Widowed">Widowed</option>
+                          <option value="Separated">Separated</option>
+                          <option value="Divorced">Divorced</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block font-medium text-gray-700 mb-2 flex items-center gap-2 text-sm sm:text-base">
+                        <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-600" />
+                        Address
+                      </label>
+                      <input
+                        type="text"
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
+                        className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 sm:px-4 focus:border-red-500 focus:outline-none text-sm sm:text-base"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-medium text-gray-700 mb-2 flex items-center gap-2 text-sm sm:text-base">
+                        <Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-600" />
+                        Contact Number
+                      </label>
+                      <input
+                        type="text"
+                        value={contactNumber}
+                        onChange={(e) => setContactNumber(e.target.value)}
+                        className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 sm:px-4 focus:border-red-500 focus:outline-none text-sm sm:text-base"
+                        pattern="^09\d{9}$"
+                        title="Must start with 09 and contain 11 digits"
+                        placeholder="09XXXXXXXXX"
+                        required
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {((isOnlineTheoretical && currentStep === 2) ||
+                  (!isOnlineTheoretical && currentStep === 3)) && (
+                  <div className="space-y-3 sm:space-y-4">
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-800 flex items-center gap-2 mb-3 sm:mb-4">
+                      <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
+                      Payment Information
+                    </h3>
+
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4 mb-3 sm:mb-4">
+                      <h4 className="font-semibold text-red-800 mb-2 text-sm sm:text-base">
+                        Payment Instructions
+                      </h4>
+                      <ul className="text-xs sm:text-sm text-red-700 space-y-1 list-disc list-inside">
+                        <li>
+                          Send payment to GCash: <strong>09171234567</strong>
+                        </li>
+                        <li>
+                          Amount:{" "}
+                          <strong>
+                            ₱{(selectedCourse.price * 0.5).toFixed(2)}
+                          </strong>{" "}
+                          (50% downpayment)
+                        </li>
+                        <li>Take a screenshot of the payment confirmation</li>
+                        <li>
+                          Enter the reference number and upload the screenshot
+                          below
+                        </li>
+                      </ul>
+                    </div>
+
+                    <div>
+                      <label className="block font-medium text-gray-700 mb-2 text-sm sm:text-base">
+                        GCash Reference Number
+                      </label>
+                      <input
+                        type="text"
+                        value={referenceNumber}
+                        onChange={(e) => setReferenceNumber(e.target.value)}
+                        className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 sm:px-4 focus:border-red-500 focus:outline-none text-sm sm:text-base"
+                        pattern="^\d{11}$"
+                        title="Must be exactly 11 digits"
+                        placeholder="Enter 11-digit reference number"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-medium text-gray-700 mb-2 flex items-center gap-2 text-sm sm:text-base">
+                        <FileImage className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-600" />
+                        Proof of Payment (Screenshot)
+                      </label>
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 sm:p-6 text-center hover:border-red-500 transition-colors">
+                        <input
+                          id="proofImage"
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => setProofImage(e.target.files[0])}
+                          className="hidden"
+                          required
+                        />
+                        <label
+                          htmlFor="proofImage"
+                          className="cursor-pointer flex flex-col items-center gap-2"
+                        >
+                          {proofImage ? (
+                            <>
+                              <CheckCircle2 className="w-10 h-10 sm:w-12 sm:h-12 text-green-500" />
+                              <span className="text-green-600 font-semibold text-sm sm:text-base break-all px-2">
+                                {proofImage.name}
+                              </span>
+                              <span className="text-xs sm:text-sm text-gray-500">
+                                Click to change file
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <FileImage className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400" />
+                              <span className="text-gray-600 font-semibold text-sm sm:text-base">
+                                Click to upload screenshot
+                              </span>
+                              <span className="text-xs sm:text-sm text-gray-500">
+                                PNG, JPG up to 10MB
+                              </span>
+                            </>
+                          )}
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 sm:p-4 mt-4 sm:mt-6">
+                      <h4 className="font-semibold text-gray-800 mb-3 text-sm sm:text-base">
+                        Enrollment Summary
+                      </h4>
+                      <div className="space-y-2 text-xs sm:text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Course:</span>
+                          <span className="font-semibold text-gray-800 text-right ml-2">
+                            {selectedCourse.name}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Total Price:</span>
+                          <span className="font-semibold text-gray-800">
+                            ₱{selectedCourse.price}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">
+                            Downpayment (50%):
+                          </span>
+                          <span className="font-semibold text-red-600">
+                            ₱{(selectedCourse.price * 0.5).toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between border-t pt-2 mt-2">
+                          <span className="text-gray-600">
+                            Remaining Balance:
+                          </span>
+                          <span className="font-semibold text-gray-800">
+                            ₱{(selectedCourse.price * 0.5).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-4 pt-4 border-t">
+                  {currentStep > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(currentStep - 1)}
+                      className="w-full sm:w-auto px-5 py-2.5 sm:px-6 sm:py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-semibold text-sm sm:text-base"
+                    >
+                      ← Back
+                    </button>
+                  )}
+
+                  {(isOnlineTheoretical && currentStep < 2) ||
+                  (!isOnlineTheoretical && currentStep < 3) ? (
+                    <button
+                      type="button"
+                      onClick={handleNext}
+                      className="w-full sm:w-auto sm:ml-auto px-5 py-2.5 sm:px-6 sm:py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all font-semibold text-sm sm:text-base"
+                    >
+                      Next →
+                    </button>
+                  ) : (
+                    <button
+                      type="submit"
+                      className="w-full sm:w-auto sm:ml-auto px-5 py-2.5 sm:px-6 sm:py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all font-semibold flex items-center justify-center gap-2 text-sm sm:text-base"
+                    >
+                      <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                      Submit Enrollment
+                    </button>
+                  )}
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
@@ -826,7 +1809,6 @@ const EnrollmentPage = () => {
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Define the questions object
   const questions = {
     training_course: [
       "Objectives were clearly defined",
@@ -983,7 +1965,6 @@ const EnrollmentPage = () => {
         showConfirmButton: false,
       });
 
-      // update local state (use numeric compare to avoid === type mismatch)
       setEnrollments((prevEnrollments) =>
         prevEnrollments.map((enrollment) =>
           Number(enrollment.enrollment_id) === enrollmentIdNum
@@ -1045,26 +2026,6 @@ const EnrollmentPage = () => {
       </h1>
       <div className="space-y-4 lg:space-y-6">
         {enrollments.map((e) => {
-          const start = e.start_date ? new Date(e.start_date) : null;
-          const scheduleLabel = e.is_theoretical
-            ? start
-              ? `${fmtDate(start)} to ${fmtDate(
-                  new Date(start.getTime() + 86400000)
-                )} — ${fmtTime(e.start_time)} to ${fmtTime(e.end_time)}`
-              : "No Schedule"
-            : start
-            ? `${fmtDate(start)} — ${fmtTime(e.start_time)} to ${fmtTime(
-                e.end_time
-              )}`
-            : "No Schedule";
-
-          let imageUrl = "";
-          if (e.course_image) {
-            imageUrl = e.course_image.startsWith("http")
-              ? e.course_image
-              : `${import.meta.env.VITE_API_URL}${e.course_image}`;
-          }
-
           // Check if online theoretical course
           const isOnlineTheoretical =
             (e.course_name ?? "").toLowerCase() ===
@@ -1072,6 +2033,17 @@ const EnrollmentPage = () => {
 
           // Check if has feedback from database
           const hasFeedback = e.has_feedback === true || e.has_feedback === 1;
+
+          // Handle multiple schedules (practical courses)
+          const hasMultipleSchedules =
+            e.multiple_schedules && e.multiple_schedules.length > 0;
+
+          let imageUrl = "";
+          if (e.course_image) {
+            imageUrl = e.course_image.startsWith("http")
+              ? e.course_image
+              : `${import.meta.env.VITE_API_URL}${e.course_image}`;
+          }
 
           return (
             <div
@@ -1098,15 +2070,54 @@ const EnrollmentPage = () => {
                   </h2>
 
                   <div className="space-y-2 mb-4">
-                    {/* Schedule and Instructor only show if not OTDC */}
+                    {/* Schedule - only show if not OTDC */}
                     {!isOnlineTheoretical && (
                       <>
-                        <div className="flex flex-col lg:flex-row lg:items-center text-gray-700">
-                          <span className="text-sm font-medium">Schedule:</span>
-                          <span className="text-sm lg:ml-2 break-words">
-                            {scheduleLabel}
-                          </span>
-                        </div>
+                        {hasMultipleSchedules ? (
+                          <div className="text-gray-700">
+                            <span className="text-sm font-medium block mb-2">
+                              Schedules:
+                            </span>
+                            <div className="space-y-1 pl-2">
+                              {e.multiple_schedules.map((sched, idx) => (
+                                <div key={idx} className="text-sm">
+                                  <span className="font-medium">
+                                    Day {sched.day_number}:
+                                  </span>{" "}
+                                  {fmtDate(new Date(sched.start_date))} —{" "}
+                                  {fmtTime(sched.start_time)} to{" "}
+                                  {fmtTime(sched.end_time)}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col lg:flex-row lg:items-center text-gray-700">
+                            <span className="text-sm font-medium">
+                              Schedule:
+                            </span>
+                            <span className="text-sm lg:ml-2 break-words">
+                              {e.start_date
+                                ? e.is_theoretical
+                                  ? `${fmtDate(
+                                      new Date(e.start_date)
+                                    )} to ${fmtDate(
+                                      new Date(
+                                        new Date(e.start_date).getTime() +
+                                          86400000
+                                      )
+                                    )} — ${fmtTime(e.start_time)} to ${fmtTime(
+                                      e.end_time
+                                    )}`
+                                  : `${fmtDate(
+                                      new Date(e.start_date)
+                                    )} — ${fmtTime(e.start_time)} to ${fmtTime(
+                                      e.end_time
+                                    )}`
+                                : "No Schedule"}
+                            </span>
+                          </div>
+                        )}
 
                         <div className="flex flex-col lg:flex-row lg:items-center text-gray-700">
                           <span className="text-sm font-medium">
@@ -1138,7 +2149,6 @@ const EnrollmentPage = () => {
                         Generate Certificate
                       </button>
 
-                      {/* Feedback button - disabled if feedback already submitted */}
                       <button
                         className={`px-4 lg:px-6 py-2.5 rounded-lg font-medium transition-colors duration-200 shadow-sm text-sm lg:text-base ${
                           hasFeedback

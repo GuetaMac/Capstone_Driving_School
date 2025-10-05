@@ -34,6 +34,8 @@ import {
 import Swal from "sweetalert2";
 import { BsRecord } from "react-icons/bs";
 import { PiStudentFill } from "react-icons/pi";
+import FullCalendar from "@fullcalendar/react";
+import dayGridPlugin from "@fullcalendar/daygrid";
 
 // Helper function for Tailwind color classes for StatCard and QuickAction
 const colorClasses = {
@@ -667,6 +669,20 @@ const EnrollmentsPage = () => {
       return "Online Course - Self-paced";
     }
 
+    // Check if enrollment has multiple schedules (practical courses)
+    if (e.multiple_schedules && e.multiple_schedules.length > 0) {
+      const dates = e.multiple_schedules
+        .map((s) => fmtDate(new Date(s.start_date)))
+        .join(" | ");
+
+      const firstSchedule = e.multiple_schedules[0];
+      const timeRange = `${fmtTime(firstSchedule.start_time)} to ${fmtTime(
+        firstSchedule.end_time
+      )}`;
+
+      return `${dates} — ${timeRange}`;
+    }
+
     if (!e.start_date || !e.start_time || !e.end_time) {
       return e.schedule || "Schedule TBD";
     }
@@ -680,7 +696,6 @@ const EnrollmentsPage = () => {
       ? `${startDate} to ${endDate} — ${timeRange}`
       : `${startDate} — ${timeRange}`;
   };
-
   // Get unique years from enrollments
   const getAvailableYears = () => {
     const years = new Set();
@@ -850,40 +865,29 @@ const EnrollmentsPage = () => {
         {e.course_name?.toLowerCase().includes("online") &&
         e.course_name?.toLowerCase().includes("theoretical") ? (
           <span className="text-sm text-gray-500 italic">N/A (Online)</span>
-        ) : e.instructor_name ? (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-            {e.instructor_name}
-          </span>
         ) : hasAdminFeatures ? (
           <select
-            defaultValue=""
+            value={e.instructor_id || ""}
             onChange={(ev) => {
               const instructorId = ev.target.value;
-              const reset = () => (ev.target.value = "");
+              const reset = () => (ev.target.value = e.instructor_id || "");
               assignInstructor(e.enrollment_id, instructorId, reset);
             }}
             className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           >
             <option value="" disabled>
-              Assign Instructor
+              {e.instructor_name ? "Change Instructor" : "Assign Instructor"}
             </option>
-            {instructors
-              .filter((instructor) => {
-                const assignedEnrollment = enrollments.find(
-                  (en) => en.instructor_id === instructor.user_id
-                );
-                return (
-                  !assignedEnrollment ||
-                  assignedEnrollment.status?.toLowerCase() ===
-                    "passed/completed"
-                );
-              })
-              .map((i) => (
-                <option key={i.user_id} value={i.user_id}>
-                  {i.name}
-                </option>
-              ))}
+            {instructors.map((i) => (
+              <option key={i.user_id} value={i.user_id}>
+                {i.name}
+              </option>
+            ))}
           </select>
+        ) : e.instructor_name ? (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+            {e.instructor_name}
+          </span>
         ) : (
           <span className="text-sm text-gray-500">Not assigned</span>
         )}
@@ -975,12 +979,12 @@ const EnrollmentsPage = () => {
   const renderMobileCard = (e) => (
     <div
       key={e.enrollment_id}
-      className="bg-gray-50 rounded-lg p-4 ml-4 border-l-4 border-indigo-200"
+      className="bg-gray-50 rounded-lg p-4 ml-4 border-l-4 border-red-400"
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center">
-          <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center mr-3">
-            <span className="text-sm font-medium text-indigo-700">
+          <div className="h-10 w-10 rounded-full bg-red-200 flex items-center justify-center mr-3">
+            <span className="text-sm font-medium text-red-700">
               {e.student_name
                 ?.split(" ")
                 .map((n) => n[0])
@@ -1009,40 +1013,29 @@ const EnrollmentsPage = () => {
           {e.course_name?.toLowerCase().includes("online") &&
           e.course_name?.toLowerCase().includes("theoretical") ? (
             <span className="text-sm text-gray-500 italic">N/A (Online)</span>
-          ) : e.instructor_name ? (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-              {e.instructor_name}
-            </span>
           ) : hasAdminFeatures ? (
             <select
-              defaultValue=""
+              value={e.instructor_id || ""}
               onChange={(ev) => {
                 const instructorId = ev.target.value;
-                const reset = () => (ev.target.value = "");
+                const reset = () => (ev.target.value = e.instructor_id || "");
                 assignInstructor(e.enrollment_id, instructorId, reset);
               }}
               className="text-sm border border-gray-300 rounded-md px-2 py-1"
             >
               <option value="" disabled>
-                Assign
+                {e.instructor_name ? "Change" : "Assign"}
               </option>
-              {instructors
-                .filter((i) => {
-                  const assignedEnrollment = enrollments.find(
-                    (en) => en.instructor_id === i.user_id
-                  );
-                  return (
-                    !assignedEnrollment ||
-                    assignedEnrollment.status?.toLowerCase() ===
-                      "passed/completed"
-                  );
-                })
-                .map((i) => (
-                  <option key={i.user_id} value={i.user_id}>
-                    {i.name}
-                  </option>
-                ))}
+              {instructors.map((i) => (
+                <option key={i.user_id} value={i.user_id}>
+                  {i.name}
+                </option>
+              ))}
             </select>
+          ) : e.instructor_name ? (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+              {e.instructor_name}
+            </span>
           ) : (
             <span className="text-sm text-gray-500">Not assigned</span>
           )}
@@ -1448,7 +1441,7 @@ const EnrollmentsPage = () => {
               className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
             >
               {/* Schedule Header */}
-              <div className="bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-3">
+              <div className="bg-gradient-to-r from-red-500 to-red-600 px-4 py-3">
                 <div className="flex items-center text-white">
                   <Calendar className="h-4 w-4 mr-2" />
                   <h3 className="font-semibold text-sm">{group.schedule}</h3>
@@ -1580,6 +1573,10 @@ const Schedules = ({ currentUser }) => {
   });
   const [message, setMessage] = useState("");
   const [schedules, setSchedules] = useState([]);
+  const [selectedMonth, setSelectedMonth] = useState("all");
+  const [selectedYear, setSelectedYear] = useState("all");
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState("all");
+  const [selectedCourseType, setSelectedCourseType] = useState("all");
 
   useEffect(() => {
     const fetchSchedules = async () => {
@@ -1595,12 +1592,11 @@ const Schedules = ({ currentUser }) => {
       }
     };
     fetchSchedules();
-  }, []); // fetch once on mount
+  }, []);
 
   const handleSubmit = async () => {
     setMessage("");
 
-    // Basic validation
     if (!form.date || !form.start_time || !form.end_time || !form.slots) {
       Swal.fire({
         icon: "error",
@@ -1610,7 +1606,6 @@ const Schedules = ({ currentUser }) => {
       return;
     }
 
-    // Show confirmation first
     const confirm = await Swal.fire({
       title: "Are you sure?",
       text: "Do you want to add this schedule?",
@@ -1622,7 +1617,6 @@ const Schedules = ({ currentUser }) => {
       cancelButtonText: "Cancel",
     });
 
-    // if cancelled, stop
     if (!confirm.isConfirmed) return;
 
     try {
@@ -1651,7 +1645,6 @@ const Schedules = ({ currentUser }) => {
         is_theoretical: false,
         slots: "",
       });
-      // refetch para makita agad
       const { data } = await axios.get(
         `${import.meta.env.VITE_API_URL}/api/schedules`,
         {
@@ -1674,11 +1667,50 @@ const Schedules = ({ currentUser }) => {
     });
   };
 
-  // today para sa comparison
+  const getTimeSlotCategory = (startTime, endTime) => {
+    const start = parseInt(startTime.split(":")[0]);
+    const end = parseInt(endTime.split(":")[0]);
+
+    if (start === 8 && end === 17) return "8am-5pm";
+    if (start === 8 && end === 12) return "8am-12pm";
+    if (start === 13 && end === 17) return "1pm-5pm";
+    return "other";
+  };
+
+  const getAvailableYears = () => {
+    const years = new Set();
+    schedules.forEach((schedule) => {
+      const year = new Date(schedule.start_date).getFullYear();
+      years.add(year);
+    });
+    return Array.from(years).sort((a, b) => b - a);
+  };
+
+  const months = [
+    { value: 0, name: "January" },
+    { value: 1, name: "February" },
+    { value: 2, name: "March" },
+    { value: 3, name: "April" },
+    { value: 4, name: "May" },
+    { value: 5, name: "June" },
+    { value: 6, name: "July" },
+    { value: 7, name: "August" },
+    { value: 8, name: "September" },
+    { value: 9, name: "October" },
+    { value: 10, name: "November" },
+    { value: 11, name: "December" },
+  ];
+
+  const timeSlots = [
+    { value: "8am-5pm", label: "8:00 AM - 5:00 PM" },
+    { value: "8am-12pm", label: "8:00 AM - 12:00 PM" },
+    { value: "1pm-5pm", label: "1:00 PM - 5:00 PM" },
+    { value: "other", label: "Other Time Slots" },
+  ];
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // filter lang ng upcoming schedules
   const upcomingSchedules = schedules.filter((schedule) => {
     if (schedule.is_theoretical) {
       const endDate = new Date(schedule.end_date);
@@ -1691,9 +1723,56 @@ const Schedules = ({ currentUser }) => {
     }
   });
 
+  // For calendar - show all schedules including fully booked
+  const calendarSchedules = upcomingSchedules;
+
+  // For list - hide fully booked schedules
+  const filteredSchedules = upcomingSchedules.filter((schedule) => {
+    // Hide fully booked schedules from the list
+    if (schedule.slots === 0) return false;
+
+    const scheduleDate = new Date(schedule.start_date);
+    const scheduleMonth = scheduleDate.getMonth();
+    const scheduleYear = scheduleDate.getFullYear();
+
+    const monthMatches =
+      selectedMonth === "all" || scheduleMonth === parseInt(selectedMonth);
+    const yearMatches =
+      selectedYear === "all" || scheduleYear === parseInt(selectedYear);
+
+    const timeSlotCategory = getTimeSlotCategory(
+      schedule.start_time,
+      schedule.end_time
+    );
+    const timeSlotMatches =
+      selectedTimeSlot === "all" || timeSlotCategory === selectedTimeSlot;
+
+    const courseTypeMatches =
+      selectedCourseType === "all" ||
+      (selectedCourseType === "theoretical" && schedule.is_theoretical) ||
+      (selectedCourseType === "practical" && !schedule.is_theoretical);
+
+    return monthMatches && yearMatches && timeSlotMatches && courseTypeMatches;
+  });
+
+  const availableYears = getAvailableYears();
+
+  const hasActiveFilters =
+    selectedMonth !== "all" ||
+    selectedYear !== "all" ||
+    selectedTimeSlot !== "all" ||
+    selectedCourseType !== "all";
+
+  const clearFilters = () => {
+    setSelectedMonth("all");
+    setSelectedYear("all");
+    setSelectedTimeSlot("all");
+    setSelectedCourseType("all");
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-6">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-red-600 to-red-600 rounded-2xl mb-4 shadow-lg">
@@ -1707,129 +1786,440 @@ const Schedules = ({ currentUser }) => {
           </p>
         </div>
 
-        {/* Form Card */}
-        <div className="bg-white/80 backdrop-blur-sm shadow-2xl rounded-3xl p-8 mb-8 border border-white/20">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          {/* Form Card */}
+          <div className="bg-white/80 backdrop-blur-sm shadow-2xl rounded-3xl p-8 border border-white/20">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-red-100 rounded-xl">
+                <Plus className="w-5 h-5 text-red-600" />
+              </div>
+              <h2 className="text-2xl font-semibold text-gray-800">
+                Add New Schedule
+              </h2>
+            </div>
+
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                  <Calendar className="w-4 h-4" />
+                  {form.is_theoretical ? "Start Date" : "Date"}
+                </label>
+                <input
+                  type="date"
+                  value={form.date}
+                  onChange={(e) => setForm({ ...form, date: e.target.value })}
+                  className="w-full border-2 border-gray-200 rounded-xl p-4 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 bg-white/50"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                    <Clock className="w-4 h-4" />
+                    Start Time
+                  </label>
+                  <input
+                    type="time"
+                    value={form.start_time}
+                    onChange={(e) =>
+                      setForm({ ...form, start_time: e.target.value })
+                    }
+                    className="w-full border-2 border-gray-200 rounded-xl p-4 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 bg-white/50"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                    <Clock className="w-4 h-4" />
+                    End Time
+                  </label>
+                  <input
+                    type="time"
+                    value={form.end_time}
+                    onChange={(e) =>
+                      setForm({ ...form, end_time: e.target.value })
+                    }
+                    className="w-full border-2 border-gray-200 rounded-xl p-4 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 bg-white/50"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                  <Users className="w-4 h-4" />
+                  Available Slots
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={form.slots}
+                  onChange={(e) => setForm({ ...form, slots: e.target.value })}
+                  className="w-full border-2 border-gray-200 rounded-xl p-4 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 bg-white/50"
+                  placeholder="Enter number of slots"
+                  required
+                />
+              </div>
+
+              <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-100">
+                <input
+                  type="checkbox"
+                  checked={form.is_theoretical}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      is_theoretical: e.target.checked,
+                    })
+                  }
+                  className="w-5 h-5 text-purple-600 border-2 border-purple-300 rounded focus:ring-purple-500"
+                />
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                  <BookOpen className="w-4 h-4 text-purple-600" />
+                  2-day Seminar (Theoretical)
+                </label>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSubmit}
+                className="w-full py-4 bg-gradient-to-r from-red-600 to-red-600 hover:from-red-700 hover:to-red-700 text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-[1.02] hover:shadow-lg flex items-center justify-center gap-2"
+              >
+                <Plus className="w-5 h-5" />
+                Create Schedule
+              </button>
+            </div>
+
+            {message && (
+              <div
+                className={`mt-6 p-4 rounded-xl flex items-center gap-3 ${
+                  message.startsWith("✅")
+                    ? "bg-green-50 border border-green-200 text-green-800"
+                    : "bg-red-50 border border-red-200 text-red-800"
+                }`}
+              >
+                {message.startsWith("✅") ? (
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                ) : (
+                  <AlertCircle className="w-5 h-5 text-red-600" />
+                )}
+                <span className="font-medium">{message}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Calendar View */}
+          <div className="bg-white/80 backdrop-blur-sm shadow-2xl rounded-3xl p-8 border border-white/20">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-red-100 rounded-xl">
+                <Calendar className="w-5 h-5 text-red-600" />
+              </div>
+              <h3 className="text-2xl font-semibold text-gray-800">
+                Calendar View
+              </h3>
+            </div>
+            <style>{`
+              .calendar-container .fc {
+                font-family: inherit;
+              }
+              
+              /* Toolbar - Clean Professional */
+              .calendar-container .fc-toolbar {
+                padding: 1.5rem;
+                background: white;
+                border-bottom: 1px solid #e5e7eb;
+                margin-bottom: 0 !important;
+              }
+              
+              .calendar-container .fc-toolbar-title {
+                font-size: 1.5rem !important;
+                font-weight: 600 !important;
+                color: #111827 !important;
+              }
+              
+              /* Navigation Buttons */
+              .calendar-container .fc-button {
+                background-color: #f3f4f6 !important;
+                border: 1px solid #e5e7eb !important;
+                color: #374151 !important;
+                padding: 0.5rem 1rem !important;
+                border-radius: 0.5rem !important;
+                font-weight: 500 !important;
+                transition: all 0.2s !important;
+              }
+              
+              .calendar-container .fc-button:hover {
+                background-color: #e5e7eb !important;
+                border-color: #d1d5db !important;
+              }
+              
+              .calendar-container .fc-button-primary:not(:disabled).fc-button-active {
+                background-color: #dc2626 !important;
+                border-color: #dc2626 !important;
+                color: white !important;
+              }
+              
+              /* Calendar Grid */
+              .calendar-container .fc-scrollgrid {
+                border: 1px solid #e5e7eb !important;
+              }
+              
+              /* Day Headers */
+              .calendar-container .fc-col-header {
+                background: #fafafa;
+              }
+              
+              .calendar-container .fc-col-header-cell {
+                padding: 0.75rem;
+                font-weight: 600;
+                font-size: 0.75rem;
+                text-transform: uppercase;
+                color: #6b7280;
+                letter-spacing: 0.05em;
+              }
+              
+              /* Day Cells */
+              .calendar-container .fc-daygrid-day {
+                background: white;
+              }
+              
+              .calendar-container .fc-daygrid-day-frame {
+                min-height: 120px;
+                padding: 0.5rem;
+              }
+              
+              .calendar-container .fc-daygrid-day-number {
+                font-size: 0.875rem;
+                font-weight: 500;
+                color: #374151;
+                padding: 0.25rem 0.5rem;
+              }
+              
+              /* Today */
+              .calendar-container .fc-day-today {
+                background-color: #fef2f2 !important;
+              }
+               
+              
+              /* Events */
+              .calendar-container .fc-event {
+                border: none !important;
+                border-radius: 0.375rem;
+                padding: 0.375rem 0.5rem;
+                margin-bottom: 0.25rem;
+                font-size: 0.75rem;
+                line-height: 1.4;
+              }
+              
+              .calendar-container .fc-event-title {
+                font-weight: 600;
+                display: block;
+                margin-bottom: 2px;
+              }
+              
+              .calendar-container .fc-event-main {
+                color: white !important;
+              }
+              
+              .calendar-container .fc-daygrid-event {
+                white-space: normal !important;
+              }
+              
+              /* Event Colors */
+              .calendar-container .event-fully-booked {
+                background-color: red !important;
+              }
+              
+              .calendar-container .event-theoretical {
+                background-color:  green !important;
+              }
+              
+              .calendar-container .event-practical {
+                background-color: green !important;
+              }
+              
+              /* Other Month Days */
+              .calendar-container .fc-day-other .fc-daygrid-day-number {
+                color: #d1d5db;
+              }
+              
+              /* Borders */
+              .calendar-container .fc-theme-standard td,
+              .calendar-container .fc-theme-standard th {
+                border-color: #e5e7eb !important;
+              }
+            `}</style>
+            <div className="calendar-container">
+              <FullCalendar
+                plugins={[dayGridPlugin]}
+                initialView="dayGridMonth"
+                events={calendarSchedules.map((schedule) => {
+                  const isFullyBooked = schedule.slots === 0;
+                  const className = isFullyBooked
+                    ? "event-fully-booked"
+                    : schedule.is_theoretical
+                    ? "event-theoretical"
+                    : "event-practical";
+
+                  return {
+                    title: schedule.is_theoretical
+                      ? "Theoretical"
+                      : "Practical",
+                    start: schedule.start_date,
+                    end: schedule.is_theoretical
+                      ? new Date(
+                          new Date(schedule.end_date).getTime() + 86400000
+                        )
+                          .toISOString()
+                          .split("T")[0]
+                      : schedule.start_date,
+                    classNames: [className],
+                    extendedProps: {
+                      slots: schedule.slots,
+                      time: `${schedule.start_time.slice(
+                        0,
+                        5
+                      )}-${schedule.end_time.slice(0, 5)}`,
+                    },
+                  };
+                })}
+                height="500px"
+                headerToolbar={{
+                  left: "prev,next today",
+                  center: "title",
+                  right: "",
+                }}
+                eventContent={(arg) => (
+                  <div
+                    style={{
+                      padding: "2px",
+                      overflow: "hidden",
+                      fontSize: "0.65rem",
+                      lineHeight: "1.2",
+                    }}
+                  >
+                    <div style={{ fontWeight: "600" }}>{arg.event.title}</div>
+                    <div style={{ fontSize: "0.6rem", opacity: 0.9 }}>
+                      {arg.event.extendedProps.slots} slots
+                    </div>
+                    <div style={{ fontSize: "0.55rem", opacity: 0.85 }}>
+                      {arg.event.extendedProps.time}
+                    </div>
+                  </div>
+                )}
+                dayMaxEvents={3}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Filters Section */}
+        <div className="bg-white/80 backdrop-blur-sm shadow-2xl rounded-3xl p-6 mb-8 border border-white/20">
           <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-red-100 rounded-xl">
-              <Plus className="w-5 h-5 text-red-600" />
+            <div className="p-2 bg-blue-100 rounded-xl">
+              <Filter className="w-5 h-5 text-blue-600" />
             </div>
-            <h2 className="text-2xl font-semibold text-gray-800">
-              Add New Schedule
-            </h2>
+            <h3 className="text-xl font-semibold text-gray-800">
+              Filter Schedules
+            </h3>
           </div>
 
-          <div className="space-y-6">
-            {/* Date Input */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                <Calendar className="w-4 h-4" />
-                {form.is_theoretical ? "Start Date" : "Date"}
-              </label>
-              <input
-                type="date"
-                value={form.date}
-                onChange={(e) => setForm({ ...form, date: e.target.value })}
-                className="w-full border-2 border-gray-200 rounded-xl p-4 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 bg-white/50"
-                required
-              />
-            </div>
-
-            {/* Time Inputs */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                  <Clock className="w-4 h-4" />
-                  Start Time
-                </label>
-                <input
-                  type="time"
-                  value={form.start_time}
-                  onChange={(e) =>
-                    setForm({ ...form, start_time: e.target.value })
-                  }
-                  className="w-full border-2 border-gray-200 rounded-xl p-4 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 bg-white/50"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                  <Clock className="w-4 h-4" />
-                  End Time
-                </label>
-                <input
-                  type="time"
-                  value={form.end_time}
-                  onChange={(e) =>
-                    setForm({ ...form, end_time: e.target.value })
-                  }
-                  className="w-full border-2 border-gray-200 rounded-xl p-4 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 bg-white/50"
-                  required
-                />
+              <label className="text-sm font-medium text-gray-700">Month</label>
+              <div className="relative">
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="w-full border-2 border-gray-200 rounded-xl p-3 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 bg-white appearance-none"
+                >
+                  <option value="all">All Months</option>
+                  {months.map((month) => (
+                    <option key={month.value} value={month.value}>
+                      {month.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               </div>
             </div>
 
-            {/* Slots Input */}
             <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                <Users className="w-4 h-4" />
-                Available Slots
-              </label>
-              <input
-                type="number"
-                min="1"
-                value={form.slots}
-                onChange={(e) => setForm({ ...form, slots: e.target.value })}
-                className="w-full border-2 border-gray-200 rounded-xl p-4 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 bg-white/50"
-                placeholder="Enter number of slots"
-                required
-              />
+              <label className="text-sm font-medium text-gray-700">Year</label>
+              <div className="relative">
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  className="w-full border-2 border-gray-200 rounded-xl p-3 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 bg-white appearance-none"
+                >
+                  <option value="all">All Years</option>
+                  {availableYears.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
             </div>
 
-            {/* Checkbox */}
-            <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-100">
-              <input
-                type="checkbox"
-                checked={form.is_theoretical}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    is_theoretical: e.target.checked,
-                  })
-                }
-                className="w-5 h-5 text-purple-600 border-2 border-purple-300 rounded focus:ring-purple-500"
-              />
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                <BookOpen className="w-4 h-4 text-purple-600" />
-                2-day Seminar (Theoretical)
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">
+                Time Slot
               </label>
+              <div className="relative">
+                <select
+                  value={selectedTimeSlot}
+                  onChange={(e) => setSelectedTimeSlot(e.target.value)}
+                  className="w-full border-2 border-gray-200 rounded-xl p-3 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 bg-white appearance-none"
+                >
+                  <option value="all">All Time Slots</option>
+                  {timeSlots.map((slot) => (
+                    <option key={slot.value} value={slot.value}>
+                      {slot.label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
             </div>
 
-            {/* Submit Button */}
-            <button
-              type="button"
-              onClick={handleSubmit}
-              className="w-full py-4 bg-gradient-to-r from-red-600 to-red-600 hover:from-red-700 hover:to-red-700 text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-[1.02] hover:shadow-lg flex items-center justify-center gap-2"
-            >
-              <Plus className="w-5 h-5" />
-              Create Schedule
-            </button>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">
+                Course Type
+              </label>
+              <div className="relative">
+                <select
+                  value={selectedCourseType}
+                  onChange={(e) => setSelectedCourseType(e.target.value)}
+                  className="w-full border-2 border-gray-200 rounded-xl p-3 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 bg-white appearance-none"
+                >
+                  <option value="all">All Courses</option>
+                  <option value="theoretical">
+                    Theoretical Driving Course
+                  </option>
+                  <option value="practical">Practical Driving Course</option>
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
           </div>
 
-          {/* Message */}
-          {message && (
-            <div
-              className={`mt-6 p-4 rounded-xl flex items-center gap-3 ${
-                message.startsWith("✅")
-                  ? "bg-green-50 border border-green-200 text-green-800"
-                  : "bg-red-50 border border-red-200 text-red-800"
-              }`}
-            >
-              {message.startsWith("✅") ? (
-                <CheckCircle className="w-5 h-5 text-green-600" />
-              ) : (
-                <AlertCircle className="w-5 h-5 text-red-600" />
-              )}
-              <span className="font-medium">{message}</span>
+          {hasActiveFilters && (
+            <div className="mt-4 flex items-center gap-3">
+              <button
+                onClick={clearFilters}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200 flex items-center gap-2"
+              >
+                <X className="w-4 h-4" />
+                Clear All Filters
+              </button>
+              <span className="text-sm text-gray-600">
+                Showing {filteredSchedules.length} of{" "}
+                {upcomingSchedules.length -
+                  upcomingSchedules.filter((s) => s.slots === 0).length}{" "}
+                schedules
+              </span>
             </div>
           )}
         </div>
@@ -1838,7 +2228,7 @@ const Schedules = ({ currentUser }) => {
         <div className="bg-white/80 backdrop-blur-sm shadow-2xl rounded-3xl p-8 border border-white/20">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 bg-indigo-100 rounded-xl">
-              <Calendar className="w-5 h-5 text-red-600" />
+              <Calendar className="w-5 h-5 text-indigo-600" />
             </div>
             <h3 className="text-2xl font-semibold text-gray-800">
               Upcoming Sessions
@@ -1846,20 +2236,24 @@ const Schedules = ({ currentUser }) => {
           </div>
 
           <div className="space-y-4">
-            {upcomingSchedules.length === 0 ? (
+            {filteredSchedules.length === 0 ? (
               <div className="text-center py-12">
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-2xl mb-4">
                   <Calendar className="w-8 h-8 text-gray-400" />
                 </div>
                 <p className="text-gray-500 text-lg font-medium">
-                  No schedules available
+                  {hasActiveFilters
+                    ? "No schedules match your filters"
+                    : "No schedules available"}
                 </p>
                 <p className="text-gray-400 text-sm">
-                  Create your first schedule to get started
+                  {hasActiveFilters
+                    ? "Try adjusting your filter criteria"
+                    : "Create your first schedule to get started"}
                 </p>
               </div>
             ) : (
-              upcomingSchedules.map((schedule) => (
+              filteredSchedules.map((schedule) => (
                 <div
                   key={schedule.schedule_id}
                   className="group p-6 bg-gradient-to-r from-white to-gray-50 border-2 border-gray-100 rounded-2xl shadow-sm hover:shadow-lg hover:border-blue-200 transition-all duration-300"
@@ -1883,8 +2277,8 @@ const Schedules = ({ currentUser }) => {
                         <div>
                           <h4 className="text-lg font-semibold text-gray-800">
                             {schedule.is_theoretical
-                              ? "Theoretical Seminar"
-                              : "Practical Session"}
+                              ? "Theoretical Driving Course"
+                              : "Practical Driving Course"}
                           </h4>
                           <p className="text-sm text-gray-600">
                             {schedule.is_theoretical
@@ -1905,25 +2299,23 @@ const Schedules = ({ currentUser }) => {
                         </div>
                         <div className="flex items-center gap-1">
                           <Users className="w-4 h-4" />
-                          <span>
-                            {schedule.slots === 0
-                              ? "Fully Booked"
-                              : `${schedule.slots} slots available`}
-                          </span>
+                          <span>{schedule.slots} slots available</span>
                         </div>
                       </div>
                     </div>
 
-                    <div
-                      className={`px-4 py-2 rounded-full text-sm font-medium ${
-                        schedule.is_theoretical
-                          ? "bg-purple-100 text-purple-700"
-                          : "bg-green-100 text-green-700"
-                      }`}
-                    >
-                      {schedule.is_theoretical
-                        ? "2-Day Seminar"
-                        : "Single Session"}
+                    <div className="flex flex-col gap-2">
+                      <div
+                        className={`px-4 py-2 rounded-full text-sm font-medium text-center ${
+                          schedule.is_theoretical
+                            ? "bg-purple-100 text-purple-700"
+                            : "bg-green-100 text-green-700"
+                        }`}
+                      >
+                        {schedule.is_theoretical
+                          ? "2-Day Seminar"
+                          : "Single Session"}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1935,7 +2327,6 @@ const Schedules = ({ currentUser }) => {
     </div>
   );
 };
-
 const FeedbackPage = () => {
   const [feedbackList, setFeedbackList] = useState([]);
   const [selectedFeedback, setSelectedFeedback] = useState(null);
@@ -3636,8 +4027,15 @@ const Records = () => {
               <th className="px-4 py-2 border">Email</th>
               <th className="px-4 py-2 border">Contact</th>
               <th className="px-4 py-2 border">Address</th>
-              <th className="px-4 py-2 border">Branch</th>
+              <th className="px-4 py-2 border">Birthday</th>
+              <th className="px-4 py-2 border">Age</th>
+              <th className="px-4 py-2 border">Civil Status</th>
+              <th className="px-4 py-2 border">Nationality</th>
               <th className="px-4 py-2 border">Course</th>
+              <th className="px-4 py-2 border">Enrollment Date</th>
+              <th className="px-4 py-2 border">Payment Status</th>
+              <th className="px-4 py-2 border">Amount Paid</th>
+              <th className="px-4 py-2 border">Branch</th>
             </tr>
           </thead>
           <tbody>
@@ -3652,15 +4050,44 @@ const Records = () => {
                     {rec.contact_number || "N/A"}
                   </td>
                   <td className="px-4 py-2 border">{rec.address || "N/A"}</td>
-                  <td className="px-4 py-2 border">{rec.branch_id || "N/A"}</td>
+                  <td className="px-4 py-2 border">
+                    {rec.birthday
+                      ? new Date(rec.birthday).toLocaleDateString("en-US", {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })
+                      : "N/A"}
+                  </td>
+
+                  <td className="px-4 py-2 border">{rec.age || "N/A"}</td>
+                  <td className="px-4 py-2 border">
+                    {rec.civil_status || "N/A"}
+                  </td>
+                  <td className="px-4 py-2 border">
+                    {rec.nationality || "N/A"}
+                  </td>
                   <td className="px-4 py-2 border">
                     {rec.course_name || "N/A"}
+                  </td>
+                  <td className="px-4 py-2 border">
+                    {new Date(rec.enrollment_date).toLocaleDateString() ||
+                      "N/A"}
+                  </td>
+                  <td className="px-4 py-2 border">
+                    {rec.payment_status || "Pending"}
+                  </td>
+                  <td className="px-4 py-2 border">
+                    ₱{rec.amount_paid || "0.00"}
+                  </td>
+                  <td className="px-4 py-2 border">
+                    {rec.branch_name || "N/A"}
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="6" className="text-center py-4 text-gray-500">
+                <td colSpan="13" className="text-center py-4 text-gray-500">
                   No records found.
                 </td>
               </tr>

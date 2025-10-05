@@ -567,20 +567,52 @@ const RecordsPage = () => {
                       <td className="px-6 py-4 text-gray-600">
                         <div className="flex items-center">
                           <Clock className="w-4 h-4 mr-1" />
-                          {enrollment.start_time} - {enrollment.end_time}
+                          {enrollment.multiple_schedules ? (
+                            <div>
+                              {enrollment.multiple_schedules.map(
+                                (sched, idx) => (
+                                  <div key={idx} className="text-sm">
+                                    Session {sched.day_number}:{" "}
+                                    {sched.start_time} - {sched.end_time}
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          ) : (
+                            `${enrollment.start_time} - ${enrollment.end_time}`
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4 text-gray-600">
                         <div className="flex items-center">
                           <Calendar className="w-4 h-4 mr-1" />
-                          {new Date(enrollment.start_date).toLocaleDateString()}
-                          {enrollment.end_date && (
+                          {enrollment.multiple_schedules ? (
+                            <div>
+                              {enrollment.multiple_schedules.map(
+                                (sched, idx) => (
+                                  <div key={idx} className="text-sm">
+                                    Day {sched.day_number}:{" "}
+                                    {new Date(
+                                      sched.start_date
+                                    ).toLocaleDateString()}
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          ) : (
                             <>
-                              {" "}
-                              to{" "}
                               {new Date(
-                                enrollment.end_date
+                                enrollment.start_date
                               ).toLocaleDateString()}
+                              {enrollment.end_date && (
+                                <>
+                                  {" "}
+                                  to{" "}
+                                  {new Date(
+                                    enrollment.end_date
+                                  ).toLocaleDateString()}
+                                </>
+                              )}
                             </>
                           )}
                         </div>
