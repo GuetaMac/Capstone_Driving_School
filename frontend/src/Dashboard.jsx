@@ -48,6 +48,10 @@ import {
   Info,
   Lightbulb,
   Search,
+  Download,
+  FileText,
+  Receipt,
+  ChevronDown,
 } from "lucide-react";
 import {
   LineChart,
@@ -758,6 +762,8 @@ const RecordsPage = () => {
 
 const CoursesPage = () => {
   const [courses, setCourses] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [selectedBranch, setSelectedBranch] = useState("");
   const [form, setForm] = useState({
     course_id: null,
     name: "",
@@ -766,13 +772,29 @@ const CoursesPage = () => {
     mode: "",
     description: "",
     price: "",
+    branch_id: "",
+    vehicle_category: "",
+    required_schedules: 1,
+    schedule_config: [{ day: 1, hours: 4, time: "flexible" }],
   });
   const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
 
-  const fetchCourses = async () => {
+  const fetchBranches = async () => {
     try {
-      const res = await axios.get(`${import.meta.env.VITE_API_URL}/courses`);
+      const res = await axios.get(`${import.meta.env.VITE_API_URL}/branches`);
+      setBranches(res.data);
+    } catch (err) {
+      console.error("Error fetching branches:", err);
+    }
+  };
+
+  const fetchCourses = async (branchId = "") => {
+    try {
+      const url = branchId
+        ? `${import.meta.env.VITE_API_URL}/courses?branch_id=${branchId}`
+        : `${import.meta.env.VITE_API_URL}/courses`;
+      const res = await axios.get(url);
       setCourses(res.data);
     } catch (err) {
       console.error("Error fetching courses:", err);
@@ -780,23 +802,60 @@ const CoursesPage = () => {
   };
 
   useEffect(() => {
+    fetchBranches();
     fetchCourses();
   }, []);
+
+  const handleBranchFilterChange = (e) => {
+    const branchId = e.target.value;
+    setSelectedBranch(branchId);
+    fetchCourses(branchId);
+  };
+
+  const addScheduleDay = () => {
+    setForm({
+      ...form,
+      schedule_config: [
+        ...form.schedule_config,
+        {
+          day: form.schedule_config.length + 1,
+          hours: 4,
+          time: "flexible",
+        },
+      ],
+      required_schedules: form.schedule_config.length + 1,
+    });
+  };
+
+  const removeScheduleDay = (index) => {
+    const updated = form.schedule_config.filter((_, i) => i !== index);
+    // Re-number the days
+    const renumbered = updated.map((config, i) => ({
+      ...config,
+      day: i + 1,
+    }));
+    setForm({
+      ...form,
+      schedule_config: renumbered,
+      required_schedules: renumbered.length,
+    });
+  };
+
+  const updateScheduleDay = (index, field, value) => {
+    const updated = [...form.schedule_config];
+    updated[index] = { ...updated[index], [field]: value };
+    setForm({ ...form, schedule_config: updated });
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    // Special validation for price field
     if (name === "price") {
-      // Remove any non-numeric characters except decimal point
       const numericValue = value.replace(/[^0-9.]/g, "");
-
-      // Prevent multiple decimal points
       const parts = numericValue.split(".");
       const cleanValue =
         parts[0] + (parts.length > 1 ? "." + parts[1].slice(0, 2) : "");
 
-      // Check if value exceeds maximum allowed (99,999,999.99)
       const numValue = parseFloat(cleanValue);
       if (numValue > 99999999.99) {
         Swal.fire({
@@ -805,7 +864,7 @@ const CoursesPage = () => {
           icon: "warning",
           confirmButtonColor: "#ef4444",
         });
-        return; // Don't update state if value is too large
+        return;
       }
 
       setForm({ ...form, [name]: cleanValue });
@@ -821,7 +880,16 @@ const CoursesPage = () => {
   };
 
   const validateForm = () => {
-    // Check if price is valid
+    if (!form.branch_id) {
+      Swal.fire({
+        title: "Branch Required",
+        text: "Please select a branch for this course",
+        icon: "error",
+        confirmButtonColor: "#ef4444",
+      });
+      return false;
+    }
+
     const priceValue = parseFloat(form.price);
     if (isNaN(priceValue) || priceValue <= 0) {
       Swal.fire({
@@ -849,7 +917,6 @@ const CoursesPage = () => {
   const handleAddOrUpdate = async (e) => {
     e.preventDefault();
 
-    // Validate form before proceeding
     if (!validateForm()) {
       return;
     }
@@ -873,6 +940,11 @@ const CoursesPage = () => {
       formData.append("mode", form.mode);
       formData.append("description", form.description);
       formData.append("price", form.price);
+      formData.append("branch_id", form.branch_id);
+      // ✅ NEW: Add schedule config
+      formData.append("required_schedules", form.required_schedules);
+      formData.append("schedule_config", JSON.stringify(form.schedule_config));
+      formData.append("vehicle_category", form.vehicle_category || null);
       if (image) formData.append("image", image);
 
       if (form.course_id) {
@@ -899,26 +971,16 @@ const CoursesPage = () => {
         mode: "",
         description: "",
         price: "",
+        branch_id: "",
+        required_schedules: 1,
+        schedule_config: [{ day: 1, hours: 4, time: "flexible" }],
       });
       setImage(null);
       setImagePreview(null);
-      fetchCourses();
+      fetchCourses(selectedBranch);
     } catch (err) {
       console.error("Error:", err);
-
-      // Check if it's the numeric overflow error
-      if (
-        err.response?.data?.code === "22003" ||
-        err.message?.includes("numeric field overflow")
-      ) {
-        Swal.fire(
-          "Error",
-          "Price value is too large. Please enter a smaller amount.",
-          "error"
-        );
-      } else {
-        Swal.fire("Error", "Something went wrong.", "error");
-      }
+      Swal.fire("Error", "Something went wrong.", "error");
     }
   };
 
@@ -933,6 +995,17 @@ const CoursesPage = () => {
 
     if (!result.isConfirmed) return;
 
+    // ✅ Parse schedule config
+    let scheduleConfig = [{ day: 1, hours: 4, time: "flexible" }];
+    try {
+      scheduleConfig =
+        typeof course.schedule_config === "string"
+          ? JSON.parse(course.schedule_config)
+          : course.schedule_config || scheduleConfig;
+    } catch (error) {
+      console.error("Error parsing schedule_config:", error);
+    }
+
     setForm({
       course_id: course.course_id,
       name: course.name,
@@ -941,12 +1014,15 @@ const CoursesPage = () => {
       mode: course.mode || "",
       description: course.description,
       price: course.price,
+      branch_id: course.branch_id,
+      vehicle_category: course.vehicle_category || "",
+      required_schedules: course.required_schedules || 1,
+      schedule_config: scheduleConfig,
     });
     setImagePreview(course.image_url || null);
     setImage(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
-
   const handleDelete = async (id) => {
     const result = await Swal.fire({
       title: "Are you sure?",
@@ -962,10 +1038,49 @@ const CoursesPage = () => {
     try {
       await axios.delete(`${import.meta.env.VITE_API_URL}/courses/${id}`);
       Swal.fire("Deleted!", "The course has been deleted.", "success");
-      fetchCourses();
+      fetchCourses(selectedBranch);
     } catch (err) {
       console.error("Error deleting course:", err);
       Swal.fire("Error", "Failed to delete the course.", "error");
+    }
+  };
+
+  const getScheduleConfigDisplay = (course) => {
+    if (!course.required_schedules || course.required_schedules === 0) {
+      return { badge: "No schedules", details: "-", color: "gray" };
+    }
+
+    try {
+      const config =
+        typeof course.schedule_config === "string"
+          ? JSON.parse(course.schedule_config)
+          : course.schedule_config;
+
+      if (!config || config.length === 0) {
+        return {
+          badge: `${course.required_schedules} day(s)`,
+          details: "Not configured",
+          color: "yellow",
+        };
+      }
+
+      const badge = `${course.required_schedules} day${
+        course.required_schedules > 1 ? "s" : ""
+      }`;
+      const details = config
+        .map((day) => {
+          const timeText = day.time === "flexible" ? "Any time" : day.time;
+          return `Day ${day.day}: ${day.hours}hrs (${timeText})`;
+        })
+        .join(" • ");
+
+      return { badge, details, color: "blue" };
+    } catch (error) {
+      return {
+        badge: `${course.required_schedules || 0} day(s)`,
+        details: "Error loading config",
+        color: "red",
+      };
     }
   };
 
@@ -984,6 +1099,27 @@ const CoursesPage = () => {
           className="space-y-4 sm:space-y-6"
           encType="multipart/form-data"
         >
+          {/* Branch Selection - Highlighted */}
+          <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+            <label className="block text-sm font-bold text-red-800 mb-2">
+              Select Branch *
+            </label>
+            <select
+              name="branch_id"
+              value={form.branch_id}
+              onChange={handleChange}
+              required
+              className="mt-1 block w-full border-2 border-red-300 rounded-lg shadow-sm text-base py-2 px-3 focus:border-red-500 focus:ring-red-500"
+            >
+              <option value="">Choose a branch...</option>
+              {branches.map((branch) => (
+                <option key={branch.branch_id} value={branch.branch_id}>
+                  {branch.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1052,6 +1188,31 @@ const CoursesPage = () => {
                 </select>
               </div>
             )}
+
+            {!isTheoretical && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Vehicle Category *
+                </label>
+                <select
+                  name="vehicle_category"
+                  value={form.vehicle_category}
+                  onChange={handleChange}
+                  required
+                  className="mt-1 sm:mt-2 block w-full border border-gray-300 rounded-lg shadow-sm text-sm sm:text-base py-2 px-3"
+                >
+                  <option value="">Select Vehicle Category</option>
+                  <option value="car">Car/Sedan</option>
+                  <option value="suv">SUV</option>
+                  <option value="van">Van</option>
+                  <option value="jeep">Jeep</option>
+                  <option value="pickup">Pick-up</option>
+                  <option value="motorcycle">Motorcycle</option>
+                  <option value="tricycle">Tricycle</option>
+                  <option value="auv">AUV</option>
+                </select>
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Price (₱)
@@ -1084,12 +1245,166 @@ const CoursesPage = () => {
             />
           </div>
 
+          <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 sm:p-6 space-y-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Calendar className="w-5 h-5 text-blue-600" />
+              <h3 className="text-lg font-bold text-blue-900">
+                Schedule Requirements
+              </h3>
+            </div>
+
+            <div className="bg-white border border-blue-200 rounded-lg p-3 mb-4">
+              <p className="text-sm text-blue-800">
+                <strong>
+                  Configure how many schedules students need to select for this
+                  course:
+                </strong>
+              </p>
+              <ul className="text-xs text-blue-700 mt-2 space-y-1 list-disc list-inside">
+                <li>Add the number of days/sessions required</li>
+                <li>Set hours needed for each day</li>
+                <li>Choose time requirement (flexible or specific time)</li>
+              </ul>
+            </div>
+
+            {/* Schedule Days List */}
+            <div className="space-y-3">
+              {form.schedule_config.map((config, index) => (
+                <div
+                  key={index}
+                  className="bg-white border-2 border-gray-200 rounded-lg p-4"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-bold text-gray-800 flex items-center gap-2">
+                      <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm">
+                        {config.day}
+                      </span>
+                      Day {config.day}
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => removeScheduleDay(index)}
+                      className="text-red-600 hover:text-red-800 hover:bg-red-50 p-1 rounded transition-colors"
+                      disabled={form.schedule_config.length === 1}
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Hours Input */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Hours Required *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="12"
+                        value={config.hours}
+                        onChange={(e) =>
+                          updateScheduleDay(
+                            index,
+                            "hours",
+                            parseInt(e.target.value)
+                          )
+                        }
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        required
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Number of hours for this session (1-12)
+                      </p>
+                    </div>
+
+                    {/* Time Requirement */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Time Requirement *
+                      </label>
+                      <select
+                        value={config.time}
+                        onChange={(e) =>
+                          updateScheduleDay(index, "time", e.target.value)
+                        }
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        required
+                      >
+                        <option value="flexible">
+                          Flexible (any time slot)
+                        </option>
+                        <option value="08:00-12:00">8:00 AM - 12:00 PM</option>
+                        <option value="13:00-17:00">1:00 PM - 5:00 PM</option>
+                        <option value="08:00-16:00">8:00 AM - 4:00 PM</option>
+                        <option value="08:00-17:00">8:00 AM - 5:00 PM</option>
+                      </select>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {config.time === "flexible"
+                          ? "Student can choose any available time slot"
+                          : "Student must select this specific time"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Add Day Button */}
+              <button
+                type="button"
+                onClick={addScheduleDay}
+                className="w-full py-3 border-2 border-dashed border-blue-300 rounded-lg text-blue-600 hover:border-blue-500 hover:bg-blue-50 transition-all flex items-center justify-center gap-2 font-semibold"
+              >
+                <Plus className="w-5 h-5" />
+                Add Another Schedule Day
+              </button>
+            </div>
+
+            {/* Summary */}
+            <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-4">
+              <h4 className="font-bold text-green-900 mb-2 flex items-center gap-2">
+                <CheckCircle className="w-5 h-5" />
+                Summary
+              </h4>
+              <p className="text-sm text-gray-700">
+                This course will require{" "}
+                <span className="font-bold text-blue-600 text-lg">
+                  {form.required_schedules} schedule
+                  {form.required_schedules > 1 ? "s" : ""}
+                </span>
+              </p>
+              {form.schedule_config.length > 0 && (
+                <ul className="mt-2 space-y-1 text-sm text-gray-700">
+                  {form.schedule_config.map((config, index) => (
+                    <li key={index} className="flex items-start gap-2">
+                      <span className="text-blue-600 font-bold">•</span>
+                      <span>
+                        <strong>Day {config.day}:</strong> {config.hours} hour
+                        {config.hours > 1 ? "s" : ""}
+                        {config.time !== "flexible" && (
+                          <span className="text-gray-600">
+                            {" "}
+                            ({config.time})
+                          </span>
+                        )}
+                        {config.time === "flexible" && (
+                          <span className="text-green-600">
+                            {" "}
+                            (flexible time)
+                          </span>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Course Image
             </label>
 
-            {/* Hidden file input */}
             <input
               type="file"
               accept="image/*"
@@ -1098,7 +1413,6 @@ const CoursesPage = () => {
               id="file-input"
             />
 
-            {/* Custom file upload button */}
             {!imagePreview ? (
               <label
                 htmlFor="file-input"
@@ -1170,73 +1484,160 @@ const CoursesPage = () => {
 
       {/* Course List */}
       <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6">
-        <h3 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">
-          Course List
-        </h3>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+          <h3 className="text-xl sm:text-2xl font-bold text-gray-800">
+            Course List
+          </h3>
+
+          {/* Branch Filter */}
+          <div className="w-full sm:w-auto">
+            <select
+              value={selectedBranch}
+              onChange={handleBranchFilterChange}
+              className="block w-full sm:w-64 border border-gray-300 rounded-lg shadow-sm text-sm py-2 px-3"
+            >
+              <option value="">All Branches</option>
+              {branches.map((branch) => (
+                <option key={branch.branch_id} value={branch.branch_id}>
+                  {branch.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
         {/* Mobile Card View */}
         <div className="block lg:hidden space-y-4">
-          {courses.map((course) => (
-            <div
-              key={course.course_id}
-              className="bg-gray-50 rounded-lg p-4 border"
-            >
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-shrink-0">
-                  {course.image ? (
-                    <img
-                      src={`${import.meta.env.VITE_API_URL}${course.image}`}
-                      alt="Course"
-                      className="w-full sm:w-20 h-32 sm:h-20 object-cover rounded-lg"
-                    />
-                  ) : (
-                    <div className="w-full sm:w-20 h-32 sm:h-20 bg-gray-200 rounded-lg flex items-center justify-center">
-                      <span className="text-xs text-gray-500">No image</span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 space-y-2">
-                  <h4 className="font-semibold text-gray-900">{course.name}</h4>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <span className="text-gray-500">Code:</span>
-                      <p className="font-medium">{course.codename}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Price:</span>
-                      <p className="font-medium">₱{course.price}</p>
-                    </div>
-                    {course.type && (
-                      <div>
-                        <span className="text-gray-500">Type:</span>
-                        <p className="font-medium">{course.type}</p>
-                      </div>
-                    )}
-                    {course.mode && (
-                      <div>
-                        <span className="text-gray-500">Mode:</span>
-                        <p className="font-medium">{course.mode}</p>
+          {courses.map((course) => {
+            const scheduleInfo = getScheduleConfigDisplay(course);
+            return (
+              <div
+                key={course.course_id}
+                className="bg-gray-50 rounded-lg p-4 border shadow-sm"
+              >
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="flex-shrink-0">
+                    {course.image ? (
+                      <img
+                        src={`${import.meta.env.VITE_API_URL}${course.image}`}
+                        alt="Course"
+                        className="w-full sm:w-24 h-32 sm:h-24 object-cover rounded-lg"
+                      />
+                    ) : (
+                      <div className="w-full sm:w-24 h-32 sm:h-24 bg-gray-200 rounded-lg flex items-center justify-center">
+                        <span className="text-xs text-gray-500">No image</span>
                       </div>
                     )}
                   </div>
-                  <div className="flex gap-2 pt-2">
-                    <button
-                      onClick={() => handleEdit(course)}
-                      className="bg-yellow-400 text-white px-3 py-1 rounded text-sm font-medium"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(course.course_id)}
-                      className="bg-red-500 text-white px-3 py-1 rounded text-sm font-medium"
-                    >
-                      Delete
-                    </button>
+
+                  <div className="flex-1 space-y-3">
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-2">
+                      <h4 className="font-bold text-gray-900 text-lg leading-tight">
+                        {course.name}
+                      </h4>
+                      <span className="inline-block px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded flex-shrink-0">
+                        {course.branch_name}
+                      </span>
+                    </div>
+
+                    {/* Course Info Grid */}
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <span className="text-gray-500 text-xs">Code</span>
+                        <p className="font-mono font-semibold text-gray-800">
+                          {course.codename}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-gray-500 text-xs">Price</span>
+                        <p className="font-bold text-gray-800">
+                          ₱{parseFloat(course.price).toLocaleString()}
+                        </p>
+                      </div>
+                      {course.type && (
+                        <div>
+                          <span className="text-gray-500 text-xs">Type</span>
+                          <p className="font-medium text-gray-800">
+                            {course.type}
+                          </p>
+                        </div>
+                      )}
+                      {course.mode && (
+                        <div>
+                          <span className="text-gray-500 text-xs">Mode</span>
+                          <p className="font-medium text-gray-800">
+                            {course.mode === "ftof" ? "Face-to-Face" : "Online"}
+                          </p>
+                        </div>
+                      )}
+                      {course.vehicle_category && (
+                        <div>
+                          <span className="text-gray-500 text-xs">Vehicle</span>
+                          <p className="font-medium text-gray-800 capitalize">
+                            {course.vehicle_category}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ✅ NEW: Schedule Info Section */}
+                    <div className="bg-white border border-blue-200 rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Calendar className="w-4 h-4 text-blue-600" />
+                        <span className="font-bold text-blue-900 text-sm">
+                          Schedule Requirements
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span
+                          className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
+                            scheduleInfo.color === "blue"
+                              ? "bg-blue-100 text-blue-700"
+                              : scheduleInfo.color === "yellow"
+                              ? "bg-yellow-100 text-yellow-700"
+                              : scheduleInfo.color === "red"
+                              ? "bg-red-100 text-red-700"
+                              : "bg-gray-100 text-gray-700"
+                          }`}
+                        >
+                          {scheduleInfo.badge}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-600 space-y-1">
+                        {scheduleInfo.details
+                          .split(" • ")
+                          .map((detail, idx) => (
+                            <div key={idx} className="flex items-start gap-1">
+                              <span className="text-blue-600 font-bold mt-0.5">
+                                •
+                              </span>
+                              <span>{detail}</span>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2 pt-2">
+                      <button
+                        onClick={() => handleEdit(course)}
+                        className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(course.course_id)}
+                        className="flex-1 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Desktop Table View */}
@@ -1245,55 +1646,136 @@ const CoursesPage = () => {
             <thead>
               <tr className="bg-gray-100">
                 <th className="border px-4 py-2 text-sm font-medium">Image</th>
-                <th className="border px-4 py-2 text-sm font-medium">Name</th>
+                <th className="border px-4 py-2 text-sm font-medium">Branch</th>
+                <th className="border px-4 py-2 text-sm font-medium">
+                  Course Name
+                </th>
                 <th className="border px-4 py-2 text-sm font-medium">Code</th>
-                <th className="border px-4 py-2 text-sm font-medium">Type</th>
-                <th className="border px-4 py-2 text-sm font-medium">Mode</th>
+                <th className="border px-4 py-2 text-sm font-medium">
+                  Type/Mode
+                </th>
+                <th className="border px-4 py-2 text-sm font-medium">
+                  Vehicle
+                </th>
                 <th className="border px-4 py-2 text-sm font-medium">Price</th>
+
+                <th className="border px-4 py-2 text-sm font-medium">
+                  <div className="flex items-center justify-center gap-1">
+                    <Calendar className="w-4 h-4" />
+                    Days Required
+                  </div>
+                </th>
+
+                <th className="border px-4 py-2 text-sm font-medium">
+                  Schedule Details
+                </th>
                 <th className="border px-4 py-2 text-sm font-medium">
                   Actions
                 </th>
               </tr>
             </thead>
             <tbody>
-              {courses.map((course) => (
-                <tr key={course.course_id}>
-                  <td className="border px-4 py-2">
-                    {course.image ? (
-                      <img
-                        src={`${import.meta.env.VITE_API_URL}${course.image}`}
-                        alt="Course"
-                        className="w-16 h-16 object-cover rounded"
-                      />
-                    ) : (
-                      <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center">
-                        <span className="text-xs text-gray-500">No image</span>
+              {courses.map((course) => {
+                const scheduleInfo = getScheduleConfigDisplay(course);
+                return (
+                  <tr key={course.course_id} className="hover:bg-gray-50">
+                    <td className="border px-4 py-2">
+                      {course.image ? (
+                        <img
+                          src={`${import.meta.env.VITE_API_URL}${course.image}`}
+                          alt="Course"
+                          className="w-16 h-16 object-cover rounded"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center">
+                          <span className="text-xs text-gray-500">
+                            No image
+                          </span>
+                        </div>
+                      )}
+                    </td>
+                    <td className="border px-4 py-2 text-sm">
+                      <span className="inline-block px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded">
+                        {course.branch_name}
+                      </span>
+                    </td>
+                    <td className="border px-4 py-2 text-sm font-medium">
+                      {course.name}
+                    </td>
+                    <td className="border px-4 py-2 text-sm">
+                      <code className="bg-gray-100 px-2 py-1 rounded text-xs font-mono">
+                        {course.codename}
+                      </code>
+                    </td>
+                    <td className="border px-4 py-2 text-sm">
+                      {course.type && (
+                        <div className="text-gray-700">{course.type}</div>
+                      )}
+                      {course.mode && (
+                        <div className="text-gray-600 text-xs mt-1">
+                          {course.mode === "ftof" ? "Face-to-Face" : "Online"}
+                        </div>
+                      )}
+                    </td>
+                    <td className="border px-4 py-2 text-sm text-center">
+                      {course.vehicle_category ? (
+                        <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-800 capitalize">
+                          {course.vehicle_category}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-xs">N/A</span>
+                      )}
+                    </td>
+                    <td className="border px-4 py-2 text-sm font-semibold">
+                      ₱{parseFloat(course.price).toLocaleString()}
+                    </td>
+                    {/* ✅ DAYS REQUIRED COLUMN */}
+                    <td className="border px-4 py-2 text-center">
+                      <span
+                        className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
+                          scheduleInfo.color === "blue"
+                            ? "bg-blue-100 text-blue-700"
+                            : scheduleInfo.color === "yellow"
+                            ? "bg-yellow-100 text-yellow-700"
+                            : scheduleInfo.color === "red"
+                            ? "bg-red-100 text-red-700"
+                            : "bg-gray-100 text-gray-700"
+                        }`}
+                      >
+                        {scheduleInfo.badge}
+                      </span>
+                    </td>
+                    {/* ✅ SCHEDULE DETAILS COLUMN */}
+                    <td className="border px-4 py-2">
+                      <div className="text-xs text-gray-600 max-w-xs">
+                        {scheduleInfo.details
+                          .split(" • ")
+                          .map((detail, idx) => (
+                            <div key={idx} className="mb-1 last:mb-0">
+                              {detail}
+                            </div>
+                          ))}
                       </div>
-                    )}
-                  </td>
-                  <td className="border px-4 py-2 text-sm">{course.name}</td>
-                  <td className="border px-4 py-2 text-sm">
-                    {course.codename}
-                  </td>
-                  <td className="border px-4 py-2 text-sm">{course.type}</td>
-                  <td className="border px-4 py-2 text-sm">{course.mode}</td>
-                  <td className="border px-4 py-2 text-sm">₱{course.price}</td>
-                  <td className="border px-4 py-2 space-x-2">
-                    <button
-                      onClick={() => handleEdit(course)}
-                      className="bg-yellow-400 text-white px-2 py-1 rounded text-sm"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(course.course_id)}
-                      className="bg-red-500 text-white px-2 py-1 rounded text-sm"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="border px-4 py-2">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleEdit(course)}
+                          className="bg-yellow-400 hover:bg-yellow-500 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(course.course_id)}
+                          className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -2017,6 +2499,47 @@ const FeedbackPage = () => {
   const [error, setError] = useState(null);
   const userRole = localStorage.getItem("role");
 
+  // Helper function to render stars
+  const renderStars = (rating) => {
+    if (!rating)
+      return <span className="text-xs text-gray-500 italic">No rating</span>;
+
+    return (
+      <div className="flex items-center gap-1">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <svg
+            key={star}
+            className={`w-4 h-4 ${
+              star <= rating
+                ? "fill-yellow-400 text-yellow-400"
+                : "fill-gray-300 text-gray-300"
+            }`}
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth="1"
+          >
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+          </svg>
+        ))}
+        <span className="ml-1 text-xs font-semibold text-gray-700">
+          {rating}/5
+        </span>
+      </div>
+    );
+  };
+
+  // Calculate average rating
+  const calculateAverageRating = () => {
+    const validRatings = feedbackList.filter((fb) => fb.instructor_rating);
+    if (validRatings.length === 0) return 0;
+    const total = validRatings.reduce(
+      (sum, fb) => sum + fb.instructor_rating,
+      0
+    );
+    return (total / validRatings.length).toFixed(1);
+  };
+
   // Load branches
   useEffect(() => {
     fetch(`${import.meta.env.VITE_API_URL}/branches`)
@@ -2052,7 +2575,7 @@ const FeedbackPage = () => {
         // Ensure featured property exists and is boolean
         const processedData = data.map((feedback) => ({
           ...feedback,
-          featured: Boolean(feedback.featured), // Convert to boolean to handle null/undefined
+          featured: Boolean(feedback.featured),
         }));
 
         setFeedbackList(processedData);
@@ -2145,6 +2668,8 @@ const FeedbackPage = () => {
   const selectedBranchName =
     branches.find((b) => b.branch_id == selectedBranch)?.name || "All Branches";
 
+  const averageRating = calculateAverageRating();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-4 sm:py-8 px-4">
       <div className="max-w-7xl mx-auto">
@@ -2196,7 +2721,7 @@ const FeedbackPage = () => {
                 </p>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
+              <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2 sm:gap-3">
                 <div className="bg-red-50 px-3 sm:px-4 py-2 rounded-full">
                   <span className="text-red-700 font-medium text-sm sm:text-base">
                     {loading ? "Loading..." : `${feedbackList.length} Reviews`}
@@ -2214,6 +2739,22 @@ const FeedbackPage = () => {
                       {loading
                         ? "..."
                         : feedbackList.filter((fb) => fb.featured).length}
+                    </span>
+                  </div>
+                )}
+                {!loading && averageRating > 0 && (
+                  <div className="bg-yellow-50 border-2 border-yellow-200 px-3 sm:px-4 py-2 rounded-full flex items-center gap-2">
+                    <svg
+                      className="w-4 h-4 sm:w-5 sm:h-5 fill-yellow-400 text-yellow-400"
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth="1"
+                    >
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                    </svg>
+                    <span className="text-yellow-700 font-medium text-sm sm:text-base">
+                      Avg: {averageRating}/5
                     </span>
                   </div>
                 )}
@@ -2379,6 +2920,17 @@ const FeedbackPage = () => {
                         <p className="font-semibold text-slate-800 leading-tight text-sm sm:text-base">
                           {fb.instructor_name}
                         </p>
+                      </div>
+                    </div>
+
+                    {/* Star Rating Display */}
+                    <div className="flex items-start gap-3">
+                      <div className="w-2 h-2 bg-blue-400 rounded-full mt-2.5 flex-shrink-0"></div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                          Rating
+                        </p>
+                        {renderStars(fb.instructor_rating)}
                       </div>
                     </div>
                   </div>
@@ -2665,11 +3217,11 @@ const AnalyticsPage = () => {
     className = "",
   }) => (
     <div
-      className={`bg-white rounded-xl shadow-lg p-4 sm:p-6 hover:shadow-xl transition-all duration-300 ${className}`}
+      className={`bg-white rounded-xl shadow-lg p-3 sm:p-4 lg:p-6 hover:shadow-xl transition-all duration-300 ${className}`}
     >
-      <div className="flex items-center justify-between mb-4 sm:mb-6">
-        <h3 className="text-lg sm:text-xl font-bold text-gray-800 flex items-center">
-          <div className="w-1 h-4 sm:h-6 bg-blue-500 rounded mr-2 sm:mr-3"></div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-4 lg:mb-6 gap-2 sm:gap-0">
+        <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-800 flex items-center">
+          <div className="w-1 h-3 sm:h-4 lg:h-6 bg-blue-500 rounded mr-2 sm:mr-3"></div>
           <span className="truncate">{title}</span>
         </h3>
         <button
@@ -2677,18 +3229,19 @@ const AnalyticsPage = () => {
             generateInsights(chartId, chartType, chartData, context)
           }
           disabled={loadingInsights[chartId]}
-          className="flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+          className="flex items-center justify-center sm:justify-start space-x-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm w-full sm:w-auto"
         >
           {loadingInsights[chartId] ? (
             <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white"></div>
               <span className="hidden sm:inline">Generating...</span>
+              <span className="sm:hidden">Generating...</span>
             </>
           ) : (
             <>
-              <Sparkles className="w-4 h-4" />
+              <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Generate Insights</span>
-              <span className="sm:hidden">AI</span>
+              <span className="sm:hidden">AI Insights</span>
             </>
           )}
         </button>
@@ -2697,14 +3250,14 @@ const AnalyticsPage = () => {
       {children}
 
       {insights[chartId] && (
-        <div className="mt-4 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
+        <div className="mt-3 sm:mt-4 p-3 sm:p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
           <div className="flex items-start space-x-2">
-            <Lightbulb className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
+            <Lightbulb className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <h4 className="font-semibold text-purple-900 mb-2">
+              <h4 className="font-semibold text-purple-900 mb-2 text-sm sm:text-base">
                 AI Insights
               </h4>
-              <div className="text-sm text-gray-700 whitespace-pre-line">
+              <div className="text-xs sm:text-sm text-gray-700 whitespace-pre-line">
                 {insights[chartId]}
               </div>
             </div>
@@ -2717,8 +3270,8 @@ const AnalyticsPage = () => {
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white p-2 sm:p-3 border border-gray-200 rounded-lg shadow-lg">
-          <p className="font-medium text-gray-800 text-xs sm:text-sm">
+        <div className="bg-white p-2 sm:p-3 border border-gray-200 rounded-lg shadow-lg max-w-xs">
+          <p className="font-medium text-gray-800 text-xs sm:text-sm mb-1">
             {label}
           </p>
           {payload.map((entry, index) => (
@@ -2889,7 +3442,6 @@ const AnalyticsPage = () => {
             </div>
           </div>
 
-          {/* Active Filters Display - Same as original */}
           {(selectedBranch || selectedYear || selectedMonth) && (
             <div className="mt-3 sm:mt-4 flex flex-wrap gap-2">
               <span className="text-xs sm:text-sm text-gray-600 mr-2">
@@ -2918,7 +3470,6 @@ const AnalyticsPage = () => {
           )}
         </div>
 
-        {/* Stats Cards - Same as original */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
           <StatCard
             title="Total Revenue"
@@ -2964,7 +3515,10 @@ const AnalyticsPage = () => {
                   stroke="#6b7280"
                 />
                 <YAxis tick={{ fontSize: 10 }} stroke="#6b7280" />
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip
+                  content={<CustomTooltip />}
+                  wrapperStyle={{ fontSize: "12px" }}
+                />
                 <Line
                   type="monotone"
                   dataKey="enrollments"
@@ -2996,10 +3550,13 @@ const AnalyticsPage = () => {
                   interval={0}
                   angle={-45}
                   textAnchor="end"
-                  height={50}
+                  height={60}
                 />
                 <YAxis tick={{ fontSize: 10 }} stroke="#6b7280" />
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip
+                  content={<CustomTooltip />}
+                  wrapperStyle={{ fontSize: "12px" }}
+                />
                 <Bar dataKey="students" fill="#10B981" radius={[2, 2, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -3024,9 +3581,12 @@ const AnalyticsPage = () => {
                   type="category"
                   tick={{ fontSize: 9 }}
                   stroke="#6b7280"
-                  width={80}
+                  width={100}
                 />
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip
+                  content={<CustomTooltip />}
+                  wrapperStyle={{ fontSize: "12px" }}
+                />
                 <Bar dataKey="students" fill="#3B82F6" radius={[0, 2, 2, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -3048,9 +3608,12 @@ const AnalyticsPage = () => {
                   type="category"
                   tick={{ fontSize: 9 }}
                   stroke="#6b7280"
-                  width={80}
+                  width={100}
                 />
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip
+                  content={<CustomTooltip />}
+                  wrapperStyle={{ fontSize: "12px" }}
+                />
                 <Bar dataKey="students" fill="#EF4444" radius={[0, 2, 2, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -3078,7 +3641,7 @@ const AnalyticsPage = () => {
                     }))}
                     cx="50%"
                     cy="50%"
-                    outerRadius={80}
+                    outerRadius={60}
                     innerRadius={0}
                     paddingAngle={2}
                     dataKey="revenue"
@@ -3106,11 +3669,26 @@ const AnalyticsPage = () => {
                       "Revenue",
                     ]}
                     labelFormatter={(label) => `Course: ${label}`}
+                    contentStyle={{
+                      fontSize: "12px",
+                      padding: "8px",
+                      borderRadius: "8px",
+                      border: "1px solid #e5e7eb",
+                      backgroundColor: "white",
+                      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                    }}
                   />
                   <Legend
                     verticalAlign="bottom"
-                    height={40}
-                    wrapperStyle={{ paddingTop: "15px" }}
+                    height={60}
+                    wrapperStyle={{
+                      paddingTop: "10px",
+                      fontSize: "11px",
+                      overflow: "visible",
+                    }}
+                    iconType="circle"
+                    layout="horizontal"
+                    align="center"
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -3151,6 +3729,14 @@ const AnalyticsPage = () => {
                     `₱${parseInt(value).toLocaleString()}`,
                     "Revenue",
                   ]}
+                  contentStyle={{
+                    fontSize: "12px",
+                    padding: "8px",
+                    borderRadius: "8px",
+                    border: "1px solid #e5e7eb",
+                    backgroundColor: "white",
+                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                  }}
                 />
                 <Line
                   type="monotone"
@@ -4124,7 +4710,7 @@ const ManagerDashboard = () => {
               />
             </div>
             <div>
-              <div className="font-bold text-lg">First Safety</div>
+              <div className="font-bold text-lg">1st Safety</div>
               <div className="text-red-100 text-sm">Driving School</div>
             </div>
           </div>

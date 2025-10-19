@@ -391,59 +391,168 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// Get all courses
+// Get all courses (with optional branch filter)
 app.get("/courses", async (req, res) => {
-  const result = await pool.query(
-    "SELECT * FROM courses ORDER BY course_id DESC"
-  );
-  res.json(result.rows);
+  try {
+    const { branch_id } = req.query;
+
+    let query = `
+      SELECT c.*, b.name as branch_name 
+      FROM courses c
+      LEFT JOIN branches b ON c.branch_id = b.branch_id
+    `;
+    const params = [];
+
+    if (branch_id) {
+      query += " WHERE c.branch_id = $1";
+      params.push(branch_id);
+    }
+
+    query += " ORDER BY c.course_id DESC";
+
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error fetching courses:", error);
+    res.status(500).json({ error: "Failed to fetch courses" });
+  }
+});
+
+// Get student profile with branch info
+app.get("/api/student-profile", authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT u.user_id, u.name, u.email, u.branch_id, b.name as branch_name
+       FROM users u
+       LEFT JOIN branches b ON u.branch_id = b.branch_id
+       WHERE u.user_id = $1`,
+      [req.user.userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Error fetching student profile:", error);
+    res.status(500).json({ error: "Failed to fetch profile" });
+  }
 });
 
 // Add new course
 app.post("/courses", upload.single("image"), async (req, res) => {
-  const { name, codeName, type, mode, description, price } = req.body;
-  const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
+  try {
+    const {
+      name,
+      codeName,
+      type,
+      mode,
+      description,
+      price,
+      branch_id,
+      required_schedules,
+      schedule_config,
+    } = req.body;
 
-  await pool.query(
-    `INSERT INTO courses (name, codename, type, mode, description, price, image)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-    [name, codeName, type, mode, description, price, imagePath]
-  );
+    const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
 
-  res.json({ message: "Course added!" });
+    await pool.query(
+      `INSERT INTO courses (
+        name, codename, type, mode, description, price, image, branch_id,
+        required_schedules, schedule_config
+      )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [
+        name,
+        codeName,
+        type,
+        mode,
+        description,
+        price,
+        imagePath,
+        branch_id,
+        required_schedules || 1,
+        schedule_config ||
+          JSON.stringify([{ day: 1, hours: 4, time: "flexible" }]),
+      ]
+    );
+
+    res.json({ message: "Course added!" });
+  } catch (error) {
+    console.error("Error adding course:", error);
+    res.status(500).json({ error: "Failed to add course" });
+  }
 });
 
-// Update course
+// Update course - WITH schedule config from form
 app.put("/courses/:id", upload.single("image"), async (req, res) => {
-  const { id } = req.params;
-  const { name, codeName, type, mode, description, price } = req.body;
-  const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
+  try {
+    const { id } = req.params;
+    const {
+      name,
+      codeName,
+      type,
+      mode,
+      description,
+      price,
+      branch_id,
+      required_schedules,
+      schedule_config,
+    } = req.body;
 
-  const course = await pool.query(
-    "SELECT * FROM courses WHERE course_id = $1",
-    [id]
-  );
-  if (!course.rows.length)
-    return res.status(404).json({ error: "Course not found" });
+    const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
 
-  const updatedImage = imagePath || course.rows[0].image;
+    const course = await pool.query(
+      "SELECT * FROM courses WHERE course_id = $1",
+      [id]
+    );
+    if (!course.rows.length)
+      return res.status(404).json({ error: "Course not found" });
 
-  await pool.query(
-    `UPDATE courses SET name=$1, codename=$2, type=$3, mode=$4, description=$5, price=$6, image=$7 WHERE course_id=$8`,
-    [name, codeName, type, mode, description, price, updatedImage, id]
-  );
+    const updatedImage = imagePath || course.rows[0].image;
 
-  res.json({ message: "Course updated!" });
+    await pool.query(
+      `UPDATE courses 
+       SET name=$1, codename=$2, type=$3, mode=$4, description=$5, 
+           price=$6, image=$7, branch_id=$8,
+           required_schedules=$9, schedule_config=$10
+       WHERE course_id=$11`,
+      [
+        name,
+        codeName,
+        type,
+        mode,
+        description,
+        price,
+        updatedImage,
+        branch_id,
+        required_schedules || 1,
+        schedule_config ||
+          JSON.stringify([{ day: 1, hours: 4, time: "flexible" }]),
+        id,
+      ]
+    );
+
+    res.json({ message: "Course updated!" });
+  } catch (error) {
+    console.error("Error updating course:", error);
+    res.status(500).json({ error: "Failed to update course" });
+  }
 });
 
-// Delete course
+// Delete course (unchanged)
 app.delete("/courses/:id", async (req, res) => {
-  const { id } = req.params;
-  await pool.query("DELETE FROM courses WHERE course_id = $1", [id]);
-  res.json({ message: "Course deleted!" });
+  try {
+    const { id } = req.params;
+    await pool.query("DELETE FROM courses WHERE course_id = $1", [id]);
+    res.json({ message: "Course deleted!" });
+  } catch (error) {
+    console.error("Error deleting course:", error);
+    res.status(500).json({ error: "Failed to delete course" });
+  }
 });
 
-// Enroll in a course
 app.post(
   "/enroll",
   authenticateToken,
@@ -452,7 +561,7 @@ app.post(
     const {
       course_id,
       schedule_id,
-      schedule_ids, // NEW: For multiple schedules (practical courses)
+      schedule_ids,
       address,
       contact_number,
       gcash_reference_number,
@@ -460,19 +569,50 @@ app.post(
       age,
       nationality,
       civil_status,
+      gender,
+      is_pregnant,
+      is_pwd,
+      payment_type,
+      amount_paid,
+      vehicle_category,
+      vehicle_type,
     } = req.body;
 
     const user_id = req.user.userId;
     const proof_of_payment = req.file ? req.file.filename : null;
+
+    // Validate required fields
+    if (
+      !course_id ||
+      !address ||
+      !contact_number ||
+      !birthday ||
+      !age ||
+      !nationality ||
+      !civil_status ||
+      !gender
+    ) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    if (!gcash_reference_number || !proof_of_payment) {
+      return res.status(400).json({ error: "Payment details are required" });
+    }
+
+    if (!payment_type || !amount_paid) {
+      return res
+        .status(400)
+        .json({ error: "Payment type and amount are required" });
+    }
 
     const client = await pool.connect();
 
     try {
       await client.query("BEGIN");
 
-      // 🔎 Get course info
+      // Get course info
       const courseRes = await client.query(
-        `SELECT name FROM courses WHERE course_id = $1`,
+        `SELECT name, price, branch_id, vehicle_category, type FROM courses WHERE course_id = $1`,
         [course_id]
       );
       if (courseRes.rows.length === 0) {
@@ -481,15 +621,39 @@ app.post(
       }
 
       const courseName = courseRes.rows[0].name.toLowerCase();
+      const coursePrice = parseFloat(courseRes.rows[0].price);
+      const courseBranchId = courseRes.rows[0].branch_id;
+      const courseVehicleCategory = courseRes.rows[0].vehicle_category;
+      const courseVehicleType = courseRes.rows[0].type;
 
-      // 🔎 Special case: ONLINE THEORETICAL DRIVING COURSE
+      // Calculate expected amount with PWD discount
+      const isPWD = is_pwd === "true";
+      const discountedPrice = isPWD ? coursePrice * 0.8 : coursePrice;
+      const expectedAmount =
+        payment_type === "full" ? discountedPrice : discountedPrice * 0.5;
+      const paidAmount = parseFloat(amount_paid);
+
+      if (Math.abs(paidAmount - expectedAmount) > 0.01) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          error: `Invalid payment amount. Expected: ₱${expectedAmount.toFixed(
+            2
+          )}, Got: ₱${paidAmount.toFixed(2)}`,
+        });
+      }
+
+      const payment_status = payment_type === "full" ? "paid" : "partial";
+
+      // 🔎 ONLINE THEORETICAL - No vehicle needed
       if (courseName.includes("online theoretical")) {
         const result = await client.query(
           `INSERT INTO enrollments (
             user_id, course_id, address, contact_number, 
             gcash_reference_number, proof_of_payment, enrollment_date,
-            birthday, age, nationality, civil_status
-          ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10) RETURNING *`,
+            birthday, age, nationality, civil_status, gender, is_pregnant,
+            is_pwd, payment_status, status, amount_paid
+          ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, $11, $12, $13, $14, 'pending', $15) 
+          RETURNING *`,
           [
             user_id,
             course_id,
@@ -501,18 +665,29 @@ app.post(
             age,
             nationality,
             civil_status,
+            gender,
+            is_pregnant === "true" ? true : false,
+            isPWD,
+            payment_status,
+            paidAmount,
           ]
         );
 
         await client.query("COMMIT");
         return res.json({
-          message: "✅ Enrollment submitted successfully (online course)!",
+          message:
+            "✅ Enrollment submitted successfully! Waiting for admin approval.",
           enrollment: result.rows[0],
         });
       }
 
-      // 🟢 NEW: Handle multiple schedules for PRACTICAL courses
-      if (schedule_ids) {
+      // 🚗 PRACTICAL COURSES - Need vehicle availability check
+      const isTheoretical =
+        courseName.includes("theoretical") && !courseName.includes("online");
+      const isPractical = !isTheoretical && !courseName.includes("online");
+
+      // ✅ IMPROVED: Proper vehicle availability verification for practical courses
+      if (isPractical && schedule_ids) {
         const scheduleIdsArray = JSON.parse(schedule_ids);
 
         if (!Array.isArray(scheduleIdsArray) || scheduleIdsArray.length === 0) {
@@ -522,36 +697,102 @@ app.post(
             .json({ error: "Invalid schedule_ids format." });
         }
 
-        // Validate all schedules exist and have available slots
+        // Get total vehicles available for this course type
+        const vehicleCountRes = await client.query(
+          `SELECT COUNT(*) as total_vehicles
+           FROM vehicle_units
+           WHERE branch_id = $1 
+           AND vehicle_category = $2 
+           AND type = $3`,
+          [
+            courseBranchId,
+            courseVehicleCategory || vehicle_category,
+            courseVehicleType || vehicle_type,
+          ]
+        );
+
+        const totalVehicles = parseInt(vehicleCountRes.rows[0].total_vehicles);
+
+        if (totalVehicles === 0) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({
+            error: `No ${courseVehicleType || vehicle_type} ${
+              courseVehicleCategory || vehicle_category
+            } vehicles available at this branch`,
+          });
+        }
+
+        // ✅ CHECK EACH SCHEDULE for vehicle availability
         for (const sid of scheduleIdsArray) {
-          const scheduleInfo = await client.query(
-            `SELECT schedule_id, slots FROM schedules 
+          // Get schedule details
+          const scheduleRes = await client.query(
+            `SELECT schedule_id, date, start_time, end_time, slots FROM schedules 
              WHERE schedule_id = $1 FOR UPDATE`,
             [sid]
           );
 
-          if (scheduleInfo.rows.length === 0) {
+          if (scheduleRes.rows.length === 0) {
             await client.query("ROLLBACK");
             return res
               .status(404)
               .json({ error: `Schedule ${sid} not found.` });
           }
 
-          if (scheduleInfo.rows[0].slots <= 0) {
+          const schedule = scheduleRes.rows[0];
+
+          if (schedule.slots <= 0) {
             await client.query("ROLLBACK");
             return res.status(400).json({
-              error: `Schedule ${sid} has no available slots.`,
+              error: `Schedule on ${schedule.date} has no available slots.`,
+            });
+          }
+
+          // ✅ Count existing enrollments that overlap with this schedule's time
+          const conflictQuery = await client.query(
+            `SELECT COUNT(DISTINCT e.enrollment_id) as booked_count
+             FROM enrollments e
+             JOIN enrollment_schedules es ON e.enrollment_id = es.enrollment_id
+             JOIN schedules s ON es.schedule_id = s.schedule_id
+             WHERE e.vehicle_category = $1
+             AND e.vehicle_type = $2
+             AND s.branch_id = $3
+             AND e.status IN ('pending', 'active', 'ongoing')
+             AND s.date = $4
+             AND (
+               (s.start_time < $6::time AND s.end_time > $5::time) OR
+               (s.start_time >= $5::time AND s.start_time < $6::time)
+             )`,
+            [
+              courseVehicleCategory || vehicle_category,
+              courseVehicleType || vehicle_type,
+              courseBranchId,
+              schedule.date,
+              schedule.start_time,
+              schedule.end_time,
+            ]
+          );
+
+          const bookedVehicles = parseInt(conflictQuery.rows[0].booked_count);
+          const availableVehicles = totalVehicles - bookedVehicles;
+
+          if (availableVehicles <= 0) {
+            await client.query("ROLLBACK");
+            return res.status(400).json({
+              error: `No vehicles available for schedule on ${schedule.date} at ${schedule.start_time}-${schedule.end_time}. All vehicles are booked.`,
             });
           }
         }
 
-        // Create main enrollment record (without schedule_id for multi-schedule)
+        // ✅ All schedules have available vehicles - proceed with enrollment
         const enrollmentResult = await client.query(
           `INSERT INTO enrollments (
             user_id, course_id, address, contact_number, 
             gcash_reference_number, proof_of_payment, enrollment_date,
-            birthday, age, nationality, civil_status
-          ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10) RETURNING *`,
+            birthday, age, nationality, civil_status, gender, is_pregnant,
+            is_pwd, payment_status, status, amount_paid,
+            vehicle_category, vehicle_type
+          ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, $11, $12, $13, $14, 'pending', $15, $16, $17) 
+          RETURNING *`,
           [
             user_id,
             course_id,
@@ -563,23 +804,30 @@ app.post(
             age,
             nationality,
             civil_status,
+            gender,
+            is_pregnant === "true" ? true : false,
+            isPWD,
+            payment_status,
+            paidAmount,
+            courseVehicleCategory || vehicle_category,
+            courseVehicleType || vehicle_type,
           ]
         );
 
         const enrollment_id = enrollmentResult.rows[0].enrollment_id;
 
-        // Create enrollment_schedules records for each selected schedule
+        // Create enrollment_schedules entries
         for (let i = 0; i < scheduleIdsArray.length; i++) {
           const sid = scheduleIdsArray[i];
 
-          // Insert into enrollment_schedules junction table
+          // Insert enrollment_schedule
           await client.query(
             `INSERT INTO enrollment_schedules (enrollment_id, schedule_id, day_number)
              VALUES ($1, $2, $3)`,
             [enrollment_id, sid, i + 1]
           );
 
-          // Decrease slot count for each schedule
+          // Decrease slot count
           await client.query(
             `UPDATE schedules SET slots = slots - 1 WHERE schedule_id = $1`,
             [sid]
@@ -590,16 +838,21 @@ app.post(
 
         return res.json({
           message:
-            "✅ Enrollment with multiple schedules submitted successfully!",
+            "✅ Enrollment submitted successfully! Waiting for admin approval.",
           enrollment: enrollmentResult.rows[0],
           schedules_count: scheduleIdsArray.length,
         });
       }
 
-      // 🟢 Normal flow (single schedule - for THEORETICAL courses)
+      // 🟢 Single schedule (THEORETICAL courses)
+      if (!schedule_id) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error: "Schedule is required." });
+      }
+
       const scheduleInfo = await client.query(
-        `SELECT schedule_id, slots, is_theoretical, group_id 
-         FROM schedules WHERE schedule_id = $1 FOR UPDATE`,
+        `SELECT schedule_id, slots, is_theoretical, group_id FROM schedules 
+         WHERE schedule_id = $1 FOR UPDATE`,
         [schedule_id]
       );
 
@@ -615,7 +868,7 @@ app.post(
         return res.status(400).json({ error: "No available slots." });
       }
 
-      // Check if user is already enrolled
+      // Check existing enrollment
       let existingEnrollment;
       if (is_theoretical && group_id) {
         existingEnrollment = await client.query(
@@ -631,13 +884,23 @@ app.post(
         );
       }
 
+      if (existingEnrollment.rows.length > 0) {
+        await client.query("ROLLBACK");
+        return res
+          .status(400)
+          .json({ error: "You are already enrolled in this schedule." });
+      }
+
       // Insert enrollment
       const result = await client.query(
         `INSERT INTO enrollments (
           user_id, course_id, schedule_id, address, contact_number, 
           gcash_reference_number, proof_of_payment, enrollment_date,
-          birthday, age, nationality, civil_status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8, $9, $10, $11) RETURNING *`,
+          birthday, age, nationality, civil_status, gender, is_pregnant,
+          is_pwd, payment_status, status, amount_paid,
+          vehicle_category, vehicle_type
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8, $9, $10, $11, $12, $13, $14, $15, 'pending', $16, $17, $18) 
+        RETURNING *`,
         [
           user_id,
           course_id,
@@ -650,6 +913,13 @@ app.post(
           age,
           nationality,
           civil_status,
+          gender,
+          is_pregnant === "true" ? true : false,
+          isPWD,
+          payment_status,
+          paidAmount,
+          courseVehicleCategory || vehicle_category,
+          courseVehicleType || vehicle_type,
         ]
       );
 
@@ -669,13 +939,14 @@ app.post(
       await client.query("COMMIT");
 
       res.json({
-        message: "✅ Enrollment submitted successfully!",
+        message:
+          "✅ Enrollment submitted successfully! Waiting for admin approval.",
         enrollment: result.rows[0],
       });
     } catch (err) {
       await client.query("ROLLBACK");
       console.error("❌ Error inserting enrollment:", err);
-      res.status(500).json({ error: "Enrollment failed." });
+      res.status(500).json({ error: "Enrollment failed. Please try again." });
     } finally {
       client.release();
     }
@@ -783,7 +1054,6 @@ app.get("/enrollments", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Failed to load enrollments" });
   }
 });
-// Check if user has active enrollment
 app.get("/api/check-active-enrollment", authenticateToken, async (req, res) => {
   const userId = req.user.userId;
   try {
@@ -983,71 +1253,45 @@ app.post("/api/schedules", authenticateToken, async (req, res) => {
   const branch_id = req.user.branch_id;
 
   try {
-    if (!date) {
-      return res.status(400).json({ error: "❌ Date is required." });
+    if (!date || !start_time || !end_time || !slots) {
+      return res.status(400).json({ error: "❌ All fields are required." });
     }
 
-    const firstDate = new Date(date);
-    if (isNaN(firstDate)) {
+    const scheduleDate = new Date(date);
+    if (isNaN(scheduleDate)) {
       return res.status(400).json({ error: "❌ Invalid date format." });
     }
 
-    const formattedFirstDate = firstDate.toISOString().split("T")[0];
-    const secondDate = new Date(firstDate);
-    secondDate.setDate(firstDate.getDate() + 1);
-    const formattedSecondDate = secondDate.toISOString().split("T")[0];
+    const formattedDate = scheduleDate.toISOString().split("T")[0];
 
-    // ✅ Generate unique group ID for both days of the theoretical session
-    const groupId = uuidv4();
+    // Insert single schedule (admin will create Day 2 separately)
+    await pool.query(
+      `INSERT INTO schedules 
+        (branch_id, date, start_time, end_time, slots, is_theoretical, created_by)
+      VALUES 
+        ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        branch_id,
+        formattedDate,
+        start_time,
+        end_time,
+        slots,
+        is_theoretical,
+        created_by,
+      ]
+    );
 
-    if (is_theoretical) {
-      // Insert two rows for 2-day theoretical session with same group_id
-      await pool.query(
-        `INSERT INTO schedules 
-      (branch_id, date, start_time, end_time, slots, is_theoretical, created_by, group_id)
-    VALUES 
-      ($1, $2, $3, $4, $5, true, $6, $7),
-      ($1, $8, $3, $4, $5, true, $6, $7)`,
-        [
-          branch_id, // $1
-          formattedFirstDate, // $2
-          start_time, // $3
-          end_time, // $4
-          slots, // $5
-          created_by, // $6
-          groupId, // $7
-          formattedSecondDate, // $8
-        ]
-      );
-    } else {
-      // Insert one row for practical session
-      await pool.query(
-        `INSERT INTO schedules 
-      (branch_id, date, start_time, end_time, slots, is_theoretical, created_by)
-    VALUES 
-      ($1, $2, $3, $4, $5, $6, $7)`,
-        [
-          branch_id,
-          formattedFirstDate,
-          start_time,
-          end_time,
-          slots,
-          false,
-          created_by,
-        ]
-      );
-    }
-
-    res.status(201).json({ message: "✅ Schedule(s) added successfully" });
+    res.status(201).json({ message: "✅ Schedule added successfully" });
   } catch (error) {
     console.error("Error adding schedule:", error);
     res.status(500).json({ error: "❌ Failed to add schedule" });
   }
 });
 
-// Get all schedules for the authenticated user's branch
+// Get all schedules
 app.get("/api/schedules", authenticateToken, async (req, res) => {
   const branch_id = req.user.branch_id;
+  const { view } = req.query; // Add query param to choose view type
 
   try {
     const { rows: schedules } = await pool.query(
@@ -1055,56 +1299,128 @@ app.get("/api/schedules", authenticateToken, async (req, res) => {
       [branch_id]
     );
 
-    const combined = [];
-    const used_ids = new Set(); // ← Para mas accurate kaysa sa key
-
-    for (let sched of schedules) {
-      // Skip if already processed
-      if (used_ids.has(sched.schedule_id)) continue;
-
-      if (sched.is_theoretical) {
-        const pair = schedules.filter(
-          (s) =>
-            s.is_theoretical &&
-            s.branch_id === sched.branch_id &&
-            s.start_time === sched.start_time &&
-            s.end_time === sched.end_time &&
-            s.slots === sched.slots &&
-            !used_ids.has(s.schedule_id)
-        );
-
-        if (pair.length === 2) {
-          const sortedPair = pair.sort(
-            (a, b) => new Date(a.date) - new Date(b.date)
-          );
-
-          combined.push({
-            ...sched,
-            start_date: sortedPair[0].date,
-            end_date: sortedPair[1].date,
-          });
-
-          used_ids.add(sortedPair[0].schedule_id);
-          used_ids.add(sortedPair[1].schedule_id);
-        }
-      } else {
-        combined.push({
-          ...sched,
-          start_date: sched.date,
-          end_date: null,
-        });
-
-        used_ids.add(sched.schedule_id);
-      }
+    // If view=individual, return raw schedules for enrollment
+    if (view === "individual") {
+      const result = schedules.map((sched) => ({
+        schedule_id: sched.schedule_id,
+        branch_id: sched.branch_id,
+        start_date: sched.date,
+        end_date: sched.date,
+        start_time: sched.start_time,
+        end_time: sched.end_time,
+        slots: sched.slots,
+        is_theoretical: sched.is_theoretical,
+        created_by: sched.created_by,
+        created_at: sched.created_at,
+      }));
+      return res.json(result);
     }
 
-    res.json(combined);
+    // Default: Group consecutive theoretical schedules for admin display
+    const grouped = [];
+    const used = new Set();
+
+    schedules.forEach((sched, index) => {
+      if (used.has(index)) return;
+
+      if (sched.is_theoretical) {
+        // Look for next day theoretical schedule
+        const currentDate = new Date(sched.date);
+        const nextDay = new Date(currentDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        const nextDayStr = nextDay.toISOString().split("T")[0];
+
+        // Find matching next day theoretical schedule
+        const nextDayIndex = schedules.findIndex(
+          (s, i) =>
+            i > index &&
+            !used.has(i) &&
+            s.is_theoretical &&
+            s.date === nextDayStr &&
+            s.start_time === sched.start_time &&
+            s.branch_id === sched.branch_id &&
+            s.slots === sched.slots
+        );
+
+        if (nextDayIndex !== -1) {
+          // Found consecutive pair - group as one
+          used.add(index);
+          used.add(nextDayIndex);
+
+          grouped.push({
+            schedule_id: sched.schedule_id,
+            day2_schedule_id: schedules[nextDayIndex].schedule_id,
+            branch_id: sched.branch_id,
+            start_date: sched.date,
+            end_date: schedules[nextDayIndex].date,
+            start_time: sched.start_time,
+            end_time: sched.end_time,
+            day2_end_time: schedules[nextDayIndex].end_time,
+            slots: sched.slots,
+            is_theoretical: true,
+            created_by: sched.created_by,
+            created_at: sched.created_at,
+          });
+        } else {
+          // No consecutive pair - show as single day (incomplete)
+          used.add(index);
+          grouped.push({
+            schedule_id: sched.schedule_id,
+            branch_id: sched.branch_id,
+            start_date: sched.date,
+            end_date: sched.date,
+            start_time: sched.start_time,
+            end_time: sched.end_time,
+            slots: sched.slots,
+            is_theoretical: true,
+            created_by: sched.created_by,
+            created_at: sched.created_at,
+            is_incomplete: true,
+          });
+        }
+      } else {
+        // Practical course - single day
+        used.add(index);
+        grouped.push({
+          schedule_id: sched.schedule_id,
+          branch_id: sched.branch_id,
+          start_date: sched.date,
+          end_date: sched.date,
+          start_time: sched.start_time,
+          end_time: sched.end_time,
+          slots: sched.slots,
+          is_theoretical: false,
+          created_by: sched.created_by,
+          created_at: sched.created_at,
+        });
+      }
+    });
+
+    res.json(grouped);
   } catch (error) {
     console.error("Error fetching schedules:", error);
     res.status(500).json({ error: "❌ Failed to fetch schedules" });
   }
 });
 
+app.get("/courses/:course_id", authenticateToken, async (req, res) => {
+  try {
+    const { course_id } = req.params;
+    const { rows } = await pool.query(
+      "SELECT * FROM courses WHERE course_id = $1",
+      [course_id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    res.json(rows[0]);
+  } catch (error) {
+    console.error("Error fetching course:", error);
+    res.status(500).json({ error: "Failed to fetch course" });
+  }
+});
 // Get all instructors for the authenticated user's branch
 app.get("/api/instructors", authenticateToken, async (req, res) => {
   const { branch_id } = req.user; // gets from decoded JWT
@@ -1819,7 +2135,7 @@ app.put("/announcements/:id", async (req, res) => {
   }
 });
 
-// Submit feedback
+// Update the API endpoint to accept instructor_rating
 app.post("/api/feedback/:enrollmentId", async (req, res) => {
   const { enrollmentId } = req.params;
 
@@ -1828,6 +2144,7 @@ app.post("/api/feedback/:enrollmentId", async (req, res) => {
   console.log("Request body:", req.body);
 
   const {
+    instructor_rating, // NEW: Add this
     training_course_q1,
     training_course_q2,
     training_course_q3,
@@ -1858,6 +2175,13 @@ app.post("/api/feedback/:enrollmentId", async (req, res) => {
     return res.status(400).json({ error: "Enrollment ID is required" });
   }
 
+  // NEW: Validate instructor rating
+  if (!instructor_rating || instructor_rating < 1 || instructor_rating > 5) {
+    return res
+      .status(400)
+      .json({ error: "Valid instructor rating (1-5) is required" });
+  }
+
   try {
     // Check if enrollment exists
     const enrollmentCheck = await pool.query(
@@ -1869,7 +2193,7 @@ app.post("/api/feedback/:enrollmentId", async (req, res) => {
       return res.status(404).json({ error: "Enrollment not found" });
     }
 
-    // Check if feedback already exists for this enrollment
+    // Check if feedback already exists
     const existingFeedback = await pool.query(
       "SELECT feedback_id FROM feedback WHERE enrollment_id = $1",
       [enrollmentId]
@@ -1881,10 +2205,11 @@ app.post("/api/feedback/:enrollmentId", async (req, res) => {
         .json({ error: "Feedback already submitted for this enrollment" });
     }
 
-    // Fixed SQL query with proper string quotes
+    // Updated SQL with instructor_rating
     const result = await pool.query(
       `INSERT INTO feedback (
     enrollment_id,
+    instructor_rating,
     training_course_q1, training_course_q2, training_course_q3, training_course_q4, training_course_q5,
     instructor_q1, instructor_q2, instructor_q3, instructor_q4, instructor_q5,
     admin_q1, admin_q2, admin_q3,
@@ -1894,16 +2219,17 @@ app.post("/api/feedback/:enrollmentId", async (req, res) => {
     comments
   )
   VALUES (
-    $1, $2, $3, $4, $5, $6,
-    $7, $8, $9, $10, $11,
-    $12, $13, $14,
-    $15, $16, $17, $18, $19,
-    $20, $21, $22,
-    $23, $24
+    $1, $2, $3, $4, $5, $6, $7,
+    $8, $9, $10, $11, $12,
+    $13, $14, $15,
+    $16, $17, $18, $19, $20,
+    $21, $22, $23,
+    $24, $25
   )
   RETURNING feedback_id`,
       [
         enrollmentId,
+        instructor_rating, // NEW: Add this parameter
         training_course_q1,
         training_course_q2,
         training_course_q3,
@@ -1930,7 +2256,6 @@ app.post("/api/feedback/:enrollmentId", async (req, res) => {
       ]
     );
 
-    // Update enrollment flag before sending response
     await pool.query(
       "UPDATE enrollments SET has_feedback = TRUE WHERE enrollment_id = $1",
       [enrollmentId]
@@ -1944,21 +2269,17 @@ app.post("/api/feedback/:enrollmentId", async (req, res) => {
   } catch (err) {
     console.error("Error submitting feedback:", err);
 
-    // Handle specific database errors
     if (err.code === "23505") {
-      // Unique constraint violation
       return res
         .status(409)
         .json({ error: "Feedback already exists for this enrollment" });
     }
 
     if (err.code === "23503") {
-      // Foreign key constraint violation
       return res.status(400).json({ error: "Invalid enrollment ID" });
     }
 
     if (err.code === "23502") {
-      // Not null constraint violation
       return res.status(400).json({ error: "Missing required feedback data" });
     }
 
@@ -2147,7 +2468,8 @@ app.get("/api/feedback", async (req, res) => {
       SELECT 
         f.feedback_id,
         f.enrollment_id,
-        f.featured, 
+        f.featured,
+        f.instructor_rating,
         u.name AS student_name,
         i.name AS instructor_name,
         c.name AS course_name,
@@ -2172,7 +2494,7 @@ app.get("/api/feedback", async (req, res) => {
     // Ensure featured is always a boolean
     const processedResults = result.rows.map((row) => ({
       ...row,
-      featured: Boolean(row.featured), // Convert to boolean, handles null/undefined
+      featured: Boolean(row.featured),
     }));
 
     res.json(processedResults);
@@ -2192,6 +2514,7 @@ app.get("/api/admin/feedback", authenticateToken, async (req, res) => {
       SELECT 
         f.feedback_id,
         f.enrollment_id,
+        f.instructor_rating,
         s.name AS student_name,
         i.name AS instructor_name,
         c.name AS course_name,
@@ -2230,6 +2553,7 @@ app.get("/api/instructor/feedback", authenticateToken, async (req, res) => {
       SELECT 
         f.feedback_id,
         f.enrollment_id,
+        f.instructor_rating,
         s.name AS student_name,
         c.name AS course_name,
         f.training_course_q1, f.training_course_q2, f.training_course_q3, f.training_course_q4, f.training_course_q5,
@@ -2504,8 +2828,7 @@ app.get("/api/dashboard-stats", async (req, res) => {
   }
 });
 
-// ✅ Get student records per branch
-// ✅ Get student records per branch (with extra fields)
+// Get student records per branch
 app.get("/api/admin/student-records", authenticateToken, async (req, res) => {
   const adminBranchId = req.user.branch_id;
 
@@ -2522,6 +2845,9 @@ app.get("/api/admin/student-records", authenticateToken, async (req, res) => {
         e.age,
         e.civil_status,
         e.nationality,
+        COALESCE(e.gender, 'N/A') AS gender,
+        e.is_pregnant,
+        e.is_pwd,
         e.enrollment_date,
         e.payment_status,
         e.amount_paid,
@@ -2694,13 +3020,12 @@ app.get("/api/analytics", async (req, res) => {
     // Enrollment trends per month (with filters)
     const trendsQuery = `
       SELECT 
-        TO_CHAR(s.date, 'YYYY-MM') AS month, 
+        TO_CHAR(e.enrollment_date, 'YYYY-MM') AS month, 
         COUNT(*) AS enrollments
       FROM enrollments e
       JOIN users u ON e.user_id = u.user_id
-      JOIN schedules s ON e.schedule_id = s.schedule_id
       ${whereClause}
-      GROUP BY month
+      GROUP BY TO_CHAR(e.enrollment_date, 'YYYY-MM')
       ORDER BY month;
     `;
     const trendsResult = await pool.query(trendsQuery, queryParams);
@@ -3271,6 +3596,12 @@ app.delete(
     const { enrollmentId } = req.params;
     const adminBranchId = req.user.branch_id;
 
+    console.log("🔍 Delete request received:", {
+      enrollmentId,
+      adminBranchId,
+      adminUser: req.user.email,
+    });
+
     try {
       // Verify enrollment exists and belongs to admin's branch
       const checkResult = await pool.query(
@@ -3285,30 +3616,54 @@ app.delete(
         [enrollmentId]
       );
 
+      console.log("📊 Enrollment check result:", checkResult.rows);
+
       if (checkResult.rows.length === 0) {
+        console.error("❌ Enrollment not found:", enrollmentId);
         return res.status(404).json({ error: "Enrollment not found" });
       }
 
       const enrollment = checkResult.rows[0];
+
+      // ✅ FIXED: Better access logic
       const hasAccess =
-        enrollment.branch_id === adminBranchId ||
+        // If schedule has a branch, check if it matches admin's branch
+        (enrollment.branch_id !== null &&
+          enrollment.branch_id === adminBranchId) ||
+        // If no schedule branch (null), check if student belongs to admin's branch
+        (enrollment.branch_id === null &&
+          enrollment.student_branch_id === adminBranchId) ||
+        // Special case for online courses
         (enrollment.course_name === "ONLINE THEORETICAL DRIVING COURSE" &&
           enrollment.student_branch_id === adminBranchId);
 
+      console.log("🔐 Access check:", {
+        enrollmentBranchId: enrollment.branch_id,
+        adminBranchId,
+        studentBranchId: enrollment.student_branch_id,
+        courseName: enrollment.course_name,
+        hasAccess,
+      });
+
       if (!hasAccess) {
+        console.error("❌ Permission denied");
         return res.status(403).json({
           error: "You don't have permission to delete this enrollment",
         });
       }
 
       await pool.query("BEGIN");
+
       const deleteResult = await pool.query(
-        `DELETE FROM enrollments WHERE enrollment_id = $1`,
+        `DELETE FROM enrollments WHERE enrollment_id = $1 RETURNING *`,
         [enrollmentId]
       );
 
+      console.log("🗑️ Delete result:", deleteResult.rows);
+
       if (deleteResult.rowCount === 0) {
         await pool.query("ROLLBACK");
+        console.error("❌ Delete failed - no rows affected");
         return res
           .status(404)
           .json({ error: "Enrollment not found or already deleted" });
@@ -3329,10 +3684,12 @@ app.delete(
         },
       });
     } catch (error) {
+      await pool.query("ROLLBACK");
       console.error("❌ Error deleting enrollment:", error);
-      res
-        .status(500)
-        .json({ error: "Failed to delete enrollment. Please try again." });
+      res.status(500).json({
+        error: "Failed to delete enrollment. Please try again.",
+        details: error.message,
+      });
     }
   }
 );
@@ -3505,6 +3862,370 @@ app.get("/api/check-gemini", async (req, res) => {
     });
   }
 });
+
+// GET all vehicles (filtered by admin's branch)
+app.get("/api/vehicles", async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(" ")[1];
+
+    if (!token) {
+      return res.status(401).json({ error: "No token provided" });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    console.log("Token data:", {
+      role: decoded.role,
+      branch_id: decoded.branch_id,
+    });
+
+    let result;
+
+    // Check if user is admin AND has a branch_id
+    if (decoded.role === "administrative_staff" && decoded.branch_id) {
+      result = await pool.query(
+        "SELECT * FROM vehicle_units WHERE branch_id = $1 ORDER BY created_at DESC",
+        [decoded.branch_id]
+      );
+    } else {
+      // Manager or no branch_id = show all
+      result = await pool.query(
+        "SELECT * FROM vehicle_units ORDER BY created_at DESC"
+      );
+    }
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error in /api/vehicles:", error);
+    res.status(500).json({ error: "❌ Database error" });
+  }
+});
+
+// POST new vehicle (automatically use admin's branch)
+app.post("/api/vehicles", async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    const { car_name, vehicle_category, type, total_units } = req.body;
+
+    // Use admin's branch_id from token
+    const branch_id = decoded.branch_id;
+
+    await pool.query(
+      "INSERT INTO vehicle_units (branch_id, car_name, vehicle_category, type, total_units) VALUES ($1, $2, $3, $4, $5)",
+      [branch_id, car_name, vehicle_category, type, total_units]
+    );
+
+    res.json({ message: "✅ Vehicle added successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "❌ Database error" });
+  }
+});
+
+// PUT update vehicle
+app.put("/api/vehicles/:id", async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    const { id } = req.params;
+    const { car_name, vehicle_category, type, total_units } = req.body;
+
+    // Check if vehicle belongs to admin's branch
+    const checkResult = await pool.query(
+      "SELECT branch_id FROM vehicle_units WHERE vehicle_id = $1",
+      [id]
+    );
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: "❌ Vehicle not found" });
+    }
+
+    if (
+      decoded.role === "admin" &&
+      checkResult.rows[0].branch_id !== decoded.branch_id
+    ) {
+      return res.status(403).json({ error: "❌ Unauthorized" });
+    }
+
+    await pool.query(
+      "UPDATE vehicle_units SET car_name = $1, vehicle_category = $2, type = $3, total_units = $4 WHERE vehicle_id = $5",
+      [car_name, vehicle_category, type, total_units, id]
+    );
+
+    res.json({ message: "✅ Vehicle updated successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "❌ Database error" });
+  }
+});
+
+// DELETE vehicle
+app.delete("/api/vehicles/:id", async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    const { id } = req.params;
+
+    // Check if vehicle belongs to admin's branch
+    const checkResult = await pool.query(
+      "SELECT branch_id FROM vehicle_units WHERE vehicle_id = $1",
+      [id]
+    );
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: "❌ Vehicle not found" });
+    }
+
+    if (
+      decoded.role === "admin" &&
+      checkResult.rows[0].branch_id !== decoded.branch_id
+    ) {
+      return res.status(403).json({ error: "❌ Unauthorized" });
+    }
+
+    await pool.query("DELETE FROM vehicle_units WHERE vehicle_id = $1", [id]);
+
+    res.json({ message: "✅ Vehicle deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "❌ Database error" });
+  }
+});
+
+app.get("/api/schedules/with-availability", async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(" ")[1];
+    if (!token) {
+      return res.status(401).json({ error: "No token provided" });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const { course_id } = req.query;
+
+    if (!course_id) {
+      return res.status(400).json({ error: "Course ID required" });
+    }
+
+    // Get course details including vehicle requirements
+    const courseRes = await pool.query(
+      "SELECT name, branch_id, vehicle_category, type FROM courses WHERE course_id = $1",
+      [course_id]
+    );
+
+    if (courseRes.rows.length === 0) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    const { branch_id, vehicle_category, type } = courseRes.rows[0];
+
+    // If no vehicle category, it's theoretical - return all schedules
+    if (!vehicle_category) {
+      const schedules = await pool.query(
+        `SELECT schedule_id, date as start_date, start_time, end_time, slots, is_theoretical, branch_id
+         FROM schedules 
+         WHERE branch_id = $1 
+         AND is_theoretical = true
+         AND date >= CURRENT_DATE
+         AND slots > 0
+         ORDER BY date, start_time`,
+        [branch_id]
+      );
+      return res.json(schedules.rows);
+    }
+
+    // Get total vehicles available for this course type
+    const vehicleCountRes = await pool.query(
+      `SELECT COALESCE(SUM(total_units), 0) as total_vehicles
+       FROM vehicle_units
+       WHERE branch_id = $1 
+       AND vehicle_category = $2 
+       AND type = $3`,
+      [branch_id, vehicle_category, type]
+    );
+
+    const totalVehicles = parseInt(vehicleCountRes.rows[0].total_vehicles);
+
+    if (totalVehicles === 0) {
+      return res.json([]); // No vehicles available at all
+    }
+
+    // Get all future schedules for this branch
+    const schedulesRes = await pool.query(
+      `SELECT schedule_id, date as start_date, start_time, end_time, slots, is_theoretical, branch_id
+       FROM schedules 
+       WHERE branch_id = $1 
+       AND is_theoretical = false
+       AND date >= CURRENT_DATE
+       AND slots > 0
+       ORDER BY date, start_time`,
+      [branch_id]
+    );
+
+    const schedules = schedulesRes.rows;
+
+    // For each schedule, check how many vehicles are already booked
+    const schedulesWithAvailability = await Promise.all(
+      schedules.map(async (schedule) => {
+        // Count enrollments that conflict with this schedule's time
+        const conflictQuery = await pool.query(
+          `SELECT COUNT(DISTINCT e.enrollment_id) as booked_count
+           FROM enrollments e
+           JOIN enrollment_schedules es ON e.enrollment_id = es.enrollment_id
+           JOIN schedules s ON es.schedule_id = s.schedule_id
+           WHERE e.vehicle_category = $1
+           AND e.vehicle_type = $2
+           AND s.branch_id = $3
+           AND e.status IN ('pending', 'active', 'ongoing')
+           AND s.date = $4
+           AND (
+             -- Time overlap check: schedules overlap if one starts before the other ends
+             (s.start_time < $6::time AND s.end_time > $5::time) OR
+             (s.start_time >= $5::time AND s.start_time < $6::time)
+           )`,
+          [
+            vehicle_category,
+            type,
+            branch_id,
+            schedule.start_date,
+            schedule.start_time,
+            schedule.end_time,
+          ]
+        );
+
+        const bookedVehicles = parseInt(conflictQuery.rows[0].booked_count);
+        const availableVehicles = totalVehicles - bookedVehicles;
+
+        return {
+          ...schedule,
+          available_vehicles: Math.max(0, availableVehicles),
+          total_vehicles: totalVehicles,
+        };
+      })
+    );
+
+    // Filter out schedules with no available vehicles
+    const availableSchedules = schedulesWithAvailability.filter(
+      (s) => s.available_vehicles > 0
+    );
+
+    res.json(availableSchedules);
+  } catch (error) {
+    console.error("Error fetching schedules with availability:", error);
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+    res.status(500).json({ error: "Database error" });
+  }
+});
+
+// Check vehicle availability for specific schedules
+app.post("/api/vehicles/check-availability", async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(" ")[1];
+    if (!token) {
+      return res.status(401).json({ error: "No token provided" });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const { vehicle_category, vehicle_type, schedule_ids } = req.body;
+
+    if (
+      !vehicle_category ||
+      !vehicle_type ||
+      !schedule_ids ||
+      schedule_ids.length === 0
+    ) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    // Get schedule details
+    const scheduleQuery = await pool.query(
+      `SELECT schedule_id, date, start_time, end_time, branch_id 
+       FROM schedules 
+       WHERE schedule_id = ANY($1)`,
+      [schedule_ids]
+    );
+
+    if (scheduleQuery.rows.length === 0) {
+      return res.status(404).json({ error: "Schedules not found" });
+    }
+
+    const schedules = scheduleQuery.rows;
+    const branchId = schedules[0].branch_id;
+
+    // Get total vehicles of this type for the branch
+    const vehicleQuery = await pool.query(
+      `SELECT COUNT(*) as total_vehicles
+       FROM vehicle_units
+       WHERE branch_id = $1 
+       AND vehicle_category = $2 
+       AND type = $3`,
+      [branchId, vehicle_category, vehicle_type]
+    );
+
+    const totalVehicles = parseInt(vehicleQuery.rows[0].total_vehicles);
+
+    if (totalVehicles === 0) {
+      return res.json({
+        available: false,
+        available_units: 0,
+        message: "No vehicles of this type at this branch",
+      });
+    }
+
+    // Check for conflicts with existing enrollments for each schedule
+    let maxConflicts = 0;
+
+    for (const schedule of schedules) {
+      // Count enrollments that overlap with this schedule's time slot
+      const conflictQuery = await pool.query(
+        `SELECT COUNT(DISTINCT e.enrollment_id) as conflict_count
+         FROM enrollments e
+         JOIN enrollment_schedules es ON e.enrollment_id = es.enrollment_id
+         JOIN schedules s ON es.schedule_id = s.schedule_id
+         WHERE e.vehicle_category = $1
+         AND e.vehicle_type = $2
+         AND s.branch_id = $3
+         AND e.status IN ('pending', 'active', 'ongoing')
+         AND s.date = $4
+         AND (
+           s.start_time < $6::time AND s.end_time > $5::time
+         )`,
+        [
+          vehicle_category,
+          vehicle_type,
+          branchId,
+          schedule.date,
+          schedule.start_time,
+          schedule.end_time,
+        ]
+      );
+
+      const conflicts = parseInt(conflictQuery.rows[0].conflict_count);
+      maxConflicts = Math.max(maxConflicts, conflicts);
+    }
+
+    const availableUnits = totalVehicles - maxConflicts;
+
+    res.json({
+      available: availableUnits > 0,
+      available_units: Math.max(0, availableUnits),
+      total_units: totalVehicles,
+      current_bookings: maxConflicts,
+    });
+  } catch (error) {
+    console.error("Error checking vehicle availability:", error);
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+    res.status(500).json({ error: "Database error" });
+  }
+});
+
 app.listen(port, "0.0.0.0", () => {
   console.log(`Server running on http://0.0.0.0:${port}`);
 });

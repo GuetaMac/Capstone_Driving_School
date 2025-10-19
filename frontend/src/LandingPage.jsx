@@ -12,6 +12,7 @@ import {
   Star,
   User,
   Clock,
+  Building2,
 } from "lucide-react";
 import { FaFacebook, FaInstagram, FaTwitter } from "react-icons/fa";
 import { Menu, X } from "lucide-react";
@@ -21,18 +22,20 @@ import Swal from "sweetalert2";
 function LandingPage() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [courses, setCourses] = useState([]);
+  const [allCourses, setAllCourses] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [selectedBranch, setSelectedBranch] = useState("all");
   const [showEnrollModal, setShowEnrollModal] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [videoOpen, setVideoOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [testimonials, setTestimonials] = useState([]);
   const [loading, setLoading] = useState(true);
+
   const isLoggedIn = localStorage.getItem("userToken");
   const userRole = localStorage.getItem("role");
   const userId = localStorage.getItem("userId");
-  const navigate = useNavigate();
 
-  // Default testimonials if no featured comments are available
   const defaultTestimonials = [
     {
       student_name: "Sarah Johnson",
@@ -66,11 +69,22 @@ function LandingPage() {
   }, []);
 
   useEffect(() => {
-    // Fetch courses
+    // Fetch branches
+    axios
+      .get(`${import.meta.env.VITE_API_URL}/branches`)
+      .then((res) => {
+        setBranches(res.data);
+      })
+      .catch((err) => {
+        console.error("Error fetching branches:", err);
+      });
+
+    // Fetch all courses
     axios
       .get(`${import.meta.env.VITE_API_URL}/courses`)
       .then((res) => {
-        setCourses(res.data);
+        setAllCourses(res.data);
+        setCourses(res.data); // Initially show all courses
       })
       .catch((err) => {
         console.error("Error fetching courses:", err);
@@ -95,6 +109,19 @@ function LandingPage() {
         setLoading(false);
       });
   }, []);
+
+  const handleBranchFilter = (branchId) => {
+    setSelectedBranch(branchId);
+
+    if (branchId === "all") {
+      setCourses(allCourses);
+    } else {
+      const filtered = allCourses.filter(
+        (course) => course.branch_id === parseInt(branchId)
+      );
+      setCourses(filtered);
+    }
+  };
 
   const handleEnrollClick = (course) => {
     if (!isLoggedIn || userRole !== "student") {
@@ -471,20 +498,77 @@ function LandingPage() {
       {/* Courses Section */}
       <section id="courses" className="py-16 sm:py-20 bg-white">
         <div className="container mx-auto px-4 sm:px-6">
-          <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-8 sm:mb-10 text-center">
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-4 text-center">
             Our Driving Courses
           </h2>
+          <p className="text-center text-gray-600 mb-8">
+            Choose your preferred branch location
+          </p>
+
+          {/* Branch Filter Tabs */}
+          <div className="flex justify-center mb-8 sm:mb-10">
+            <div className="inline-flex flex-wrap justify-center gap-2 sm:gap-3 bg-gray-100 p-2 rounded-xl">
+              <button
+                onClick={() => handleBranchFilter("all")}
+                className={`px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-medium transition-all flex items-center gap-2 text-sm sm:text-base ${
+                  selectedBranch === "all"
+                    ? "bg-red-600 text-white shadow-lg"
+                    : "bg-white text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                <Building2 className="w-4 h-4" />
+                All Branches
+              </button>
+              {branches.map((branch) => (
+                <button
+                  key={branch.branch_id}
+                  onClick={() =>
+                    handleBranchFilter(branch.branch_id.toString())
+                  }
+                  className={`px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-medium transition-all flex items-center gap-2 text-sm sm:text-base ${
+                    selectedBranch === branch.branch_id.toString()
+                      ? "bg-red-600 text-white shadow-lg"
+                      : "bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  <MapPin className="w-4 h-4" />
+                  {branch.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Courses Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {courses.length === 0 ? (
-              <p className="text-center col-span-full text-gray-500">
-                No courses available.
-              </p>
+              <div className="col-span-full text-center py-12">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
+                  <Building2 className="w-8 h-8 text-gray-400" />
+                </div>
+                <p className="text-gray-500 text-lg">
+                  No courses available for this branch yet.
+                </p>
+                <button
+                  onClick={() => handleBranchFilter("all")}
+                  className="mt-4 text-red-600 hover:text-red-700 font-medium"
+                >
+                  View all courses
+                </button>
+              </div>
             ) : (
               courses.map((course) => (
                 <div
                   key={course.course_id}
-                  className="border rounded-lg p-4 sm:p-6 shadow hover:shadow-lg transition"
+                  className="border rounded-lg p-4 sm:p-6 shadow hover:shadow-lg transition relative"
                 >
+                  {/* Branch Badge */}
+                  <div className="absolute top-4 right-4 z-10">
+                    <span className="inline-flex items-center gap-1 px-3 py-1 bg-red-600 text-white text-xs font-medium rounded-full shadow-lg">
+                      <MapPin className="w-3 h-3" />
+                      {course.branch_name}
+                    </span>
+                  </div>
+
                   {course.image ? (
                     <img
                       src={`${import.meta.env.VITE_API_URL}${course.image}`}
@@ -514,7 +598,11 @@ function LandingPage() {
                     </p>
                   )}
                   <p className="text-lg sm:text-xl font-bold text-gray-800 mb-4">
-                    ₱{course.price}
+                    ₱
+                    {parseFloat(course.price).toLocaleString("en-PH", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </p>
 
                   <button

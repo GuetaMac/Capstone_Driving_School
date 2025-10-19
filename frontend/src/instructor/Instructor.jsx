@@ -468,6 +468,26 @@ const RecordsPage = () => {
     }
   };
 
+  // ✅ Get status badge color
+  const getStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case "completed":
+        return "bg-green-100 text-green-800 border-green-300";
+      case "in progress":
+        return "bg-blue-100 text-blue-800 border-blue-300";
+      case "pending":
+        return "bg-yellow-100 text-yellow-800 border-yellow-300";
+      case "absent":
+        return "bg-red-100 text-red-800 border-red-300";
+      case "passed/completed":
+        return "bg-purple-100 text-purple-800 border-purple-300";
+      case "failed":
+        return "bg-red-100 text-red-800 border-red-300";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-300";
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -533,9 +553,6 @@ const RecordsPage = () => {
                       Schedule
                     </th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                      Date
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
                       Status
                     </th>
                   </tr>
@@ -564,58 +581,58 @@ const RecordsPage = () => {
                           {enrollment.course_name}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-gray-600">
-                        <div className="flex items-center">
-                          <Clock className="w-4 h-4 mr-1" />
-                          {enrollment.multiple_schedules ? (
-                            <div>
-                              {enrollment.multiple_schedules.map(
-                                (sched, idx) => (
-                                  <div key={idx} className="text-sm">
-                                    Session {sched.day_number}:{" "}
-                                    {sched.start_time} - {sched.end_time}
-                                  </div>
-                                )
-                              )}
-                            </div>
-                          ) : (
-                            `${enrollment.start_time} - ${enrollment.end_time}`
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-gray-600">
-                        <div className="flex items-center">
-                          <Calendar className="w-4 h-4 mr-1" />
-                          {enrollment.multiple_schedules ? (
-                            <div>
-                              {enrollment.multiple_schedules.map(
-                                (sched, idx) => (
-                                  <div key={idx} className="text-sm">
-                                    Day {sched.day_number}:{" "}
+                      <td className="px-6 py-4">
+                        {enrollment.multiple_schedules ? (
+                          <div className="space-y-3">
+                            {enrollment.multiple_schedules.map((sched, idx) => (
+                              <div
+                                key={idx}
+                                className="border border-gray-200 rounded-lg p-3 bg-gray-50"
+                              >
+                                <div className="font-semibold text-gray-900 mb-2">
+                                  Day {sched.day_number}
+                                </div>
+                                <div className="text-sm text-gray-600 space-y-1">
+                                  <div className="flex items-center">
+                                    <Calendar className="w-3 h-3 mr-1" />
                                     {new Date(
                                       sched.start_date
-                                    ).toLocaleDateString()}
+                                    ).toLocaleDateString("en-US", {
+                                      month: "short",
+                                      day: "numeric",
+                                      year: "numeric",
+                                    })}
                                   </div>
-                                )
-                              )}
-                            </div>
-                          ) : (
-                            <>
+                                  <div className="flex items-center">
+                                    <Clock className="w-3 h-3 mr-1" />
+                                    {sched.start_time} - {sched.end_time}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-gray-600">
+                            <div className="flex items-center mb-1">
+                              <Calendar className="w-4 h-4 mr-1" />
                               {new Date(
                                 enrollment.start_date
                               ).toLocaleDateString()}
                               {enrollment.end_date && (
                                 <>
-                                  {" "}
-                                  to{" "}
+                                  {" to "}
                                   {new Date(
                                     enrollment.end_date
                                   ).toLocaleDateString()}
                                 </>
                               )}
-                            </>
-                          )}
-                        </div>
+                            </div>
+                            <div className="flex items-center">
+                              <Clock className="w-4 h-4 mr-1" />
+                              {enrollment.start_time} - {enrollment.end_time}
+                            </div>
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <select
@@ -627,11 +644,18 @@ const RecordsPage = () => {
                               enrollment.student_name
                             )
                           }
-                          className="border border-gray-300 rounded px-2 py-1 text-sm bg-white"
+                          className="border border-gray-300 rounded px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-500"
                         >
                           <option value="">Select Status</option>
                           <option value="pending">Pending</option>
                           <option value="in progress">In Progress</option>
+                          <option value="day 1 - completed">
+                            Day 1 - Completed
+                          </option>
+                          <option value="day 2 - completed">
+                            Day 2 - Completed
+                          </option>
+
                           <option value="passed/completed">
                             Passed/Completed
                           </option>
@@ -680,40 +704,77 @@ const RecordsPage = () => {
                   </span>
                 </div>
 
-                {/* Schedule & Date */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                  <div className="flex items-center text-gray-600">
-                    <Clock className="w-4 h-4 mr-2 text-red-500" />
-                    <div>
-                      <div className="text-xs text-gray-500 uppercase tracking-wide">
-                        Schedule
+                {/* Per-Day Status (if multiple schedules) */}
+                {enrollment.multiple_schedules ? (
+                  <div className="space-y-3 mb-4">
+                    <div className="text-xs font-semibold text-gray-500 uppercase">
+                      Schedule Details
+                    </div>
+                    {enrollment.multiple_schedules.map((sched, idx) => (
+                      <div
+                        key={idx}
+                        className="border border-gray-200 rounded-lg p-3 bg-gray-50"
+                      >
+                        <div className="font-semibold text-gray-900 mb-2">
+                          Day {sched.day_number}
+                        </div>
+                        <div className="text-sm text-gray-600 space-y-1">
+                          <div className="flex items-center">
+                            <Calendar className="w-3 h-3 mr-1" />
+                            {new Date(sched.start_date).toLocaleDateString(
+                              "en-US",
+                              {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              }
+                            )}
+                          </div>
+                          <div className="flex items-center">
+                            <Clock className="w-3 h-3 mr-1" />
+                            {sched.start_time} - {sched.end_time}
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-sm font-medium">
-                        {enrollment.start_time} - {enrollment.end_time}
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div className="flex items-center text-gray-600">
+                      <Clock className="w-4 h-4 mr-2 text-red-500" />
+                      <div>
+                        <div className="text-xs text-gray-500 uppercase tracking-wide">
+                          Schedule
+                        </div>
+                        <div className="text-sm font-medium">
+                          {enrollment.start_time} - {enrollment.end_time}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center text-gray-600">
+                      <Calendar className="w-4 h-4 mr-2 text-red-500" />
+                      <div>
+                        <div className="text-xs text-gray-500 uppercase tracking-wide">
+                          Date
+                        </div>
+                        <div className="text-sm font-medium">
+                          {new Date(enrollment.start_date).toLocaleDateString()}
+                          {enrollment.end_date && (
+                            <>
+                              {" "}
+                              to{" "}
+                              {new Date(
+                                enrollment.end_date
+                              ).toLocaleDateString()}
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center text-gray-600">
-                    <Calendar className="w-4 h-4 mr-2 text-red-500" />
-                    <div>
-                      <div className="text-xs text-gray-500 uppercase tracking-wide">
-                        Date
-                      </div>
-                      <div className="text-sm font-medium">
-                        {new Date(enrollment.start_date).toLocaleDateString()}
-                        {enrollment.end_date && (
-                          <>
-                            {" "}
-                            to{" "}
-                            {new Date(enrollment.end_date).toLocaleDateString()}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                )}
 
-                {/* Status Update */}
+                {/* Overall Status Update */}
                 <div className="border-t border-gray-100 pt-4">
                   <label className="block text-xs text-gray-500 uppercase tracking-wide mb-2">
                     Update Status
@@ -732,6 +793,8 @@ const RecordsPage = () => {
                     <option value="">Select Status</option>
                     <option value="pending">Pending</option>
                     <option value="in progress">In Progress</option>
+                    <option value="day 1 - completed">Day 1 - Completed</option>
+                    <option value="day 2 - completed">Day 2 - Completed</option>
                     <option value="passed/completed">Passed/Completed</option>
                     <option value="failed">Failed</option>
                   </select>
@@ -1014,6 +1077,43 @@ const FeedbacksPage = () => {
   const [feedbacks, setFeedbacks] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Helper function to render stars
+  const renderStars = (rating) => {
+    return (
+      <div className="flex items-center gap-1">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <svg
+            key={star}
+            className={`w-5 h-5 sm:w-6 sm:h-6 ${
+              star <= rating
+                ? "fill-yellow-400 text-yellow-400"
+                : "fill-gray-300 text-gray-300"
+            }`}
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth="1"
+          >
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+          </svg>
+        ))}
+        <span className="ml-2 text-sm sm:text-base font-bold text-gray-700">
+          {rating}/5
+        </span>
+      </div>
+    );
+  };
+
+  // Calculate average rating
+  const calculateAverageRating = () => {
+    if (feedbacks.length === 0) return 0;
+    const totalRating = feedbacks.reduce(
+      (sum, fb) => sum + (fb.instructor_rating || 0),
+      0
+    );
+    return (totalRating / feedbacks.length).toFixed(1);
+  };
+
   useEffect(() => {
     const fetchFeedbacks = async () => {
       try {
@@ -1050,6 +1150,8 @@ const FeedbacksPage = () => {
     );
   }
 
+  const averageRating = calculateAverageRating();
+
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       {/* Header Section - Mobile Optimized */}
@@ -1063,13 +1165,39 @@ const FeedbacksPage = () => {
               Review student evaluations and feedback
             </p>
           </div>
-          <div className="bg-red-50 px-3 sm:px-4 py-2 rounded-lg w-fit">
-            <span className="text-red-700 font-semibold text-lg sm:text-xl">
-              {feedbacks.length}
-            </span>
-            <span className="text-red-600 ml-1 text-sm sm:text-base">
-              Total Reviews
-            </span>
+          <div className="flex flex-col sm:flex-row gap-3">
+            {/* Average Rating Card */}
+            {feedbacks.length > 0 && (
+              <div className="bg-yellow-50 border-2 border-yellow-200 px-4 py-3 rounded-lg">
+                <div className="text-xs sm:text-sm text-yellow-800 font-medium mb-1">
+                  Average Rating
+                </div>
+                <div className="flex items-center gap-2">
+                  <svg
+                    className="w-6 h-6 sm:w-7 sm:h-7 fill-yellow-400 text-yellow-400"
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth="1"
+                  >
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                  </svg>
+                  <span className="text-yellow-700 font-bold text-xl sm:text-2xl">
+                    {averageRating}
+                  </span>
+                  <span className="text-yellow-600 text-sm">/ 5</span>
+                </div>
+              </div>
+            )}
+            {/* Total Reviews Card */}
+            <div className="bg-red-50 px-4 py-3 rounded-lg">
+              <div className="text-xs sm:text-sm text-red-600 font-medium mb-1">
+                Total Reviews
+              </div>
+              <span className="text-red-700 font-bold text-xl sm:text-2xl">
+                {feedbacks.length}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -1108,47 +1236,63 @@ const FeedbacksPage = () => {
             >
               {/* Feedback Header - Mobile Optimized */}
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 sm:px-6 py-4 border-b border-gray-200">
-                <div>
-                  <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
-                    {fb.student_name}
-                  </h3>
-                  <div className="flex flex-col sm:flex-row sm:items-center mt-2 sm:mt-1 space-y-1 sm:space-y-0 sm:space-x-4">
-                    <span className="inline-flex items-center text-xs sm:text-sm text-gray-600">
-                      <svg
-                        className="w-3 h-3 sm:w-4 sm:h-4 mr-1"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                        />
-                      </svg>
-                      {fb.course_name}
-                    </span>
-                    <span className="inline-flex items-center text-xs sm:text-sm text-gray-500">
-                      <svg
-                        className="w-3 h-3 sm:w-4 sm:h-4 mr-1"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4m-6 0v1m6-1v1M6 7h12l1 1v11a2 2 0 01-2 2H7a2 2 0 01-2-2V8l1-1z"
-                        />
-                      </svg>
-                      {new Date(fb.created_at).toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })}
-                    </span>
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                  <div className="flex-grow">
+                    <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
+                      {fb.student_name}
+                    </h3>
+                    <div className="flex flex-col sm:flex-row sm:items-center mt-2 sm:mt-1 space-y-1 sm:space-y-0 sm:space-x-4">
+                      <span className="inline-flex items-center text-xs sm:text-sm text-gray-600">
+                        <svg
+                          className="w-3 h-3 sm:w-4 sm:h-4 mr-1"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                          />
+                        </svg>
+                        {fb.course_name}
+                      </span>
+                      <span className="inline-flex items-center text-xs sm:text-sm text-gray-500">
+                        <svg
+                          className="w-3 h-3 sm:w-4 sm:h-4 mr-1"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4m-6 0v1m6-1v1M6 7h12l1 1v11a2 2 0 01-2 2H7a2 2 0 01-2-2V8l1-1z"
+                          />
+                        </svg>
+                        {new Date(fb.created_at).toLocaleDateString("en-US", {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Star Rating Display */}
+                  <div className="bg-white rounded-lg px-3 sm:px-4 py-2 border-2 border-yellow-200 self-start">
+                    <div className="text-xs font-medium text-gray-600 mb-1 text-center">
+                      Student Rating
+                    </div>
+                    {fb.instructor_rating ? (
+                      renderStars(fb.instructor_rating)
+                    ) : (
+                      <span className="text-sm text-gray-500 italic">
+                        No rating
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1322,7 +1466,7 @@ const Instructor = () => {
               />
             </div>
             <div>
-              <div className="font-bold text-lg">First Safety</div>
+              <div className="font-bold text-lg">1st6 Safety</div>
               <div className="text-red-100 text-sm">Driving School</div>
             </div>
           </div>

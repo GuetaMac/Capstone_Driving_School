@@ -10,6 +10,7 @@ import Admin from "./admin/Admin";
 import Instructor from "./instructor/Instructor";
 import Forgot from "./student/Forgot";
 import Reset from "./student/Reset";
+import EnrollmentPage from "./student/EnrollmentPage";
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
         <Route path="/instructor_dashboard" element={<Instructor />} />
         <Route path="/forgot-password" element={<Forgot />} />
         <Route path="/reset-password" element={<Reset />} />
+        <Route path="/enroll" element={<EnrollmentPage />} />
       </Routes>
     </Router>
   );
