@@ -275,13 +275,6 @@ const DashboardPage = () => {
                   year: "numeric",
                 })}
               </div>
-              <button
-                onClick={handleSignOut}
-                className="mt-2 text-red-600 hover:text-red-800 flex items-center text-sm mx-auto lg:mx-0 transition-colors duration-200"
-              >
-                <LogOut className="w-4 h-4 mr-1" />
-                Sign Out
-              </button>
             </div>
           </div>
         </div>
@@ -1075,7 +1068,11 @@ const MaintenancePage = () => {
 
 const FeedbacksPage = () => {
   const [feedbacks, setFeedbacks] = useState([]);
+  const [filteredFeedbacks, setFilteredFeedbacks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [selectedYear, setSelectedYear] = useState("");
+  const [availableYears, setAvailableYears] = useState([]);
 
   // Helper function to render stars
   const renderStars = (rating) => {
@@ -1105,13 +1102,19 @@ const FeedbacksPage = () => {
   };
 
   // Calculate average rating
-  const calculateAverageRating = () => {
-    if (feedbacks.length === 0) return 0;
-    const totalRating = feedbacks.reduce(
+  const calculateAverageRating = (feedbackData) => {
+    if (feedbackData.length === 0) return 0;
+    const totalRating = feedbackData.reduce(
       (sum, fb) => sum + (fb.instructor_rating || 0),
       0
     );
-    return (totalRating / feedbacks.length).toFixed(1);
+    return (totalRating / feedbackData.length).toFixed(1);
+  };
+
+  // Extract unique years from feedback data
+  const extractAvailableYears = (data) => {
+    const years = data.map((fb) => new Date(fb.created_at).getFullYear());
+    return [...new Set(years)].sort((a, b) => b - a);
   };
 
   useEffect(() => {
@@ -1128,6 +1131,8 @@ const FeedbacksPage = () => {
         );
         const data = await res.json();
         setFeedbacks(data);
+        setFilteredFeedbacks(data);
+        setAvailableYears(extractAvailableYears(data));
         setLoading(false);
       } catch (err) {
         console.error("Error fetching feedbacks:", err);
@@ -1136,6 +1141,31 @@ const FeedbacksPage = () => {
     };
     fetchFeedbacks();
   }, []);
+
+  // Filter feedback based on selected month and year
+  useEffect(() => {
+    let filtered = [...feedbacks];
+
+    if (selectedMonth) {
+      filtered = filtered.filter(
+        (fb) =>
+          new Date(fb.created_at).getMonth() + 1 === parseInt(selectedMonth)
+      );
+    }
+
+    if (selectedYear) {
+      filtered = filtered.filter(
+        (fb) => new Date(fb.created_at).getFullYear() === parseInt(selectedYear)
+      );
+    }
+
+    setFilteredFeedbacks(filtered);
+  }, [selectedMonth, selectedYear, feedbacks]);
+
+  const handleResetFilters = () => {
+    setSelectedMonth("");
+    setSelectedYear("");
+  };
 
   if (loading) {
     return (
@@ -1150,60 +1180,152 @@ const FeedbacksPage = () => {
     );
   }
 
-  const averageRating = calculateAverageRating();
+  const averageRating = calculateAverageRating(filteredFeedbacks);
+  const months = [
+    { value: "1", label: "January" },
+    { value: "2", label: "February" },
+    { value: "3", label: "March" },
+    { value: "4", label: "April" },
+    { value: "5", label: "May" },
+    { value: "6", label: "June" },
+    { value: "7", label: "July" },
+    { value: "8", label: "August" },
+    { value: "9", label: "September" },
+    { value: "10", label: "October" },
+    { value: "11", label: "November" },
+    { value: "12", label: "December" },
+  ];
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       {/* Header Section - Mobile Optimized */}
       <div className="mb-6 lg:mb-8">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-red-700">
-              Instructor Feedbacks
-            </h1>
-            <p className="mt-2 text-gray-600 text-sm sm:text-base">
-              Review student evaluations and feedback
-            </p>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-red-700">
+                Instructor Feedbacks
+              </h1>
+              <p className="mt-2 text-gray-600 text-sm sm:text-base">
+                Review student evaluations and feedback
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3">
+              {/* Average Rating Card */}
+              {filteredFeedbacks.length > 0 && (
+                <div className="bg-yellow-50 border-2 border-yellow-200 px-4 py-3 rounded-lg">
+                  <div className="text-xs sm:text-sm text-yellow-800 font-medium mb-1">
+                    Average Rating
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <svg
+                      className="w-6 h-6 sm:w-7 sm:h-7 fill-yellow-400 text-yellow-400"
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth="1"
+                    >
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                    </svg>
+                    <span className="text-yellow-700 font-bold text-xl sm:text-2xl">
+                      {averageRating}
+                    </span>
+                    <span className="text-yellow-600 text-sm">/ 5</span>
+                  </div>
+                </div>
+              )}
+              {/* Total Reviews Card */}
+              <div className="bg-red-50 px-4 py-3 rounded-lg">
+                <div className="text-xs sm:text-sm text-red-600 font-medium mb-1">
+                  Total Reviews
+                </div>
+                <span className="text-red-700 font-bold text-xl sm:text-2xl">
+                  {filteredFeedbacks.length}
+                </span>
+              </div>
+            </div>
           </div>
-          <div className="flex flex-col sm:flex-row gap-3">
-            {/* Average Rating Card */}
-            {feedbacks.length > 0 && (
-              <div className="bg-yellow-50 border-2 border-yellow-200 px-4 py-3 rounded-lg">
-                <div className="text-xs sm:text-sm text-yellow-800 font-medium mb-1">
-                  Average Rating
-                </div>
-                <div className="flex items-center gap-2">
-                  <svg
-                    className="w-6 h-6 sm:w-7 sm:h-7 fill-yellow-400 text-yellow-400"
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth="1"
-                  >
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                  </svg>
-                  <span className="text-yellow-700 font-bold text-xl sm:text-2xl">
-                    {averageRating}
-                  </span>
-                  <span className="text-yellow-600 text-sm">/ 5</span>
-                </div>
+
+          {/* Filters Section */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+                />
+              </svg>
+              Filter Feedback
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                  Month
+                </label>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                >
+                  <option value="">All Months</option>
+                  {months.map((month) => (
+                    <option key={month.value} value={month.value}>
+                      {month.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                  Year
+                </label>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                >
+                  <option value="">All Years</option>
+                  {availableYears.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="sm:col-span-2 lg:col-span-2 flex items-end">
+                <button
+                  onClick={handleResetFilters}
+                  disabled={!selectedMonth && !selectedYear}
+                  className="w-full px-4 py-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors text-sm"
+                >
+                  Reset Filters
+                </button>
+              </div>
+            </div>
+
+            {(selectedMonth || selectedYear) && (
+              <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
+                <strong>Active Filters:</strong>{" "}
+                {selectedMonth &&
+                  `${months.find((m) => m.value === selectedMonth)?.label} `}
+                {selectedYear && selectedYear}
               </div>
             )}
-            {/* Total Reviews Card */}
-            <div className="bg-red-50 px-4 py-3 rounded-lg">
-              <div className="text-xs sm:text-sm text-red-600 font-medium mb-1">
-                Total Reviews
-              </div>
-              <span className="text-red-700 font-bold text-xl sm:text-2xl">
-                {feedbacks.length}
-              </span>
-            </div>
           </div>
         </div>
       </div>
 
       {/* Content Section */}
-      {feedbacks.length === 0 ? (
+      {filteredFeedbacks.length === 0 ? (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 sm:p-12 text-center">
           <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-4">
             <svg
@@ -1221,15 +1343,19 @@ const FeedbacksPage = () => {
             </svg>
           </div>
           <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">
-            No Feedback Available
+            {feedbacks.length === 0
+              ? "No Feedback Available"
+              : "No Feedback Matches Your Filters"}
           </h3>
           <p className="text-gray-500 text-sm sm:text-base">
-            There are currently no student evaluations to display.
+            {feedbacks.length === 0
+              ? "There are currently no student evaluations to display."
+              : "Try adjusting your filter criteria."}
           </p>
         </div>
       ) : (
         <div className="space-y-4 sm:space-y-6">
-          {feedbacks.map((fb) => (
+          {filteredFeedbacks.map((fb) => (
             <div
               key={fb.feedback_id}
               className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-200"
@@ -1387,7 +1513,6 @@ const FeedbacksPage = () => {
     </div>
   );
 };
-
 const Instructor = () => {
   const [activePage, setActivePage] = useState("Dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -1405,6 +1530,35 @@ const Instructor = () => {
   const handleNavClick = (pageName) => {
     setActivePage(pageName);
     setSidebarOpen(false); // Close sidebar on mobile after navigation
+  };
+
+  const handleSignOut = async () => {
+    const result = await Swal.fire({
+      title: "Are you sure you want to sign out?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#aaa",
+      confirmButtonText: "Yes, sign out",
+      cancelButtonText: "Cancel",
+    });
+
+    if (result.isConfirmed) {
+      // Actual sign out logic here
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+
+      await Swal.fire({
+        title: "Signed out",
+        text: "You have been successfully signed out.",
+        icon: "success",
+        timer: 1500,
+        showConfirmButton: false,
+      });
+
+      // Redirect to login or landing page
+      window.location.href = "/login";
+    }
   };
 
   return (
@@ -1501,6 +1655,16 @@ const Instructor = () => {
               <span className="truncate">{name}</span>
             </button>
           ))}
+          {/* Sign Out Button */}
+          <div className="pt-4 border-t border-gray-200">
+            <button
+              onClick={handleSignOut}
+              className="flex items-center w-full px-4 py-3 rounded-lg font-medium text-sm text-red-600 hover:bg-red-50 transition-colors"
+            >
+              <LogOut className="w-5 h-5 mr-3" />
+              Sign Out
+            </button>
+          </div>
         </nav>
       </div>
 

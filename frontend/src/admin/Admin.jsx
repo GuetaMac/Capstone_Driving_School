@@ -259,13 +259,6 @@ const DashboardPage = () => {
                   year: "numeric",
                 })}
               </div>
-              <button
-                onClick={handleSignOut}
-                className="mt-2 text-red-600 hover:text-red-800 flex items-center text-sm mx-auto lg:mx-0 transition-colors duration-200"
-              >
-                <LogOut className="w-4 h-4 mr-1" />
-                Sign Out
-              </button>
             </div>
           </div>
         </div>
@@ -395,7 +388,6 @@ const EnrollmentsPage = () => {
       setLoading(true);
       const token = localStorage.getItem("token");
 
-      // Try authenticated API first, fallback to simple endpoint
       let data;
       if (token) {
         const response = await axios.get(
@@ -415,7 +407,6 @@ const EnrollmentsPage = () => {
       setEnrollments(data);
     } catch (error) {
       console.error("Error fetching enrollments:", error);
-      // Fallback to simple fetch
       try {
         const response = await fetch(
           `${import.meta.env.VITE_API_URL}/enrollments`
@@ -451,7 +442,6 @@ const EnrollmentsPage = () => {
       }
     } catch (error) {
       console.error("Error fetching instructors:", error);
-      // Fallback
       try {
         const response = await fetch(
           `${import.meta.env.VITE_API_URL}/instructors`
@@ -605,11 +595,80 @@ const EnrollmentsPage = () => {
     }
   };
 
+  // NEW: Update enrollment status for online theoretical courses
+  const updateEnrollmentStatus = async (
+    enrollmentId,
+    newStatus,
+    resetStatus
+  ) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        await Swal.fire({
+          title: "Error",
+          text: "You need to be logged in to update status.",
+          icon: "error",
+        });
+        if (resetStatus) resetStatus();
+        return;
+      }
+
+      const statusLabel =
+        newStatus === "passed/completed" ? "Passed/Completed" : "Failed";
+
+      const result = await Swal.fire({
+        title: `Mark as ${statusLabel}?`,
+        text: `Are you sure you want to mark this student as ${statusLabel}?`,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor:
+          newStatus === "passed/completed" ? "#10b981" : "#ef4444",
+        cancelButtonColor: "#6b7280",
+        confirmButtonText: `Yes, mark as ${statusLabel}`,
+        cancelButtonText: "Cancel",
+      });
+
+      if (!result.isConfirmed) {
+        if (resetStatus) resetStatus();
+        return;
+      }
+
+      await axios.put(
+        `${
+          import.meta.env.VITE_API_URL
+        }/api/admin/enrollments/${enrollmentId}/status`,
+        { status: newStatus },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      await Swal.fire({
+        title: "Success!",
+        text: `Student status updated to ${statusLabel}.`,
+        icon: "success",
+        timer: 2000,
+        showConfirmButton: false,
+      });
+
+      fetchEnrollments();
+    } catch (error) {
+      console.error("Error updating enrollment status:", error);
+      await Swal.fire({
+        title: "Error",
+        text:
+          error.response?.data?.error ||
+          "Failed to update status. Please try again.",
+        icon: "error",
+      });
+      if (resetStatus) resetStatus();
+    }
+  };
+
   const deleteEnrollment = async (enrollmentId, studentName) => {
     try {
       const token = localStorage.getItem("token");
 
-      // Check if token exists
       if (!token) {
         console.error("❌ No authentication token found");
         await Swal.fire({
@@ -665,7 +724,6 @@ const EnrollmentsPage = () => {
     } catch (error) {
       console.error("❌ Error deleting enrollment:", error);
 
-      // More detailed error logging
       if (error.response) {
         console.error("Response data:", error.response.data);
         console.error("Response status:", error.response.status);
@@ -724,7 +782,6 @@ const EnrollmentsPage = () => {
       return "Online Course - Self-paced";
     }
 
-    // Check if enrollment has multiple schedules (practical courses)
     if (e.multiple_schedules && e.multiple_schedules.length > 0) {
       const dates = e.multiple_schedules
         .map((s) => fmtDate(new Date(s.start_date)))
@@ -751,7 +808,7 @@ const EnrollmentsPage = () => {
       ? `${startDate} to ${endDate} — ${timeRange}`
       : `${startDate} — ${timeRange}`;
   };
-  // Get unique years from enrollments
+
   const getAvailableYears = () => {
     const years = new Set();
     enrollments.forEach((enrollment) => {
@@ -759,13 +816,12 @@ const EnrollmentsPage = () => {
         const year = new Date(enrollment.start_date).getFullYear();
         years.add(year);
       }
-      // Also check enrollment date if available
       if (enrollment.created_at) {
         const year = new Date(enrollment.created_at).getFullYear();
         years.add(year);
       }
     });
-    return Array.from(years).sort((a, b) => b - a); // Sort descending
+    return Array.from(years).sort((a, b) => b - a);
   };
 
   const months = [
@@ -783,7 +839,6 @@ const EnrollmentsPage = () => {
     { value: 11, name: "December" },
   ];
 
-  // Group enrollments by schedule and sort by date
   const groupEnrollmentsBySchedule = (enrollments) => {
     const groups = enrollments.reduce((acc, enrollment) => {
       const scheduleKey =
@@ -809,12 +864,10 @@ const EnrollmentsPage = () => {
       return acc;
     }, {});
 
-    // Sort groups by date (earliest to latest)
     return Object.values(groups).sort((a, b) => a.sortDate - b.sortDate);
   };
 
   const filteredEnrollments = enrollments.filter((enrollment) => {
-    // ✅ HIDE completed AND fully paid students (unless user wants to see them)
     if (!showCompleted) {
       const isCompleted =
         enrollment.status?.toLowerCase() === "completed" ||
@@ -822,7 +875,6 @@ const EnrollmentsPage = () => {
       const isFullyPaid =
         enrollment.payment_status?.toLowerCase() === "fully paid";
 
-      // Hide if BOTH completed and fully paid
       if (isCompleted && isFullyPaid) {
         return false;
       }
@@ -848,7 +900,6 @@ const EnrollmentsPage = () => {
       (filterStatus === "approved" && enrollment.status === "approved") ||
       (filterStatus === "completed" && enrollment.status === "completed");
 
-    // Date filtering
     let matchesDate = true;
     if (selectedMonth !== "all" || selectedYear !== "all") {
       const enrollmentDate = enrollment.start_date
@@ -889,13 +940,23 @@ const EnrollmentsPage = () => {
       case "passed/completed":
       case "completed":
         return "bg-purple-100 text-purple-800 border-purple-200";
+      case "failed":
+        return "bg-red-100 text-red-800 border-red-200";
       case "pending":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+        return "bg-gray-100 text-gray-800 border-gray-200";
       case "approved":
         return "bg-green-100 text-green-800 border-green-200";
       default:
         return "bg-gray-100 text-gray-800 border-gray-200";
     }
+  };
+
+  // Check if course is online theoretical
+  const isOnlineTheoretical = (courseName) => {
+    return (
+      courseName?.toLowerCase().includes("online") &&
+      courseName?.toLowerCase().includes("theoretical")
+    );
   };
 
   const assignedInstructorIds = enrollments
@@ -930,8 +991,7 @@ const EnrollmentsPage = () => {
         <div className="text-sm text-gray-900">{e.course_name || "N/A"}</div>
       </td>
       <td className="px-6 py-4">
-        {e.course_name?.toLowerCase().includes("online") &&
-        e.course_name?.toLowerCase().includes("theoretical") ? (
+        {isOnlineTheoretical(e.course_name) ? (
           <span className="text-sm text-gray-500 italic">N/A (Online)</span>
         ) : hasAdminFeatures ? (
           <select
@@ -1021,13 +1081,31 @@ const EnrollmentsPage = () => {
         </>
       )}
       <td className="px-6 py-4">
-        <span
-          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-            e.status
-          )}`}
-        >
-          {e.status || "N/A"}
-        </span>
+        {hasAdminFeatures && isOnlineTheoretical(e.course_name) ? (
+          <select
+            value={e.status || "approved"}
+            onChange={(ev) => {
+              const value = ev.target.value;
+              const reset = () => (ev.target.value = e.status || "approved");
+              updateEnrollmentStatus(e.enrollment_id, value, reset);
+            }}
+            className={`text-sm border rounded-full px-3 py-1 font-medium ${getStatusColor(
+              e.status
+            )}`}
+          >
+            <option value="approved">Approved</option>
+            <option value="passed/completed">Passed/Completed</option>
+            <option value="failed">Failed</option>
+          </select>
+        ) : (
+          <span
+            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+              e.status
+            )}`}
+          >
+            {e.status || "N/A"}
+          </span>
+        )}
       </td>
       {hasAdminFeatures && (
         <td className="px-6 py-4">
@@ -1078,8 +1156,7 @@ const EnrollmentsPage = () => {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-sm text-gray-600">Instructor:</span>
-          {e.course_name?.toLowerCase().includes("online") &&
-          e.course_name?.toLowerCase().includes("theoretical") ? (
+          {isOnlineTheoretical(e.course_name) ? (
             <span className="text-sm text-gray-500 italic">N/A (Online)</span>
           ) : hasAdminFeatures ? (
             <select
@@ -1156,13 +1233,31 @@ const EnrollmentsPage = () => {
 
         <div className="flex items-center justify-between">
           <span className="text-sm text-gray-600">Status:</span>
-          <span
-            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-              e.status
-            )}`}
-          >
-            {e.status || "N/A"}
-          </span>
+          {hasAdminFeatures && isOnlineTheoretical(e.course_name) ? (
+            <select
+              value={e.status || "approved"}
+              onChange={(ev) => {
+                const value = ev.target.value;
+                const reset = () => (ev.target.value = e.status || "approved");
+                updateEnrollmentStatus(e.enrollment_id, value, reset);
+              }}
+              className={`text-sm border rounded-full px-2 py-1 font-medium ${getStatusColor(
+                e.status
+              )}`}
+            >
+              <option value="approved">Approved</option>
+              <option value="passed/completed">Passed/Completed</option>
+              <option value="failed">Failed</option>
+            </select>
+          ) : (
+            <span
+              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+                e.status
+              )}`}
+            >
+              {e.status || "N/A"}
+            </span>
+          )}
         </div>
 
         {hasAdminFeatures && (
@@ -1608,7 +1703,6 @@ const EnrollmentsPage = () => {
               {instructors
                 .filter((i) => assignedInstructorIds.includes(i.user_id))
                 .map((i) => {
-                  // Filter out completed/passed students
                   const assignedStudents = enrollments.filter(
                     (e) =>
                       e.instructor_id === i.user_id &&
@@ -1616,7 +1710,6 @@ const EnrollmentsPage = () => {
                       e.status?.toLowerCase() !== "passed/completed"
                   );
 
-                  // Don't show instructor card if they have no active students
                   if (assignedStudents.length === 0) return null;
 
                   return (
@@ -1745,38 +1838,29 @@ const Schedules = ({ currentUser }) => {
         start_time: "08:00",
         end_time: "17:00",
         is_theoretical: false,
-        slots: 10,
+        slots: 4,
         color: "from-green-500 to-green-600",
       },
       {
         id: 2,
-        name: "Full Day Extended",
-        start_time: "08:00",
-        end_time: "16:00",
-        is_theoretical: false,
-        slots: 8,
-        color: "from-yellow-500 to-yellow-600",
-      },
-      {
-        id: 3,
         name: "Morning Session",
         start_time: "08:00",
         end_time: "12:00",
         is_theoretical: false,
-        slots: 5,
+        slots: 4,
         color: "from-red-500 to-red-600",
       },
       {
-        id: 4,
+        id: 3,
         name: "Afternoon Session",
         start_time: "13:00",
         end_time: "17:00",
         is_theoretical: false,
-        slots: 5,
+        slots: 4,
         color: "from-green-500 to-green-600",
       },
       {
-        id: 5,
+        id: 4,
         name: "Theoretical Course",
         start_time: "08:00",
         end_time: "16:00",
@@ -1785,7 +1869,7 @@ const Schedules = ({ currentUser }) => {
         color: "from-yellow-500 to-yellow-600",
       },
       {
-        id: 6,
+        id: 5,
         name: "Theoretical Extended",
         start_time: "08:00",
         end_time: "17:00",
@@ -2476,7 +2560,7 @@ const Schedules = ({ currentUser }) => {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-lg p-3 sm:p-4 md:p-6 mb-4 sm:mb-6">
+        <div className="bg-white rounded-2xl shadow-lg p-3 sm:p-4 md:p-6 mb-4 sm:mb-5">
           <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
             <div className="p-1.5 sm:p-2 bg-yellow-100 rounded-xl"></div>
             <h2 className="text-base sm:text-lg md:text-xl font-semibold text-gray-800">
@@ -2484,7 +2568,7 @@ const Schedules = ({ currentUser }) => {
             </h2>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
             {templates.map((template) => (
               <div key={template.id} className="relative group">
                 <button
@@ -2928,7 +3012,13 @@ const Schedules = ({ currentUser }) => {
 };
 const FeedbackPage = () => {
   const [feedbackList, setFeedbackList] = useState([]);
+  const [filteredFeedback, setFilteredFeedback] = useState([]);
   const [selectedFeedback, setSelectedFeedback] = useState(null);
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [selectedYear, setSelectedYear] = useState("");
+  const [availableYears, setAvailableYears] = useState([]);
+  const [instructorStats, setInstructorStats] = useState([]);
+  const [showInstructorStats, setShowInstructorStats] = useState(false);
 
   // Helper function to render stars
   const renderStars = (rating) => {
@@ -2960,15 +3050,54 @@ const FeedbackPage = () => {
     );
   };
 
-  // Calculate average rating across all feedback
-  const calculateAverageRating = () => {
-    const validRatings = feedbackList.filter((fb) => fb.instructor_rating);
+  // Calculate average rating
+  const calculateAverageRating = (feedbackData) => {
+    const validRatings = feedbackData.filter((fb) => fb.instructor_rating);
     if (validRatings.length === 0) return 0;
     const total = validRatings.reduce(
       (sum, fb) => sum + fb.instructor_rating,
       0
     );
     return (total / validRatings.length).toFixed(1);
+  };
+
+  // Calculate instructor statistics
+  const calculateInstructorStats = (feedbackData) => {
+    const stats = {};
+
+    const feedbackWithRatings = feedbackData.filter(
+      (fb) => fb.instructor_rating
+    );
+
+    feedbackWithRatings.forEach((fb) => {
+      if (!stats[fb.instructor_name]) {
+        stats[fb.instructor_name] = {
+          name: fb.instructor_name,
+          totalRating: 0,
+          count: 0,
+          ratings: [],
+        };
+      }
+
+      stats[fb.instructor_name].totalRating += fb.instructor_rating;
+      stats[fb.instructor_name].count += 1;
+      stats[fb.instructor_name].ratings.push(fb.instructor_rating);
+    });
+
+    const instructorArray = Object.values(stats).map((instructor) => ({
+      ...instructor,
+      averageRating: (instructor.totalRating / instructor.count).toFixed(2),
+    }));
+
+    instructorArray.sort((a, b) => b.averageRating - a.averageRating);
+
+    return instructorArray;
+  };
+
+  // Extract unique years from feedback data
+  const extractAvailableYears = (data) => {
+    const years = data.map((fb) => new Date(fb.created_at).getFullYear());
+    return [...new Set(years)].sort((a, b) => b - a);
   };
 
   useEffect(() => {
@@ -2978,11 +3107,64 @@ const FeedbackPage = () => {
       },
     })
       .then((res) => res.json())
-      .then((data) => setFeedbackList(data))
+      .then((data) => {
+        setFeedbackList(data);
+        setFilteredFeedback(data);
+        setAvailableYears(extractAvailableYears(data));
+      })
       .catch((err) => console.error("Error loading feedback:", err));
   }, []);
 
-  const averageRating = calculateAverageRating();
+  // Filter feedback based on selected month and year
+  useEffect(() => {
+    let filtered = [...feedbackList];
+
+    if (selectedMonth) {
+      filtered = filtered.filter(
+        (fb) =>
+          new Date(fb.created_at).getMonth() + 1 === parseInt(selectedMonth)
+      );
+    }
+
+    if (selectedYear) {
+      filtered = filtered.filter(
+        (fb) => new Date(fb.created_at).getFullYear() === parseInt(selectedYear)
+      );
+    }
+
+    setFilteredFeedback(filtered);
+  }, [selectedMonth, selectedYear, feedbackList]);
+
+  // Calculate instructor stats whenever filtered feedback changes
+  useEffect(() => {
+    if (filteredFeedback.length > 0) {
+      const stats = calculateInstructorStats(filteredFeedback);
+      setInstructorStats(stats);
+    } else {
+      setInstructorStats([]);
+    }
+  }, [filteredFeedback]);
+
+  const handleResetFilters = () => {
+    setSelectedMonth("");
+    setSelectedYear("");
+  };
+
+  const averageRating = calculateAverageRating(filteredFeedback);
+  const months = [
+    { value: "1", label: "January" },
+    { value: "2", label: "February" },
+    { value: "3", label: "March" },
+    { value: "4", label: "April" },
+    { value: "5", label: "May" },
+    { value: "6", label: "June" },
+    { value: "7", label: "July" },
+    { value: "8", label: "August" },
+    { value: "9", label: "September" },
+    { value: "10", label: "October" },
+    { value: "11", label: "November" },
+    { value: "12", label: "December" },
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-4 sm:py-8 px-4">
@@ -2996,16 +3178,94 @@ const FeedbackPage = () => {
             <p className="text-slate-600 text-sm sm:text-base lg:text-lg mb-4">
               Review and manage student course evaluations
             </p>
+
+            {/* Filters Section */}
+            <div className="mt-6 bg-slate-50 rounded-lg p-4 border border-slate-200">
+              <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+                  />
+                </svg>
+                Filter Feedback
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                    Month
+                  </label>
+                  <select
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  >
+                    <option value="">All Months</option>
+                    {months.map((month) => (
+                      <option key={month.value} value={month.value}>
+                        {month.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                    Year
+                  </label>
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  >
+                    <option value="">All Years</option>
+                    {availableYears.map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="sm:col-span-2 lg:col-span-2 flex items-end">
+                  <button
+                    onClick={handleResetFilters}
+                    disabled={!selectedMonth && !selectedYear}
+                    className="w-full px-4 py-2 bg-slate-600 hover:bg-slate-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors text-sm"
+                  >
+                    Reset Filters
+                  </button>
+                </div>
+              </div>
+
+              {(selectedMonth || selectedYear) && (
+                <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
+                  <strong>Active Filters:</strong>{" "}
+                  {selectedMonth &&
+                    `${months.find((m) => m.value === selectedMonth)?.label} `}
+                  {selectedYear && selectedYear}
+                </div>
+              )}
+            </div>
+
+            {/* Stats Section */}
             <div className="mt-4 sm:mt-6 flex flex-wrap items-center gap-3 sm:gap-4">
               <div className="bg-red-50 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full">
                 <span className="text-red-700 font-medium text-sm sm:text-base">
-                  Total Feedback: {feedbackList.length}
+                  Total Feedback: {filteredFeedback.length}
                 </span>
               </div>
-              {feedbackList.length > 0 && averageRating > 0 && (
+              {averageRating > 0 && (
                 <div className="bg-yellow-50 border-2 border-yellow-200 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full flex items-center gap-2">
                   <svg
-                    className="w-5 h-5 fill-yellow-400 text-yellow-400"
+                    className="w-4 h-4 sm:w-5 sm:h-5 fill-yellow-400 text-yellow-400"
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -3022,7 +3282,129 @@ const FeedbackPage = () => {
           </div>
         </div>
 
-        {feedbackList.length === 0 ? (
+        {/* Instructor Performance Rankings */}
+        {instructorStats.length > 0 && (
+          <div className="mb-6">
+            <button
+              onClick={() => setShowInstructorStats(!showInstructorStats)}
+              className="w-full bg-gradient-to-r from-red-600 to-red-600 hover:from-red-700 hover:to-red-700 text-white font-semibold py-3 sm:py-4 px-4 sm:px-6 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center gap-2 text-sm sm:text-base"
+            >
+              <svg
+                className="w-4 h-4 sm:w-5 sm:h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                />
+              </svg>
+              <span className="hidden sm:inline">
+                {showInstructorStats ? "Hide" : "View"} Instructor Performance
+                Statistics {(selectedMonth || selectedYear) && "(Filtered)"}
+              </span>
+              <span className="sm:hidden">
+                {showInstructorStats ? "Hide" : "View"} Rankings{" "}
+                {(selectedMonth || selectedYear) && "(Filtered)"}
+              </span>
+            </button>
+          </div>
+        )}
+
+        {showInstructorStats && instructorStats.length > 0 && (
+          <div className="mb-6 bg-white rounded-xl sm:rounded-2xl shadow-lg border border-slate-200 p-4 sm:p-6">
+            <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-800 mb-2 flex items-center gap-2">
+              <svg
+                className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                />
+              </svg>
+              <span className="hidden sm:inline">
+                Instructor Performance Rankings
+              </span>
+              <span className="sm:hidden">Rankings</span>
+            </h3>
+            {(selectedMonth || selectedYear) && (
+              <p className="text-xs sm:text-sm text-gray-600 mb-4">
+                Showing results for{" "}
+                {selectedMonth &&
+                  months.find((m) => m.value === selectedMonth)?.label}{" "}
+                {selectedYear}
+              </p>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+              {instructorStats.map((instructor, index) => (
+                <div
+                  key={instructor.name}
+                  className={`p-3 sm:p-4 rounded-lg sm:rounded-xl border-2 transition-all duration-200 hover:shadow-md ${
+                    index === 0
+                      ? "bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-300"
+                      : index === 1
+                      ? "bg-gradient-to-br from-gray-50 to-gray-100 border-gray-300"
+                      : index === 2
+                      ? "bg-gradient-to-br from-orange-50 to-orange-100 border-orange-300"
+                      : "bg-white border-slate-200"
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-2 sm:mb-3">
+                    <div className="flex items-center gap-2">
+                      {index < 3 && (
+                        <div className="text-xl sm:text-2xl">
+                          {index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-bold text-slate-800 text-xs sm:text-sm truncate">
+                          {instructor.name}
+                        </h4>
+                        <p className="text-xs text-slate-500">
+                          {instructor.count} review
+                          {instructor.count !== 1 ? "s" : ""}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-0.5 sm:gap-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <svg
+                          key={star}
+                          className={`w-3 h-3 sm:w-4 sm:h-4 ${
+                            star <= Math.round(instructor.averageRating)
+                              ? "fill-yellow-400 text-yellow-400"
+                              : "fill-gray-300 text-gray-300"
+                          }`}
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth="1"
+                        >
+                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                        </svg>
+                      ))}
+                    </div>
+                    <span className="text-base sm:text-lg font-bold text-slate-800">
+                      {instructor.averageRating}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {filteredFeedback.length === 0 ? (
           <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 p-8 sm:p-16 text-center">
             <div className="w-16 h-16 sm:w-24 sm:h-24 mx-auto mb-4 sm:mb-6 bg-slate-100 rounded-full flex items-center justify-center">
               <svg
@@ -3040,15 +3422,19 @@ const FeedbackPage = () => {
               </svg>
             </div>
             <h3 className="text-lg sm:text-xl font-semibold text-slate-700 mb-2">
-              No Feedback Available
+              {feedbackList.length === 0
+                ? "No Feedback Available"
+                : "No Feedback Matches Your Filters"}
             </h3>
             <p className="text-slate-500 text-sm sm:text-base">
-              Student feedback will appear here once submitted.
+              {feedbackList.length === 0
+                ? "Student feedback will appear here once submitted."
+                : "Try adjusting your filter criteria."}
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
-            {feedbackList.map((fb) => (
+            {filteredFeedback.map((fb) => (
               <div
                 key={fb.feedback_id}
                 className="group bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg hover:shadow-blue-100/50 transition-all duration-300 overflow-hidden"
@@ -3173,7 +3559,6 @@ const FeedbackPage = () => {
 const FeedbackDetailsModal = ({ feedback, onClose }) => {
   if (!feedback) return null;
 
-  // Helper function to render stars in modal
   const renderStars = (rating) => {
     if (!rating)
       return (
@@ -3205,7 +3590,6 @@ const FeedbackDetailsModal = ({ feedback, onClose }) => {
     );
   };
 
-  // Define questions (same as in original)
   const questions = {
     training_course: [
       "Objectives were clearly defined",
@@ -3281,7 +3665,6 @@ const FeedbackDetailsModal = ({ feedback, onClose }) => {
           </button>
         </div>
 
-        {/* Student Info Section - Mobile Optimized */}
         <div className="mb-6 p-3 sm:p-4 bg-gray-50 rounded-lg">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -3317,7 +3700,6 @@ const FeedbackDetailsModal = ({ feedback, onClose }) => {
           </div>
         </div>
 
-        {/* Star Rating Highlight Section */}
         {feedback.instructor_rating && (
           <div className="mb-6 p-4 bg-yellow-50 border-2 border-yellow-200 rounded-lg">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -3396,6 +3778,7 @@ const FeedbackDetailsModal = ({ feedback, onClose }) => {
     </div>
   );
 };
+
 const AttendancePage = () => {
   const [instructors, setInstructors] = useState([]);
   const [attendance, setAttendance] = useState([]);
@@ -4810,7 +5193,7 @@ const Records = () => {
         {/* Header */}
         <div className="mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-800 mb-2">
-            📋 Student Records
+            Student Records
           </h1>
           <p className="text-sm sm:text-base text-gray-600">
             View and manage all student enrollment records
@@ -4823,14 +5206,14 @@ const Records = () => {
             {/* Filter Label & Reset Button Row */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <h3 className="text-base sm:text-lg font-bold text-gray-800 flex items-center gap-2">
-                🔍 Filter Records
+                Filter Records
               </h3>
               {(selectedMonth !== "all" || selectedYear !== "all") && (
                 <button
                   onClick={handleResetFilters}
                   className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white rounded-lg font-semibold transition-all shadow-md hover:shadow-lg text-sm"
                 >
-                  🔄 Reset Filters
+                  Reset Filters
                 </button>
               )}
             </div>
@@ -4840,7 +5223,7 @@ const Records = () => {
               {/* Month Filter */}
               <div>
                 <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-                  📅 Month
+                  Month
                 </label>
                 <select
                   value={selectedMonth}
@@ -4858,7 +5241,7 @@ const Records = () => {
               {/* Year Filter */}
               <div>
                 <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-                  📆 Year
+                  Year
                 </label>
                 <select
                   value={selectedYear}
@@ -5009,7 +5392,7 @@ const Records = () => {
                       <td className="px-3 sm:px-4 py-3 sm:py-4 text-center whitespace-nowrap">
                         {rec.is_pwd === true || rec.is_pwd === "true" ? (
                           <span className="inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 shadow-sm">
-                            💙 Yes
+                            Yes
                           </span>
                         ) : (
                           <span className="inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600 shadow-sm">
@@ -5058,7 +5441,7 @@ const Records = () => {
                   <tr>
                     <td colSpan="16" className="px-4 py-12 text-center">
                       <div className="flex flex-col items-center justify-center">
-                        <div className="text-6xl mb-4">📭</div>
+                        <div className="text-6xl mb-4"></div>
                         <p className="text-lg font-semibold text-gray-700 mb-2">
                           {records.length === 0
                             ? "No records found"
@@ -5077,47 +5460,6 @@ const Records = () => {
             </table>
           </div>
         </div>
-
-        {/* Summary Cards (Mobile Friendly) */}
-        {filteredRecords.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
-            <div className="bg-white rounded-xl shadow-lg p-4 border-l-4 border-blue-500">
-              <p className="text-xs sm:text-sm text-gray-600 mb-1">
-                Total Students
-              </p>
-              <p className="text-2xl sm:text-3xl font-bold text-blue-600">
-                {filteredRecords.length}
-              </p>
-            </div>
-            <div className="bg-white rounded-xl shadow-lg p-4 border-l-4 border-green-500">
-              <p className="text-xs sm:text-sm text-gray-600 mb-1">Paid</p>
-              <p className="text-2xl sm:text-3xl font-bold text-green-600">
-                {
-                  filteredRecords.filter((r) => r.payment_status === "Paid")
-                    .length
-                }
-              </p>
-            </div>
-            <div className="bg-white rounded-xl shadow-lg p-4 border-l-4 border-orange-500">
-              <p className="text-xs sm:text-sm text-gray-600 mb-1">Partial</p>
-              <p className="text-2xl sm:text-3xl font-bold text-orange-600">
-                {
-                  filteredRecords.filter((r) => r.payment_status === "Partial")
-                    .length
-                }
-              </p>
-            </div>
-            <div className="bg-white rounded-xl shadow-lg p-4 border-l-4 border-red-500">
-              <p className="text-xs sm:text-sm text-gray-600 mb-1">Pending</p>
-              <p className="text-2xl sm:text-3xl font-bold text-red-600">
-                {
-                  filteredRecords.filter((r) => r.payment_status === "Pending")
-                    .length
-                }
-              </p>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -5356,49 +5698,51 @@ const VehiclesPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 p-4 sm:p-6 flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mb-4"></div>
-          <p className="text-gray-600">Loading vehicles...</p>
+          <div className="inline-block animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-red-600 mb-4"></div>
+          <p className="text-gray-600 text-sm sm:text-base">
+            Loading vehicles...
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6">
       <div className="max-w-6xl mx-auto">
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <div className="flex items-center justify-between mb-6">
+        <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <div>
-              <h1 className="text-3xl font-bold text-red-600 mb-2">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-red-600 mb-1 sm:mb-2">
                 Vehicle Management
               </h1>
-              <p className="text-gray-600">
+              <p className="text-gray-600 text-sm sm:text-base">
                 Manage available vehicles for your branch
               </p>
             </div>
             <button
               onClick={() => setShowAddForm(!showAddForm)}
-              className="flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all"
+              className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all text-sm sm:text-base font-semibold whitespace-nowrap"
             >
               {showAddForm ? (
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4 sm:w-5 sm:h-5" />
               ) : (
-                <Plus className="w-5 h-5" />
+                <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
               )}
               {showAddForm ? "Cancel" : "Add Vehicle"}
             </button>
           </div>
 
           {showAddForm && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
-              <h3 className="text-lg font-bold text-gray-800 mb-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg sm:rounded-xl p-4 sm:p-6 mb-6">
+              <h3 className="text-base sm:text-lg font-bold text-gray-800 mb-4">
                 Add New Vehicle
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5 sm:mb-2">
                     Vehicle Name
                   </label>
                   <input
@@ -5408,12 +5752,12 @@ const VehiclesPage = () => {
                       setFormData({ ...formData, car_name: e.target.value })
                     }
                     placeholder="e.g. Toyota Vios"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-gray-300 rounded-lg text-sm sm:text-base focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5 sm:mb-2">
                     Category
                   </label>
                   <select
@@ -5424,7 +5768,7 @@ const VehiclesPage = () => {
                         vehicle_category: e.target.value,
                       })
                     }
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-gray-300 rounded-lg text-sm sm:text-base focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   >
                     <option value="car">Car/Sedan</option>
                     <option value="suv">SUV</option>
@@ -5437,7 +5781,7 @@ const VehiclesPage = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5 sm:mb-2">
                     Type
                   </label>
                   <select
@@ -5445,7 +5789,7 @@ const VehiclesPage = () => {
                     onChange={(e) =>
                       setFormData({ ...formData, type: e.target.value })
                     }
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-gray-300 rounded-lg text-sm sm:text-base focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   >
                     <option value="manual">Manual</option>
                     <option value="automatic">Automatic</option>
@@ -5453,7 +5797,7 @@ const VehiclesPage = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5 sm:mb-2">
                     Total Units
                   </label>
                   <input
@@ -5466,14 +5810,14 @@ const VehiclesPage = () => {
                       })
                     }
                     min="1"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-gray-300 rounded-lg text-sm sm:text-base focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   />
                 </div>
 
-                <div className="md:col-span-2">
+                <div className="sm:col-span-2">
                   <button
                     onClick={handleAdd}
-                    className="w-full px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all font-semibold"
+                    className="w-full px-4 sm:px-6 py-2.5 sm:py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all font-semibold text-sm sm:text-base"
                   >
                     Add Vehicle
                   </button>
@@ -5482,7 +5826,7 @@ const VehiclesPage = () => {
             </div>
           )}
 
-          <div className="grid gap-4">
+          <div className="grid gap-3 sm:gap-4">
             {vehicles.map((vehicle) => {
               const Icon = getCategoryIcon(vehicle.vehicle_category);
               const isEditing = editingId === vehicle.vehicle_id;
@@ -5490,16 +5834,16 @@ const VehiclesPage = () => {
               return (
                 <div
                   key={vehicle.vehicle_id}
-                  className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all"
+                  className="border border-gray-200 rounded-lg sm:rounded-xl p-3 sm:p-4 hover:shadow-md transition-all"
                 >
-                  <div className="flex items-start gap-4">
-                    <div className="p-3 bg-red-100 rounded-lg">
-                      <Icon className="w-6 h-6 text-red-600" />
+                  <div className="flex items-start gap-3 sm:gap-4">
+                    <div className="p-2 sm:p-3 bg-red-100 rounded-lg flex-shrink-0">
+                      <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
                     </div>
 
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       {isEditing ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                           <input
                             type="text"
                             value={vehicle.car_name}
@@ -5512,7 +5856,7 @@ const VehiclesPage = () => {
                                 )
                               )
                             }
-                            className="px-3 py-2 border border-gray-300 rounded-lg"
+                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm sm:text-base focus:ring-2 focus:ring-red-500"
                           />
                           <input
                             type="number"
@@ -5530,25 +5874,25 @@ const VehiclesPage = () => {
                               )
                             }
                             min="1"
-                            className="px-3 py-2 border border-gray-300 rounded-lg"
+                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm sm:text-base focus:ring-2 focus:ring-red-500"
                           />
                         </div>
                       ) : (
                         <>
-                          <h3 className="text-lg font-bold text-gray-800">
+                          <h3 className="text-base sm:text-lg font-bold text-gray-800 truncate">
                             {vehicle.car_name}
                           </h3>
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold">
+                          <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-2">
+                            <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-blue-100 text-blue-800 rounded-full text-xs sm:text-sm font-semibold">
                               {getBranchName(vehicle.branch_id)}
                             </span>
-                            <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-semibold capitalize">
+                            <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-purple-100 text-purple-800 rounded-full text-xs sm:text-sm font-semibold capitalize">
                               {vehicle.vehicle_category}
                             </span>
-                            <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold capitalize">
+                            <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-green-100 text-green-800 rounded-full text-xs sm:text-sm font-semibold capitalize">
                               {vehicle.type}
                             </span>
-                            <span className="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-sm font-semibold">
+                            <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-orange-100 text-orange-800 rounded-full text-xs sm:text-sm font-semibold">
                               {vehicle.total_units}{" "}
                               {vehicle.total_units === 1 ? "Unit" : "Units"}
                             </span>
@@ -5557,38 +5901,38 @@ const VehiclesPage = () => {
                       )}
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex gap-1.5 sm:gap-2 flex-shrink-0">
                       {isEditing ? (
                         <>
                           <button
                             onClick={() => handleUpdate(vehicle.vehicle_id)}
-                            className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-all"
+                            className="p-1.5 sm:p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-all"
                           >
-                            <Save className="w-5 h-5" />
+                            <Save className="w-4 h-4 sm:w-5 sm:h-5" />
                           </button>
                           <button
                             onClick={() => {
                               setEditingId(null);
                               fetchData();
                             }}
-                            className="p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-all"
+                            className="p-1.5 sm:p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-all"
                           >
-                            <X className="w-5 h-5" />
+                            <X className="w-4 h-4 sm:w-5 sm:h-5" />
                           </button>
                         </>
                       ) : (
                         <>
                           <button
                             onClick={() => setEditingId(vehicle.vehicle_id)}
-                            className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-all"
+                            className="p-1.5 sm:p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-all"
                           >
-                            <Edit2 className="w-5 h-5" />
+                            <Edit2 className="w-4 h-4 sm:w-5 sm:h-5" />
                           </button>
                           <button
                             onClick={() => handleDelete(vehicle.vehicle_id)}
-                            className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-all"
+                            className="p-1.5 sm:p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-all"
                           >
-                            <Trash2 className="w-5 h-5" />
+                            <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
                           </button>
                         </>
                       )}
@@ -5600,10 +5944,12 @@ const VehiclesPage = () => {
           </div>
 
           {vehicles.length === 0 && (
-            <div className="text-center py-12">
-              <Car className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500 text-lg">No vehicles added yet</p>
-              <p className="text-gray-400 text-sm">
+            <div className="text-center py-8 sm:py-12">
+              <Car className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-3 sm:mb-4" />
+              <p className="text-gray-500 text-base sm:text-lg font-semibold">
+                No vehicles added yet
+              </p>
+              <p className="text-gray-400 text-xs sm:text-sm mt-1">
                 Click "Add Vehicle" to get started
               </p>
             </div>
@@ -5635,6 +5981,31 @@ const Admin_Staff = () => {
   const handleNavClick = (pageName) => {
     setActivePage(pageName);
     setSidebarOpen(false); // Close sidebar on mobile after navigation
+  };
+
+  const handleSignOut = async () => {
+    const result = await Swal.fire({
+      title: "Are you sure you want to sign out?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#aaa",
+      confirmButtonText: "Yes, sign out",
+      cancelButtonText: "Cancel",
+    });
+
+    if (result.isConfirmed) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      await Swal.fire({
+        title: "Signed out",
+        text: "You have been successfully signed out.",
+        icon: "success",
+        timer: 1500,
+        showConfirmButton: false,
+      });
+      window.location.href = "/login";
+    }
   };
 
   return (
@@ -5733,6 +6104,16 @@ const Admin_Staff = () => {
               <span className="truncate">{name}</span>
             </button>
           ))}
+          {/* Sign Out Button */}
+          <div className="pt-4 border-t border-gray-200">
+            <button
+              onClick={handleSignOut}
+              className="flex items-center w-full px-4 py-3 rounded-lg font-medium text-sm text-red-600 hover:bg-red-50 transition-colors"
+            >
+              <LogOut className="w-5 h-5 mr-3" />
+              Sign Out
+            </button>
+          </div>
         </nav>
       </div>
 

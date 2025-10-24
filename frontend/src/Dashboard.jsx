@@ -52,6 +52,7 @@ import {
   FileText,
   Receipt,
   ChevronDown,
+  Building2,
 } from "lucide-react";
 import {
   LineChart,
@@ -274,12 +275,6 @@ const DashboardPage = () => {
               year: "numeric",
             })}
           </div>
-          <button
-            onClick={handleSignOut}
-            className="mt-2 text-red-600 hover:text-red-800 flex items-center text-sm transition-colors duration-200"
-          >
-            <LogOut className="w-4 h-4 mr-1" /> Sign Out
-          </button>
         </div>
       </div>
 
@@ -1792,6 +1787,8 @@ const StudentsRecords = () => {
   const [selectedMonth, setSelectedMonth] = useState("");
   const [selectedYear, setSelectedYear] = useState("");
   const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+
   // export handler
   const handleExport = () => {
     let url = `${import.meta.env.VITE_API_URL}/api/manager/export-records`;
@@ -1803,7 +1800,7 @@ const StudentsRecords = () => {
 
     if (params.toString()) url += `?${params.toString()}`;
 
-    window.open(url, "_blank"); // directly download CSV file
+    window.open(url, "_blank");
   };
 
   // fetch branches
@@ -1850,137 +1847,344 @@ const StudentsRecords = () => {
       });
   }, [selectedBranch, selectedMonth, selectedYear]);
 
+  // Filter records based on search term
+  const filteredRecords = records.filter(
+    (rec) =>
+      rec.student_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      rec.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      rec.course_name?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const clearFilters = () => {
+    setSelectedBranch("");
+    setSelectedMonth("");
+    setSelectedYear("");
+    setSearchTerm("");
+  };
+
   return (
-    <div className="p-4">
-      <h2 className="text-xl font-bold mb-4">Student Records</h2>
-
-      {/* Filters */}
-      <div className="flex gap-4 mb-4">
-        {/* Branch Dropdown */}
-        <select
-          value={selectedBranch}
-          onChange={(e) => setSelectedBranch(e.target.value)}
-          className="border p-2 rounded"
-          disabled={loading}
-        >
-          <option value="">All Branches</option>
-          {branches.map((branch) => (
-            <option key={branch.branch_id} value={branch.branch_id}>
-              {branch.name}
-            </option>
-          ))}
-        </select>
-
-        {/* Month Dropdown */}
-        <select
-          value={selectedMonth}
-          onChange={(e) => setSelectedMonth(e.target.value)}
-          className="border p-2 rounded"
-          disabled={loading}
-        >
-          <option value="">All Months</option>
-          {Array.from({ length: 12 }, (_, i) => (
-            <option key={i + 1} value={i + 1}>
-              {new Date(0, i).toLocaleString("default", { month: "long" })}
-            </option>
-          ))}
-        </select>
-
-        {/* Year Dropdown (Dynamic) */}
-        <select
-          value={selectedYear}
-          onChange={(e) => setSelectedYear(e.target.value)}
-          className="border p-2 rounded"
-          disabled={loading}
-        >
-          <option value="">All Years</option>
-          {years.map((yr) => (
-            <option key={yr} value={yr}>
-              {yr}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Records Table */}
-      {loading ? (
-        <p>Loading records...</p>
-      ) : records.length === 0 ? (
-        <p>No records found.</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse border border-gray-300">
-            <thead>
-              <tr className="bg-gray-200">
-                <th className="border p-2 text-left">Name</th>
-                <th className="border p-2 text-left">Email</th>
-                <th className="border p-2 text-left">Contact</th>
-                <th className="border p-2 text-left">Address</th>
-                <th className="border p-2 text-left">Branch</th>
-                <th className="border p-2 text-left">Course</th>
-                <th className="border p-2 text-left">Enrollment Date</th>
-                <th className="border p-2 text-left">Birthday</th>
-                <th className="border p-2 text-left">Age</th>
-                <th className="border p-2 text-left">Civil Status</th>
-                <th className="border p-2 text-left">Nationality</th>
-                <th className="border p-2 text-left">Amount Paid</th>
-                <th className="border p-2 text-left">Payment Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {records.map((rec) => (
-                <tr
-                  key={`${rec.user_id}-${rec.course_name}`}
-                  className="hover:bg-gray-50"
-                >
-                  <td className="border p-2">{rec.student_name}</td>
-                  <td className="border p-2">{rec.email}</td>
-                  <td className="border p-2">{rec.contact_number || "N/A"}</td>
-                  <td className="border p-2">{rec.address || "N/A"}</td>
-                  <td className="border p-2">{rec.branch_name}</td>
-                  <td className="border p-2">{rec.course_name}</td>
-                  <td className="border p-2">
-                    {new Date(rec.enrollment_date).toLocaleDateString()}
-                  </td>
-                  <td className="border p-2">
-                    {rec.birthday
-                      ? new Date(rec.birthday).toLocaleDateString()
-                      : "N/A"}
-                  </td>
-                  <td className="border p-2">{rec.age || "N/A"}</td>
-                  <td className="border p-2">{rec.civil_status || "N/A"}</td>
-                  <td className="border p-2">{rec.nationality || "N/A"}</td>
-                  <td className="border p-2">
-                    {rec.amount_paid !== null ? `₱${rec.amount_paid}` : "N/A"}
-                  </td>
-                  <td className="border p-2">{rec.payment_status || "N/A"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="flex justify-between mb-4">
-            <div className="flex gap-4">
-              {/* filters here (branch, month, year) */}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header Section */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="bg-red-600 p-3 rounded-lg">
+                <Users className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold text-slate-800">
+                  Student Records
+                </h1>
+                <p className="text-slate-500 text-sm mt-1">
+                  Manage and view student enrollment data
+                </p>
+              </div>
             </div>
             <button
               onClick={handleExport}
-              className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700"
+              disabled={loading || records.length === 0}
+              className="flex items-center gap-2 bg-red-600 text-white px-5 py-2.5 rounded-lg shadow-md hover:bg-red-700 hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
             >
-              Export CSV
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline">Export CSV</span>
+              <span className="sm:hidden">Export</span>
             </button>
           </div>
         </div>
-      )}
 
-      {/* Results count */}
-      {!loading && (
-        <div className="mt-4 text-sm text-gray-600">
-          Showing {records.length} record{records.length !== 1 ? "s" : ""}
-          {(selectedBranch || selectedMonth || selectedYear) && (
-            <span> (filtered)</span>
+        {/* Filters Section */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Filter className="w-5 h-5 text-slate-600" />
+            <h2 className="text-lg font-semibold text-slate-800">Filters</h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Search Bar */}
+            <div className="relative lg:col-span-2">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search by name, email, or course..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
+                disabled={loading}
+              />
+            </div>
+
+            {/* Branch Dropdown */}
+            <div className="relative">
+              <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <select
+                value={selectedBranch}
+                onChange={(e) => setSelectedBranch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none appearance-none bg-white disabled:bg-slate-50 disabled:cursor-not-allowed"
+                disabled={loading}
+              >
+                <option value="">All Branches</option>
+                {branches.map((branch) => (
+                  <option key={branch.branch_id} value={branch.branch_id}>
+                    {branch.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Month Dropdown */}
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none appearance-none bg-white disabled:bg-slate-50 disabled:cursor-not-allowed"
+                disabled={loading}
+              >
+                <option value="">All Months</option>
+                {Array.from({ length: 12 }, (_, i) => (
+                  <option key={i + 1} value={i + 1}>
+                    {new Date(0, i).toLocaleString("default", {
+                      month: "long",
+                    })}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Year Dropdown */}
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none appearance-none bg-white disabled:bg-slate-50 disabled:cursor-not-allowed"
+                disabled={loading}
+              >
+                <option value="">All Years</option>
+                {years.map((yr) => (
+                  <option key={yr} value={yr}>
+                    {yr}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Clear Filters Button */}
+            {(selectedBranch ||
+              selectedMonth ||
+              selectedYear ||
+              searchTerm) && (
+              <button
+                onClick={clearFilters}
+                className="lg:col-span-4 text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
+              >
+                Clear all filters
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Records Section */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          {/* Results Header */}
+          <div className="px-6 py-4 bg-slate-50 border-b border-slate-200">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-slate-600">
+                Showing{" "}
+                <span className="font-semibold text-slate-800">
+                  {filteredRecords.length}
+                </span>{" "}
+                of{" "}
+                <span className="font-semibold text-slate-800">
+                  {records.length}
+                </span>{" "}
+                record{records.length !== 1 ? "s" : ""}
+                {(selectedBranch ||
+                  selectedMonth ||
+                  selectedYear ||
+                  searchTerm) && (
+                  <span className="text-blue-600 ml-1">(filtered)</span>
+                )}
+              </p>
+            </div>
+          </div>
+
+          {/* Table */}
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="text-center">
+                <div className="inline-block w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+                <p className="text-slate-600">Loading records...</p>
+              </div>
+            </div>
+          ) : filteredRecords.length === 0 ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Users className="w-8 h-8 text-slate-400" />
+                </div>
+                <p className="text-slate-600 font-medium mb-1">
+                  No records found
+                </p>
+                <p className="text-slate-500 text-sm">
+                  Try adjusting your filters or search term
+                </p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden lg:block overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Name
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Email
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Contact
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Branch
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Course
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Enrollment
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Amount
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {filteredRecords.map((rec) => (
+                      <tr
+                        key={`${rec.user_id}-${rec.course_name}`}
+                        className="hover:bg-slate-50 transition-colors"
+                      >
+                        <td className="px-6 py-4 text-sm font-medium text-slate-900">
+                          {rec.student_name}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-600">
+                          {rec.email}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-600">
+                          {rec.contact_number || "N/A"}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-600">
+                          {rec.branch_name}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-600">
+                          {rec.course_name}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-600">
+                          {new Date(rec.enrollment_date).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 text-sm font-medium text-slate-900">
+                          {rec.amount_paid !== null
+                            ? `₱${rec.amount_paid.toLocaleString()}`
+                            : "N/A"}
+                        </td>
+                        <td className="px-6 py-4 text-sm">
+                          <span
+                            className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
+                              rec.payment_status === "Paid"
+                                ? "bg-green-100 text-green-800"
+                                : rec.payment_status === "Pending"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : "bg-slate-100 text-slate-800"
+                            }`}
+                          >
+                            {rec.payment_status || "N/A"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="lg:hidden divide-y divide-slate-200">
+                {filteredRecords.map((rec) => (
+                  <div
+                    key={`${rec.user_id}-${rec.course_name}`}
+                    className="p-4 hover:bg-slate-50"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="font-semibold text-slate-900">
+                            {rec.student_name}
+                          </h3>
+                          <p className="text-sm text-slate-600 mt-0.5">
+                            {rec.email}
+                          </p>
+                        </div>
+                        <span
+                          className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
+                            rec.payment_status === "Paid"
+                              ? "bg-green-100 text-green-800"
+                              : rec.payment_status === "Pending"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-slate-100 text-slate-800"
+                          }`}
+                        >
+                          {rec.payment_status || "N/A"}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <span className="text-slate-500">Branch:</span>
+                          <p className="text-slate-900 font-medium">
+                            {rec.branch_name}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-slate-500">Course:</span>
+                          <p className="text-slate-900 font-medium">
+                            {rec.course_name}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-slate-500">Contact:</span>
+                          <p className="text-slate-900 font-medium">
+                            {rec.contact_number || "N/A"}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-slate-500">Amount:</span>
+                          <p className="text-slate-900 font-medium">
+                            {rec.amount_paid !== null
+                              ? `₱${rec.amount_paid.toLocaleString()}`
+                              : "N/A"}
+                          </p>
+                        </div>
+                        <div className="col-span-2">
+                          <span className="text-slate-500">Enrolled:</span>
+                          <p className="text-slate-900 font-medium">
+                            {new Date(rec.enrollment_date).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
-      )}
+      </div>
     </div>
   );
 };
@@ -2493,13 +2697,34 @@ const FeedbackDetailsModal = ({ feedback, onClose }) => {
 const FeedbackPage = () => {
   const [branches, setBranches] = useState([]);
   const [selectedBranch, setSelectedBranch] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [selectedYear, setSelectedYear] = useState("");
   const [feedbackList, setFeedbackList] = useState([]);
   const [selectedFeedback, setSelectedFeedback] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [instructorStats, setInstructorStats] = useState([]);
+  const [showInstructorStats, setShowInstructorStats] = useState(false);
   const userRole = localStorage.getItem("role");
 
-  // Helper function to render stars
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear - i);
+
+  const monthOptions = [
+    { value: "01", label: "January" },
+    { value: "02", label: "February" },
+    { value: "03", label: "March" },
+    { value: "04", label: "April" },
+    { value: "05", label: "May" },
+    { value: "06", label: "June" },
+    { value: "07", label: "July" },
+    { value: "08", label: "August" },
+    { value: "09", label: "September" },
+    { value: "10", label: "October" },
+    { value: "11", label: "November" },
+    { value: "12", label: "December" },
+  ];
+
   const renderStars = (rating) => {
     if (!rating)
       return <span className="text-xs text-gray-500 italic">No rating</span>;
@@ -2529,7 +2754,6 @@ const FeedbackPage = () => {
     );
   };
 
-  // Calculate average rating
   const calculateAverageRating = () => {
     const validRatings = feedbackList.filter((fb) => fb.instructor_rating);
     if (validRatings.length === 0) return 0;
@@ -2538,6 +2762,38 @@ const FeedbackPage = () => {
       0
     );
     return (total / validRatings.length).toFixed(1);
+  };
+
+  const calculateInstructorStats = () => {
+    const stats = {};
+
+    const feedbackWithRatings = feedbackList.filter(
+      (fb) => fb.instructor_rating
+    );
+
+    feedbackWithRatings.forEach((fb) => {
+      if (!stats[fb.instructor_name]) {
+        stats[fb.instructor_name] = {
+          name: fb.instructor_name,
+          totalRating: 0,
+          count: 0,
+          ratings: [],
+        };
+      }
+
+      stats[fb.instructor_name].totalRating += fb.instructor_rating;
+      stats[fb.instructor_name].count += 1;
+      stats[fb.instructor_name].ratings.push(fb.instructor_rating);
+    });
+
+    const instructorArray = Object.values(stats).map((instructor) => ({
+      ...instructor,
+      averageRating: (instructor.totalRating / instructor.count).toFixed(2),
+    }));
+
+    instructorArray.sort((a, b) => b.averageRating - a.averageRating);
+
+    setInstructorStats(instructorArray);
   };
 
   // Load branches
@@ -2551,18 +2807,21 @@ const FeedbackPage = () => {
       });
   }, []);
 
-  // Load feedback with improved error handling
+  // Load feedback with filters
   useEffect(() => {
     const loadFeedback = async () => {
       setLoading(true);
       setError(null);
 
       try {
-        const url = selectedBranch
-          ? `${
-              import.meta.env.VITE_API_URL
-            }/api/feedback?branch_id=${selectedBranch}`
-          : `${import.meta.env.VITE_API_URL}/api/feedback`;
+        const params = new URLSearchParams();
+        if (selectedBranch) params.append("branch_id", selectedBranch);
+        if (selectedMonth) params.append("month", selectedMonth);
+        if (selectedYear) params.append("year", selectedYear);
+
+        const url = `${
+          import.meta.env.VITE_API_URL
+        }/api/feedback?${params.toString()}`;
 
         const response = await fetch(url);
 
@@ -2572,7 +2831,6 @@ const FeedbackPage = () => {
 
         const data = await response.json();
 
-        // Ensure featured property exists and is boolean
         const processedData = data.map((feedback) => ({
           ...feedback,
           featured: Boolean(feedback.featured),
@@ -2589,13 +2847,20 @@ const FeedbackPage = () => {
     };
 
     loadFeedback();
-  }, [selectedBranch]);
+  }, [selectedBranch, selectedMonth, selectedYear]);
+
+  useEffect(() => {
+    if (feedbackList.length > 0) {
+      calculateInstructorStats();
+    } else {
+      setInstructorStats([]);
+    }
+  }, [feedbackList, selectedMonth, selectedYear, selectedBranch]);
 
   const handleFeatureComment = async (feedbackId, shouldFeature) => {
     try {
       setError(null);
 
-      // Ask for confirmation first
       const result = await Swal.fire({
         title: shouldFeature
           ? "Feature this comment?"
@@ -2631,7 +2896,6 @@ const FeedbackPage = () => {
 
       const updatedFeedback = await response.json();
 
-      // Update feedback list
       setFeedbackList((prevList) =>
         prevList.map((feedback) =>
           feedback.feedback_id === feedbackId
@@ -2643,7 +2907,6 @@ const FeedbackPage = () => {
         )
       );
 
-      // Success SweetAlert
       Swal.fire({
         icon: "success",
         title: shouldFeature ? "Comment Featured!" : "Comment Unfeatured!",
@@ -2665,6 +2928,12 @@ const FeedbackPage = () => {
     }
   };
 
+  const clearFilters = () => {
+    setSelectedBranch("");
+    setSelectedMonth("");
+    setSelectedYear("");
+  };
+
   const selectedBranchName =
     branches.find((b) => b.branch_id == selectedBranch)?.name || "All Branches";
 
@@ -2673,7 +2942,6 @@ const FeedbackPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-4 sm:py-8 px-4">
       <div className="max-w-7xl mx-auto">
-        {/* Error Display */}
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
             <div className="flex items-center">
@@ -2693,7 +2961,6 @@ const FeedbackPage = () => {
           </div>
         )}
 
-        {/* Header Section */}
         <div className="mb-6 sm:mb-8">
           <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 lg:p-8">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -2763,49 +3030,233 @@ const FeedbackPage = () => {
           </div>
         </div>
 
-        {/* Filter Section */}
+        {!loading && instructorStats.length > 0 && (
+          <div className="mb-6">
+            <button
+              onClick={() => setShowInstructorStats(!showInstructorStats)}
+              className="w-full bg-gradient-to-r from-red-600 to-red-600 hover:from-red-700 hover:to-red-700 text-white font-semibold py-3 sm:py-4 px-4 sm:px-6 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center gap-2 text-sm sm:text-base"
+            >
+              <svg
+                className="w-4 h-4 sm:w-5 sm:h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                />
+              </svg>
+              <span className="hidden sm:inline">
+                {showInstructorStats ? "Hide" : "View"} Instructor Performance
+                Statistics{" "}
+                {(selectedMonth || selectedYear || selectedBranch) &&
+                  "(Filtered)"}
+              </span>
+              <span className="sm:hidden">
+                {showInstructorStats ? "Hide" : "View"} Rankings{" "}
+                {(selectedMonth || selectedYear || selectedBranch) &&
+                  "(Filtered)"}
+              </span>
+            </button>
+          </div>
+        )}
+
+        {showInstructorStats && instructorStats.length > 0 && (
+          <div className="mb-6 bg-white rounded-xl sm:rounded-2xl shadow-lg border border-slate-200 p-4 sm:p-6">
+            <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-800 mb-2 flex items-center gap-2">
+              <svg
+                className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                />
+              </svg>
+              <span className="hidden sm:inline">
+                Instructor Performance Rankings
+              </span>
+              <span className="sm:hidden">Rankings</span>
+            </h3>
+            {(selectedMonth || selectedYear || selectedBranch) && (
+              <p className="text-xs sm:text-sm text-gray-600 mb-4">
+                Showing results for{" "}
+                {selectedMonth &&
+                  monthOptions.find((m) => m.value === selectedMonth)
+                    ?.label}{" "}
+                {selectedYear}
+                {selectedBranch &&
+                  ` - ${
+                    branches.find((b) => b.branch_id == selectedBranch)?.name ||
+                    "Selected Branch"
+                  }`}
+              </p>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+              {instructorStats.map((instructor, index) => (
+                <div
+                  key={instructor.name}
+                  className={`p-3 sm:p-4 rounded-lg sm:rounded-xl border-2 transition-all duration-200 hover:shadow-md ${
+                    index === 0
+                      ? "bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-300"
+                      : index === 1
+                      ? "bg-gradient-to-br from-gray-50 to-gray-100 border-gray-300"
+                      : index === 2
+                      ? "bg-gradient-to-br from-orange-50 to-orange-100 border-orange-300"
+                      : "bg-white border-slate-200"
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-2 sm:mb-3">
+                    <div className="flex items-center gap-2">
+                      {index < 3 && (
+                        <div className="text-xl sm:text-2xl">
+                          {index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-bold text-slate-800 text-xs sm:text-sm truncate">
+                          {instructor.name}
+                        </h4>
+                        <p className="text-xs text-slate-500">
+                          {instructor.count} review
+                          {instructor.count !== 1 ? "s" : ""}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-0.5 sm:gap-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <svg
+                          key={star}
+                          className={`w-3 h-3 sm:w-4 sm:h-4 ${
+                            star <= Math.round(instructor.averageRating)
+                              ? "fill-yellow-400 text-yellow-400"
+                              : "fill-gray-300 text-gray-300"
+                          }`}
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth="1"
+                        >
+                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                        </svg>
+                      ))}
+                    </div>
+                    <span className="text-base sm:text-lg font-bold text-slate-800">
+                      {instructor.averageRating}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="mb-6 sm:mb-8">
           <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
-                  <svg
-                    className="w-4 h-4 text-slate-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.707A1 1 0 013 7V4z"
-                    />
-                  </svg>
-                </div>
-                <label className="text-base sm:text-lg font-semibold text-slate-700">
-                  Filter by Branch:
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
+                <svg
+                  className="w-4 h-4 text-slate-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 7V4z"
+                  />
+                </svg>
+              </div>
+              <label className="text-base sm:text-lg font-semibold text-slate-700">
+                Filter Options:
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-2">
+                  Branch
                 </label>
+                <select
+                  value={selectedBranch}
+                  onChange={(e) => setSelectedBranch(e.target.value)}
+                  disabled={loading}
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-slate-300 rounded-lg bg-white text-slate-700 font-medium text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="">All Branches</option>
+                  {branches.map((b) => (
+                    <option key={b.branch_id} value={b.branch_id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              <select
-                value={selectedBranch}
-                onChange={(e) => setSelectedBranch(e.target.value)}
-                disabled={loading}
-                className="w-full sm:w-auto px-3 sm:px-4 py-2 sm:py-3 border border-slate-300 rounded-lg sm:rounded-xl bg-white text-slate-700 font-medium text-sm sm:text-base min-w-0 sm:min-w-48 focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <option value="">All Branches</option>
-                {branches.map((b) => (
-                  <option key={b.branch_id} value={b.branch_id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-2">
+                  Month
+                </label>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  disabled={loading}
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-slate-300 rounded-lg bg-white text-slate-700 font-medium text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="">All Months</option>
+                  {monthOptions.map((month) => (
+                    <option key={month.value} value={month.value}>
+                      {month.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-2">
+                  Year
+                </label>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  disabled={loading}
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-slate-300 rounded-lg bg-white text-slate-700 font-medium text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="">All Years</option>
+                  {yearOptions.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-end">
+                <button
+                  onClick={clearFilters}
+                  disabled={
+                    loading ||
+                    (!selectedBranch && !selectedMonth && !selectedYear)
+                  }
+                  className="w-full px-4 py-2 sm:py-3 bg-slate-600 hover:bg-slate-700 text-white font-semibold rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                >
+                  Clear Filters
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Loading State */}
         {loading && (
           <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 p-8 sm:p-16 text-center">
             <div className="w-16 h-16 mx-auto mb-4 border-4 border-red-200 border-t-red-600 rounded-full animate-spin"></div>
@@ -2818,7 +3269,6 @@ const FeedbackPage = () => {
           </div>
         )}
 
-        {/* Feedback Cards */}
         {!loading && feedbackList.length === 0 ? (
           <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 p-8 sm:p-16 text-center">
             <div className="w-16 h-16 sm:w-24 sm:h-24 mx-auto mb-4 sm:mb-6 bg-slate-100 rounded-full flex items-center justify-center">
@@ -2840,7 +3290,7 @@ const FeedbackPage = () => {
               No Feedback Available
             </h3>
             <p className="text-slate-500 text-sm sm:text-base">
-              Student feedback will appear here once submitted.
+              No feedback found for the selected filters.
             </p>
           </div>
         ) : !loading ? (
@@ -2855,7 +3305,6 @@ const FeedbackPage = () => {
                 }`}
               >
                 <div className="p-4 sm:p-6">
-                  {/* Featured Badge */}
                   {fb.featured && (
                     <div className="mb-3 flex justify-center">
                       <div className="bg-yellow-500 text-white px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
@@ -2871,7 +3320,6 @@ const FeedbackPage = () => {
                     </div>
                   )}
 
-                  {/* Header with Date */}
                   <div className="flex justify-between items-start mb-4">
                     <div className="bg-red-50 px-3 py-1.5 rounded-full">
                       <p className="text-xs font-medium text-gray-600">
@@ -2885,7 +3333,6 @@ const FeedbackPage = () => {
                     <div className="w-3 h-3 bg-green-400 rounded-full opacity-60"></div>
                   </div>
 
-                  {/* Student Info */}
                   <div className="mb-4 sm:mb-6">
                     <h3 className="text-base sm:text-lg font-bold text-slate-800 mb-3 flex items-center gap-3">
                       <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center">
@@ -2897,7 +3344,6 @@ const FeedbackPage = () => {
                     </h3>
                   </div>
 
-                  {/* Course Details */}
                   <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
                     <div className="flex items-start gap-3">
                       <div className="w-2 h-2 bg-yellow-400 rounded-full mt-2.5 flex-shrink-0"></div>
@@ -2923,7 +3369,6 @@ const FeedbackPage = () => {
                       </div>
                     </div>
 
-                    {/* Star Rating Display */}
                     <div className="flex items-start gap-3">
                       <div className="w-2 h-2 bg-blue-400 rounded-full mt-2.5 flex-shrink-0"></div>
                       <div className="min-w-0 flex-1">
@@ -2935,7 +3380,6 @@ const FeedbackPage = () => {
                     </div>
                   </div>
 
-                  {/* Comments Preview */}
                   <div className="mb-4 sm:mb-6">
                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
                       Comments
@@ -2947,7 +3391,6 @@ const FeedbackPage = () => {
                     </div>
                   </div>
 
-                  {/* Submission Time */}
                   <div className="mb-4 sm:mb-6">
                     <p className="text-xs text-slate-500 flex items-center gap-2">
                       <svg
@@ -2969,7 +3412,6 @@ const FeedbackPage = () => {
                     </p>
                   </div>
 
-                  {/* Action Buttons */}
                   <div className="space-y-2">
                     <button
                       onClick={() => setSelectedFeedback(fb)}
@@ -3002,7 +3444,6 @@ const FeedbackPage = () => {
                       </span>
                     </button>
 
-                    {/* Feature/Unfeature Button - Only for Managers */}
                     {userRole === "manager" && (
                       <button
                         onClick={() =>
@@ -3022,7 +3463,6 @@ const FeedbackPage = () => {
                   </div>
                 </div>
 
-                {/* Bottom Accent */}
                 <div
                   className={`h-1 ${
                     fb.featured
@@ -3035,7 +3475,6 @@ const FeedbackPage = () => {
           </div>
         ) : null}
 
-        {/* Modal */}
         {selectedFeedback && (
           <FeedbackDetailsModal
             feedback={selectedFeedback}
@@ -3046,6 +3485,7 @@ const FeedbackPage = () => {
     </div>
   );
 };
+
 const AnalyticsPage = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -4634,6 +5074,31 @@ const ManagerDashboard = () => {
   const user = JSON.parse(localStorage.getItem("user"));
   const name = user?.name || "Student";
 
+  const handleSignOut = async () => {
+    const result = await Swal.fire({
+      title: "Are you sure you want to sign out?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#aaa",
+      confirmButtonText: "Yes, sign out",
+      cancelButtonText: "Cancel",
+    });
+
+    if (result.isConfirmed) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      await Swal.fire({
+        title: "Signed out",
+        text: "You have been successfully signed out.",
+        icon: "success",
+        timer: 1500,
+        showConfirmButton: false,
+      });
+      window.location.href = "/login";
+    }
+  };
+
   const navigationItems = [
     { name: "Dashboard", icon: <BarChart3 className="w-5 h-5" /> },
     { name: "Records", icon: <Users className="w-5 h-5" /> },
@@ -4727,7 +5192,6 @@ const ManagerDashboard = () => {
             </div>
           </div>
         </div>
-
         {/* Navigation */}
         <nav className="p-4 space-y-2">
           {navigationItems.map(({ name, icon }) => (
@@ -4735,19 +5199,29 @@ const ManagerDashboard = () => {
               key={name}
               onClick={() => handleNavClick(name)}
               className={`flex items-center w-full px-4 py-3 rounded-lg font-medium text-sm cursor-pointer transition-colors
-                ${
-                  activePage === name
-                    ? "bg-red-600 text-white"
-                    : "text-gray-700 hover:bg-gray-100"
-                }`}
+        ${
+          activePage === name
+            ? "bg-red-600 text-white"
+            : "text-gray-700 hover:bg-gray-100"
+        }`}
             >
               <span className="mr-3">{icon}</span>
               <span className="truncate">{name}</span>
             </button>
           ))}
+
+          {/* Sign Out Button */}
+          <div className="pt-4 border-t border-gray-200">
+            <button
+              onClick={handleSignOut}
+              className="flex items-center w-full px-4 py-3 rounded-lg font-medium text-sm text-red-600 hover:bg-red-50 transition-colors"
+            >
+              <LogOut className="w-5 h-5 mr-3" />
+              Sign Out
+            </button>
+          </div>
         </nav>
       </div>
-
       {/* Main Content */}
       <div className="lg:ml-64">
         <main className="p-4 lg:p-8 max-w-7xl mx-auto">

@@ -297,13 +297,6 @@ const DashboardPage = () => {
                     year: "numeric",
                   })}
                 </div>
-                <button
-                  onClick={handleSignOut}
-                  className="mt-2 text-red-600 hover:text-red-800 flex items-center justify-center sm:justify-end text-sm mx-auto sm:mx-0 transition-colors duration-200"
-                >
-                  <LogOut className="w-4 h-4 mr-1" />
-                  Sign Out
-                </button>
               </div>
             </div>
           </div>
@@ -645,38 +638,6 @@ const EnrollmentPage = () => {
     fetchEnrollments();
   }, []);
 
-  const generateCertificate = async (enrollmentId) => {
-    try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(
-        `${
-          import.meta.env.VITE_API_URL
-        }/api/enrollments/${enrollmentId}/generate-certificate`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (!res.ok) throw new Error("Failed to generate certificate");
-      const data = await res.json();
-      alert("Certificate generated successfully!");
-
-      if (data.downloadUrl) {
-        const link = document.createElement("a");
-        link.href = `${import.meta.env.VITE_API_URL}${data.downloadUrl}`;
-        link.download = data.fileName ?? "certificate.pdf";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
-    } catch (err) {
-      alert(`Error: ${err.message}`);
-    }
-  };
 
   const handleOpenFeedback = (enrollment) => {
     setSelectedEnrollment(enrollment);
@@ -965,15 +926,8 @@ const EnrollmentPage = () => {
                     </div>
                   </div>
 
-                  {(e.status ?? "").toLowerCase() === "passed/completed" && (
+                  {(e.status ?? "").toLowerCase() === "passed/completed" && !isOnlineTheoretical && (
                     <div className="flex flex-col sm:flex-row gap-3">
-                      <button
-                        className="bg-green-600 hover:bg-green-700 text-white px-4 lg:px-6 py-2.5 rounded-lg font-medium transition-colors duration-200 shadow-sm text-sm lg:text-base"
-                        onClick={() => generateCertificate(e.enrollment_id)}
-                      >
-                        Generate Certificate
-                      </button>
-
                       <button
                         className={`px-4 lg:px-6 py-2.5 rounded-lg font-medium transition-colors duration-200 shadow-sm text-sm lg:text-base ${
                           hasFeedback
@@ -1245,6 +1199,31 @@ const Student = () => {
     setSidebarOpen(false); // Close sidebar on mobile after navigation
   };
 
+  const handleSignOut = async () => {
+    const result = await Swal.fire({
+      title: "Are you sure you want to sign out?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#aaa",
+      confirmButtonText: "Yes, sign out",
+      cancelButtonText: "Cancel",
+    });
+
+    if (result.isConfirmed) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      await Swal.fire({
+        title: "Signed out",
+        text: "You have been successfully signed out.",
+        icon: "success",
+        timer: 1500,
+        showConfirmButton: false,
+      });
+      window.location.href = "/login";
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Mobile Header - Static (Not Fixed) */}
@@ -1323,14 +1302,12 @@ const Student = () => {
         </div>
 
         {/* Navigation */}
+        {/* Navigation */}
         <nav className="p-4 space-y-2">
           {[
             { name: "Dashboard", icon: <BarChart3 className="w-5 h-5" /> },
             { name: "Courses", icon: <User className="w-5 h-5" /> },
-            {
-              name: "Enrollment Details",
-              icon: <Users className="w-5 h-5" />,
-            },
+            { name: "Enrollment Details", icon: <Users className="w-5 h-5" /> },
             {
               name: "Submitted Feedbacks",
               icon: <FcFeedback className="w-5 h-5" />,
@@ -1340,16 +1317,26 @@ const Student = () => {
               key={name}
               onClick={() => handleNavClick(name)}
               className={`flex items-center w-full px-4 py-3 rounded-lg font-medium text-sm cursor-pointer transition-colors
-                ${
-                  activePage === name
-                    ? "bg-red-600 text-white"
-                    : "text-gray-700 hover:bg-gray-100"
-                }`}
+        ${
+          activePage === name
+            ? "bg-red-600 text-white"
+            : "text-gray-700 hover:bg-gray-100"
+        }`}
             >
               <span className="mr-3">{icon}</span>
               <span className="truncate">{name}</span>
             </button>
           ))}
+          {/* Sign Out Button */}
+          <div className="pt-4 border-t border-gray-200">
+            <button
+              onClick={handleSignOut}
+              className="flex items-center w-full px-4 py-3 rounded-lg font-medium text-sm text-red-600 hover:bg-red-50 transition-colors"
+            >
+              <LogOut className="w-5 h-5 mr-3" />
+              Sign Out
+            </button>
+          </div>
         </nav>
       </div>
 
