@@ -587,7 +587,7 @@ function LandingPage() {
                   <p className="text-sm text-gray-500 mb-2">
                     ({course.codename})
                   </p>
-                  <p className="text-gray-700 mb-2 text-sm sm:text-base line-clamp-3">
+                  <p className="text-gray-700 mb-2 text-sm sm:text-base">
                     {course.description}
                   </p>
                   {(course.type || course.mode) && (

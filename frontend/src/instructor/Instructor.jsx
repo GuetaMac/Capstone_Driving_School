@@ -288,10 +288,10 @@ const DashboardPage = () => {
                 Our Mission
               </h2>
               <p className="text-red-100 text-sm sm:text-base lg:text-lg leading-relaxed text-center lg:text-left max-w-4xl">
-                Layunin naming turuan ang bawat Filipino Motor Vehicle Driver
-                tungkol sa Road Safety at itanim sa kanila ang tamang
-                pagmamaneho. Pangarap namin ang ligtas na kalsada para sa bawat
-                pamilyang Pilipino na walang nasasawi dahil sa aksidente.
+                Our mission is to educate every Filipino Motor Vehicle Driver on
+                Road Safety and instill safe driving practices. We envision a
+                safer road for every Filipino family, with zero fatalities
+                brought about by road crash incidents.
               </p>
             </div>
             <div className="text-center lg:text-right lg:ml-8 mt-4 lg:mt-0">
