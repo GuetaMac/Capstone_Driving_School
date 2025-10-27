@@ -35,9 +35,7 @@ function Verify() {
         throw new Error("Verification failed");
       }
     } catch (error) {
-      setMessage(
-        "Invalid verification code or error occurred. Please try again."
-      );
+      setMessage("Invalid verification code or email. Please try again.");
       setMessageType("error");
     } finally {
       setIsLoading(false);
@@ -188,7 +186,7 @@ function Verify() {
               </div>
 
               <div className="flex items-center justify-center space-x-4 text-xs text-gray-500">
-                <span>© 2025 1st Safety Driving School</span>
+                <span> 1st Safety Driving School</span>
                 <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
                 <span>Secure Verification</span>
               </div>

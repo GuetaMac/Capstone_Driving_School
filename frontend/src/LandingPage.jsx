@@ -36,6 +36,8 @@ function LandingPage() {
   const userRole = localStorage.getItem("role");
   const userId = localStorage.getItem("userId");
 
+  const navigate = useNavigate();
+
   const defaultTestimonials = [
     {
       student_name: "Sarah Johnson",

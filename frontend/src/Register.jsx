@@ -1,18 +1,17 @@
-import { useEffect, useState } from "react";
-import axios from "axios";
-import { useNavigate, Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import {
   User,
   Mail,
   Lock,
   Eye,
   EyeOff,
-  Car,
   CheckCircle,
   AlertCircle,
+  X,
 } from "lucide-react";
-import logo from "./assets/logo.png"; // adjust path as needed
 import Swal from "sweetalert2";
+import axios from "axios";
 
 function Register() {
   const [name, setName] = useState("");
@@ -25,6 +24,15 @@ function Register() {
   const [showRetypePassword, setShowRetypePassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [notification, setNotification] = useState(null);
+  const [passwordStrength, setPasswordStrength] = useState({
+    hasMinLength: false,
+    hasUpperCase: false,
+    hasLowerCase: false,
+    hasNumber: false,
+    hasSpecialChar: false,
+  });
+  const [showPasswordRequirements, setShowPasswordRequirements] =
+    useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -41,17 +49,130 @@ function Register() {
     fetchBranches();
   }, []);
 
+  // Check password strength
+  useEffect(() => {
+    setPasswordStrength({
+      hasMinLength: password.length >= 8,
+      hasUpperCase: /[A-Z]/.test(password),
+      hasLowerCase: /[a-z]/.test(password),
+      hasNumber: /[0-9]/.test(password),
+      hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(password),
+    });
+  }, [password]);
+
+  const isPasswordStrong = () => {
+    return Object.values(passwordStrength).every((value) => value === true);
+  };
+
   const showNotification = (message, type) => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 3000);
   };
 
   const handleRegister = async () => {
+    // Validation
+    if (!name.trim()) {
+      Swal.fire({
+        icon: "error",
+        title: "Missing Information",
+        text: "Please enter your full name.",
+      });
+      return;
+    }
+
+    if (!email.trim()) {
+      Swal.fire({
+        icon: "error",
+        title: "Missing Information",
+        text: "Please enter your email address.",
+      });
+      return;
+    }
+
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Swal.fire({
+        icon: "error",
+        title: "Invalid Email",
+        text: "Please enter a valid email address.",
+      });
+      return;
+    }
+
+    if (!password) {
+      Swal.fire({
+        icon: "error",
+        title: "Missing Information",
+        text: "Please enter a password.",
+      });
+      return;
+    }
+
+    // Check password strength
+    if (!isPasswordStrong()) {
+      Swal.fire({
+        icon: "error",
+        title: "Weak Password",
+        html: `
+          <div style="text-align: left; padding: 10px;">
+            <p style="margin-bottom: 10px;">Your password must meet all requirements:</p>
+            <ul style="list-style: none; padding-left: 0;">
+              <li style="color: ${
+                passwordStrength.hasMinLength ? "green" : "red"
+              };">
+                ${
+                  passwordStrength.hasMinLength ? "✓" : "✗"
+                } At least 8 characters
+              </li>
+              <li style="color: ${
+                passwordStrength.hasUpperCase ? "green" : "red"
+              };">
+                ${
+                  passwordStrength.hasUpperCase ? "✓" : "✗"
+                } One uppercase letter
+              </li>
+              <li style="color: ${
+                passwordStrength.hasLowerCase ? "green" : "red"
+              };">
+                ${
+                  passwordStrength.hasLowerCase ? "✓" : "✗"
+                } One lowercase letter
+              </li>
+              <li style="color: ${
+                passwordStrength.hasNumber ? "green" : "red"
+              };">
+                ${passwordStrength.hasNumber ? "✓" : "✗"} One number
+              </li>
+              <li style="color: ${
+                passwordStrength.hasSpecialChar ? "green" : "red"
+              };">
+                ${
+                  passwordStrength.hasSpecialChar ? "✓" : "✗"
+                } One special character (!@#$%^&*)
+              </li>
+            </ul>
+          </div>
+        `,
+        confirmButtonColor: "#dc2626",
+      });
+      return;
+    }
+
     if (password !== retypePassword) {
       Swal.fire({
         icon: "error",
         title: "Oops!",
         text: "Passwords do not match!",
+      });
+      return;
+    }
+
+    if (!selectedBranch) {
+      Swal.fire({
+        icon: "error",
+        title: "Missing Information",
+        text: "Please select a branch.",
       });
       return;
     }
@@ -74,6 +195,7 @@ function Register() {
         setLoading(false);
         return;
       }
+
       const response = await axios.post(
         `${import.meta.env.VITE_API_URL}/register`,
         {
@@ -94,11 +216,25 @@ function Register() {
       navigate("/student/verify");
     } catch (error) {
       console.error("Register error:", error.response?.data || error.message);
-      Swal.fire({
-        icon: "error",
-        title: "Registration Failed",
-        text: error.response?.data?.message || "Please try again.",
-      });
+
+      // Check if email already exists
+      if (error.response?.status === 400 && error.response?.data?.message) {
+        Swal.fire({
+          icon: "error",
+          title: "Email Already Registered",
+          text: error.response.data.message,
+          confirmButtonColor: "#dc2626",
+          footer:
+            '<a href="/login" style="color: #dc2626;">Go to Login Page</a>',
+        });
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Registration Failed",
+          text: error.response?.data?.message || "Please try again.",
+          confirmButtonColor: "#dc2626",
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -128,11 +264,9 @@ function Register() {
         {/* Logo and Header */}
         <div className="text-center mb-8">
           <div className="inline-block mb-4">
-            <img
-              src={logo}
-              alt="1st SAFETY Logo"
-              className="w-16 h-16 object-contain"
-            />
+            <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+              1S
+            </div>
           </div>
           <h1 className="text-3xl font-bold text-gray-800 mb-2">1st SAFETY</h1>
           <p className="text-lg font-semibold text-red-500 mb-1">
@@ -199,6 +333,7 @@ function Register() {
                   className="w-full pl-12 pr-12 py-3 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:outline-none transition-colors"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onFocus={() => setShowPasswordRequirements(true)}
                   required
                 />
                 <button
@@ -213,6 +348,95 @@ function Register() {
                   )}
                 </button>
               </div>
+
+              {/* Password Requirements */}
+              {showPasswordRequirements && password && (
+                <div className="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="flex justify-between items-center mb-2">
+                    <p className="text-xs font-semibold text-gray-700">
+                      Password Requirements:
+                    </p>
+                    <button
+                      onClick={() => setShowPasswordRequirements(false)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <ul className="space-y-1 text-xs">
+                    <li
+                      className={`flex items-center gap-2 ${
+                        passwordStrength.hasMinLength
+                          ? "text-green-600"
+                          : "text-gray-500"
+                      }`}
+                    >
+                      {passwordStrength.hasMinLength ? (
+                        <CheckCircle className="w-3 h-3" />
+                      ) : (
+                        <AlertCircle className="w-3 h-3" />
+                      )}
+                      At least 8 characters
+                    </li>
+                    <li
+                      className={`flex items-center gap-2 ${
+                        passwordStrength.hasUpperCase
+                          ? "text-green-600"
+                          : "text-gray-500"
+                      }`}
+                    >
+                      {passwordStrength.hasUpperCase ? (
+                        <CheckCircle className="w-3 h-3" />
+                      ) : (
+                        <AlertCircle className="w-3 h-3" />
+                      )}
+                      One uppercase letter (A-Z)
+                    </li>
+                    <li
+                      className={`flex items-center gap-2 ${
+                        passwordStrength.hasLowerCase
+                          ? "text-green-600"
+                          : "text-gray-500"
+                      }`}
+                    >
+                      {passwordStrength.hasLowerCase ? (
+                        <CheckCircle className="w-3 h-3" />
+                      ) : (
+                        <AlertCircle className="w-3 h-3" />
+                      )}
+                      One lowercase letter (a-z)
+                    </li>
+                    <li
+                      className={`flex items-center gap-2 ${
+                        passwordStrength.hasNumber
+                          ? "text-green-600"
+                          : "text-gray-500"
+                      }`}
+                    >
+                      {passwordStrength.hasNumber ? (
+                        <CheckCircle className="w-3 h-3" />
+                      ) : (
+                        <AlertCircle className="w-3 h-3" />
+                      )}
+                      One number (0-9)
+                    </li>
+                    <li
+                      className={`flex items-center gap-2 ${
+                        passwordStrength.hasSpecialChar
+                          ? "text-green-600"
+                          : "text-gray-500"
+                      }`}
+                    >
+                      {passwordStrength.hasSpecialChar ? (
+                        <CheckCircle className="w-3 h-3" />
+                      ) : (
+                        <AlertCircle className="w-3 h-3" />
+                      )}
+                      One special character (!@#$%^&*)
+                    </li>
+                  </ul>
+                </div>
+              )}
             </div>
 
             {/* Confirm Password Input */}
@@ -242,6 +466,18 @@ function Register() {
                   )}
                 </button>
               </div>
+              {retypePassword && password !== retypePassword && (
+                <p className="mt-1 text-xs text-red-500 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  Passwords do not match
+                </p>
+              )}
+              {retypePassword && password === retypePassword && (
+                <p className="mt-1 text-xs text-green-600 flex items-center gap-1">
+                  <CheckCircle className="w-3 h-3" />
+                  Passwords match
+                </p>
+              )}
             </div>
 
             {/* Branch Selection */}
@@ -297,7 +533,7 @@ function Register() {
 
         {/* Footer */}
         <div className="text-center mt-6 text-sm text-gray-500">
-          <p>© 2024 1st Safety Driving School. Learn to drive safely.</p>
+          <p>1st Safety Driving School. Learn to drive safely.</p>
         </div>
       </div>
     </div>

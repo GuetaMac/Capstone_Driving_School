@@ -67,6 +67,19 @@ app.post("/register", async (req, res) => {
   const code = Math.floor(100000 + Math.random() * 900000);
 
   try {
+    // Check if email already exists BEFORE inserting
+    const existingUser = await pool.query(
+      "SELECT email FROM users WHERE email = $1",
+      [email]
+    );
+
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({
+        message:
+          "This email is already registered. Please use a different email or try logging in.",
+      });
+    }
+
     await pool.query(
       "INSERT INTO users (name, email, password, role, branch_id, is_verified) VALUES ($1, $2, $3, $4, $5, $6)",
       [name, email, hashedPassword, role, branch_id, false]
@@ -78,10 +91,9 @@ app.post("/register", async (req, res) => {
     );
 
     const mailOptions = {
-      from: `"First Safety Driving School" <${process.env.EMAIL_USER}>`, // Use your actual Gmail address
+      from: `"First Safety Driving School" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: "Account Verification Code - First Safety Driving School",
-      // Removed spam-triggering headers
       text: `Hello ${name},
 
 Thank you for registering with First Safety Driving School.
@@ -141,7 +153,7 @@ First Safety Driving School Team`,
         console.error("Error sending email:", err);
         return res
           .status(500)
-          .json({ error: "Error sending verification email" });
+          .json({ message: "Error sending verification email" });
       } else {
         console.log("Email sent:", info.response);
         res.json({
@@ -152,14 +164,16 @@ First Safety Driving School Team`,
     });
   } catch (error) {
     if (error.code === "23505") {
-      // PostgreSQL unique violation
-      return res.status(400).json({ error: "Email already registered" });
+      // PostgreSQL unique violation (backup check)
+      return res.status(400).json({
+        message:
+          "This email is already registered. Please use a different email or try logging in.",
+      });
     }
     console.error("Database error:", error);
-    res.status(500).json({ error: "Registration failed. Please try again." });
+    res.status(500).json({ message: "Registration failed. Please try again." });
   }
 });
-
 // Verify
 app.post("/verify", async (req, res) => {
   const { email, code } = req.body;
@@ -2515,21 +2529,21 @@ First Safety Driving School Team`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
-            <h2 style="color: #1f2937; margin-bottom: 20px;">Account Verification</h2>
+            <h2 style="color: #1f2937; margin-bottom: 20px;">Password Reset Request</h2>
             
             <p style="color: #374151; font-size: 16px;">Hello ${user.name},</p>
             
             <p style="color: #374151; font-size: 16px;">
-              Thank you for registering with First Safety Driving School.
+              You have requested to reset your password for your First Safety Driving School account.
             </p>
             
             <div style="background-color: #ffffff; padding: 20px; border-radius: 6px; text-align: center; margin: 20px 0;">
-              <p style="color: #374151; font-size: 16px; margin-bottom: 10px;">Your verification code is:</p>
-              <p style="font-size: 32px; font-weight: bold; color: #2563eb; letter-spacing: 4px; margin: 0;">${code}</p>
+              <p style="color: #374151; font-size: 16px; margin-bottom: 10px;">Your password reset code is:</p>
+              <p style="font-size: 32px; font-weight: bold; color: #dc2626; letter-spacing: 4px; margin: 0;">${code}</p>
             </div>
             
             <p style="color: #374151; font-size: 16px;">
-              Please enter this code in the verification form to complete your registration.
+              Please enter this code in the reset password form to set your new password.
             </p>
             
             <p style="color: #6b7280; font-size: 14px;">
@@ -2539,7 +2553,7 @@ First Safety Driving School Team`,
             <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
             
             <p style="color: #6b7280; font-size: 14px;">
-              If you did not create an account, please disregard this message.
+              If you did not request a password reset, please ignore this message or contact support if you have concerns.
             </p>
             
             <p style="color: #374151; font-size: 16px;">
