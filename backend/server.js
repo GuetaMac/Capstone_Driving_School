@@ -33,7 +33,7 @@ const transporter = nodemailer.createTransport({
 app.use(cors());
 app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-app.use("/certificates", express.static(path.join(__dirname, "certificates")));
+//app.use("/certificates", express.static(path.join(__dirname, "certificates")));
 
 const pool = new Pool({
   user: process.env.DB_USER,
@@ -1770,7 +1770,7 @@ app.put(
     }
   }
 );
-
+/*
 // Route to generate certificate for completed enrollments
 app.post(
   "/api/enrollments/:id/generate-certificate",
@@ -2154,6 +2154,7 @@ app.post(
     }
   }
 );
+*/
 // PATCH /api/admin/enrollments/:id/amount-paid
 app.patch(
   "/api/admin/enrollments/:id/amount-paid",

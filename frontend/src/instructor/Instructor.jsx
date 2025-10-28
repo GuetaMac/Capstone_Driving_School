@@ -1565,19 +1565,6 @@ const Instructor = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Mobile Header - Static (Not Fixed) */}
       <div className="lg:hidden bg-white shadow-lg border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-gradient-to-r from-white-600 to-white-700 rounded-lg flex items-center justify-center">
-            <img
-              src={logo}
-              alt="Logo"
-              className="w-7 h-7 object-contain rounded-full"
-            />
-          </div>
-          <div>
-            <div className="font-bold text-sm">First Safety</div>
-            <div className="text-gray-500 text-xs">Instructor Panel</div>
-          </div>
-        </div>
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
@@ -1588,6 +1575,20 @@ const Instructor = () => {
             <Menu className="w-6 h-6 text-gray-700" />
           )}
         </button>
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 bg-gradient-to-r from-white-600 to-white-700 rounded-lg flex items-center justify-center">
+            <img
+              src={logo}
+              alt="Logo"
+              className="w-7 h-7 object-contain rounded-full"
+            />
+          </div>
+          <div>
+            <div className="font-bold text-sm">1st Safety</div>
+            <div className="text-gray-500 text-xs">Driving School</div>
+          </div>
+        </div>
+        <div className="w-10"></div>
       </div>
 
       {/* Mobile Overlay */}

@@ -638,7 +638,6 @@ const EnrollmentPage = () => {
     fetchEnrollments();
   }, []);
 
-
   const handleOpenFeedback = (enrollment) => {
     setSelectedEnrollment(enrollment);
     setInstructorRating(0); // Reset rating when opening modal
@@ -926,21 +925,22 @@ const EnrollmentPage = () => {
                     </div>
                   </div>
 
-                  {(e.status ?? "").toLowerCase() === "passed/completed" && !isOnlineTheoretical && (
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      <button
-                        className={`px-4 lg:px-6 py-2.5 rounded-lg font-medium transition-colors duration-200 shadow-sm text-sm lg:text-base ${
-                          hasFeedback
-                            ? "bg-gray-400 cursor-not-allowed text-gray-200"
-                            : "bg-blue-600 hover:bg-blue-700 text-white"
-                        }`}
-                        onClick={() => !hasFeedback && handleOpenFeedback(e)}
-                        disabled={hasFeedback}
-                      >
-                        {hasFeedback ? "Feedback Submitted" : "Give Feedback"}
-                      </button>
-                    </div>
-                  )}
+                  {(e.status ?? "").toLowerCase() === "passed/completed" &&
+                    !isOnlineTheoretical && (
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <button
+                          className={`px-4 lg:px-6 py-2.5 rounded-lg font-medium transition-colors duration-200 shadow-sm text-sm lg:text-base ${
+                            hasFeedback
+                              ? "bg-gray-400 cursor-not-allowed text-gray-200"
+                              : "bg-blue-600 hover:bg-blue-700 text-white"
+                          }`}
+                          onClick={() => !hasFeedback && handleOpenFeedback(e)}
+                          disabled={hasFeedback}
+                        >
+                          {hasFeedback ? "Feedback Submitted" : "Give Feedback"}
+                        </button>
+                      </div>
+                    )}
                 </div>
 
                 <div className="flex-shrink-0 self-start lg:self-auto text-center lg:text-right">
@@ -1228,6 +1228,16 @@ const Student = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Mobile Header - Static (Not Fixed) */}
       <div className="lg:hidden bg-white shadow-lg border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+        >
+          {sidebarOpen ? (
+            <X className="w-6 h-6 text-gray-700" />
+          ) : (
+            <Menu className="w-6 h-6 text-gray-700" />
+          )}
+        </button>
         <div className="flex items-center space-x-3">
           <div className="w-8 h-8 bg-gradient-to-r from-white-600 to-white-700 rounded-lg flex items-center justify-center">
             <img
@@ -1241,16 +1251,7 @@ const Student = () => {
             <div className="text-gray-500 text-xs">Driving School</div>
           </div>
         </div>
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-        >
-          {sidebarOpen ? (
-            <X className="w-6 h-6 text-gray-700" />
-          ) : (
-            <Menu className="w-6 h-6 text-gray-700" />
-          )}
-        </button>
+        <div className="w-10"></div>
       </div>
 
       {/* Mobile Overlay */}

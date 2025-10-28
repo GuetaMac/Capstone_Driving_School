@@ -53,6 +53,9 @@ import {
   Receipt,
   ChevronDown,
   Building2,
+  KeyRound,
+  ShieldCheck,
+  Lock,
 } from "lucide-react";
 import {
   LineChart,
@@ -3660,7 +3663,7 @@ const AnalyticsPage = () => {
       className={`bg-white rounded-xl shadow-lg p-3 sm:p-4 lg:p-6 hover:shadow-xl transition-all duration-300 ${className}`}
     >
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-4 lg:mb-6 gap-2 sm:gap-0">
-        <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-800 flex items-center">
+        <h3 className="text-sm sm:text-base lg:text-lg xl:text-xl font-bold text-gray-800 flex items-center">
           <div className="w-1 h-3 sm:h-4 lg:h-6 bg-blue-500 rounded mr-2 sm:mr-3"></div>
           <span className="truncate">{title}</span>
         </h3>
@@ -3669,7 +3672,7 @@ const AnalyticsPage = () => {
             generateInsights(chartId, chartType, chartData, context)
           }
           disabled={loadingInsights[chartId]}
-          className="flex items-center justify-center sm:justify-start space-x-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm w-full sm:w-auto"
+          className="flex items-center justify-center sm:justify-start space-x-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm w-full sm:w-auto"
         >
           {loadingInsights[chartId] ? (
             <>
@@ -3687,7 +3690,7 @@ const AnalyticsPage = () => {
         </button>
       </div>
 
-      {children}
+      <div className="overflow-x-auto">{children}</div>
 
       {insights[chartId] && (
         <div className="mt-3 sm:mt-4 p-3 sm:p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
@@ -3938,7 +3941,7 @@ const AnalyticsPage = () => {
         </div>
 
         {/* Charts with AI Insights */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8 mb-6 sm:mb-8">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 mb-6 sm:mb-8">
           <ChartContainer
             title="Monthly Enrollment Trends"
             chartId="enrollment-trends"
@@ -3962,10 +3965,10 @@ const AnalyticsPage = () => {
                 <Line
                   type="monotone"
                   dataKey="enrollments"
-                  stroke="#3B82F6"
+                  stroke="red"
                   strokeWidth={2}
-                  dot={{ fill: "#3B82F6", strokeWidth: 1, r: 4 }}
-                  activeDot={{ r: 6, fill: "#1D4ED8" }}
+                  dot={{ fill: "red", strokeWidth: 1, r: 4 }}
+                  activeDot={{ r: 6, fill: "red" }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -3980,31 +3983,35 @@ const AnalyticsPage = () => {
               data.courseStats?.length || 0
             } courses.`}
           >
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={data.courseStats || []}>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart layout="vertical" data={data.courseStats || []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis
+                  type="number"
+                  tick={{ fontSize: 10 }}
+                  stroke="#6b7280"
+                  tickFormatter={(value) => value.toLocaleString()}
+                />
+                <YAxis
                   dataKey="courseName"
+                  type="category"
                   tick={{ fontSize: 8 }}
                   stroke="#6b7280"
+                  width={100}
                   interval={0}
-                  angle={-45}
-                  textAnchor="end"
-                  height={60}
                 />
-                <YAxis tick={{ fontSize: 10 }} stroke="#6b7280" />
                 <Tooltip
                   content={<CustomTooltip />}
                   wrapperStyle={{ fontSize: "12px" }}
                 />
-                <Bar dataKey="students" fill="#10B981" radius={[2, 2, 0, 0]} />
+                <Bar dataKey="students" fill="#10B981" radius={[0, 2, 2, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </ChartContainer>
         </div>
 
         {/* Top and Least Courses */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8 mb-6 sm:mb-8">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 mb-6 sm:mb-8">
           <ChartContainer
             title="Top 5 Most Enrolled Courses"
             chartId="top-courses"
@@ -4012,22 +4019,27 @@ const AnalyticsPage = () => {
             chartData={data.topCourses}
             context={`${getFilterContext()}. Top 5 most popular courses by enrollment.`}
           >
-            <ResponsiveContainer width="100%" height={250}>
+            <ResponsiveContainer width="100%" height={300}>
               <BarChart layout="vertical" data={data.topCourses || []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis type="number" tick={{ fontSize: 10 }} stroke="#6b7280" />
+                <XAxis
+                  type="number"
+                  tick={{ fontSize: 10 }}
+                  stroke="#6b7280"
+                  tickFormatter={(value) => value.toLocaleString()}
+                />
                 <YAxis
                   dataKey="courseName"
                   type="category"
-                  tick={{ fontSize: 9 }}
+                  tick={{ fontSize: 8 }}
                   stroke="#6b7280"
-                  width={100}
+                  width={90}
                 />
                 <Tooltip
                   content={<CustomTooltip />}
                   wrapperStyle={{ fontSize: "12px" }}
                 />
-                <Bar dataKey="students" fill="#3B82F6" radius={[0, 2, 2, 0]} />
+                <Bar dataKey="students" fill="#F59E0B" radius={[0, 2, 2, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </ChartContainer>
@@ -4039,16 +4051,21 @@ const AnalyticsPage = () => {
             chartData={data.leastCourses}
             context={`${getFilterContext()}. Courses with lowest enrollment that may need attention.`}
           >
-            <ResponsiveContainer width="100%" height={250}>
+            <ResponsiveContainer width="100%" height={300}>
               <BarChart layout="vertical" data={data.leastCourses || []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis type="number" tick={{ fontSize: 10 }} stroke="#6b7280" />
+                <XAxis
+                  type="number"
+                  tick={{ fontSize: 10 }}
+                  stroke="#6b7280"
+                  tickFormatter={(value) => value.toLocaleString()}
+                />
                 <YAxis
                   dataKey="courseName"
                   type="category"
-                  tick={{ fontSize: 9 }}
+                  tick={{ fontSize: 8 }}
                   stroke="#6b7280"
-                  width={100}
+                  width={90}
                 />
                 <Tooltip
                   content={<CustomTooltip />}
@@ -4061,7 +4078,7 @@ const AnalyticsPage = () => {
         </div>
 
         {/* Revenue Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8 mb-6 sm:mb-8">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 mb-6 sm:mb-8">
           <ChartContainer
             title="Revenue Distribution by Course"
             chartId="revenue-distribution"
@@ -4073,36 +4090,28 @@ const AnalyticsPage = () => {
           >
             {data.revenuePerCourse && data.revenuePerCourse.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={data.revenuePerCourse.map((item) => ({
-                      courseName: item.courseName,
-                      revenue: parseFloat(item.revenue) || 0,
-                    }))}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={60}
-                    innerRadius={0}
-                    paddingAngle={2}
-                    dataKey="revenue"
-                    nameKey="courseName"
-                    fill="#8884d8"
-                  >
-                    {data.revenuePerCourse.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={
-                          [
-                            "#3B82F6",
-                            "#10B981",
-                            "#F59E0B",
-                            "#EF4444",
-                            "#8B5CF6",
-                          ][index % 5]
-                        }
-                      />
-                    ))}
-                  </Pie>
+                <BarChart
+                  layout="vertical"
+                  data={data.revenuePerCourse.map((item) => ({
+                    courseName: item.courseName,
+                    revenue: parseFloat(item.revenue) || 0,
+                  }))}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis
+                    type="number"
+                    tick={{ fontSize: 10 }}
+                    stroke="#6b7280"
+                    tickFormatter={(value) => `₱${(value / 1000).toFixed(0)}K`}
+                  />
+                  <YAxis
+                    dataKey="courseName"
+                    type="category"
+                    tick={{ fontSize: 8 }}
+                    stroke="#6b7280"
+                    width={100}
+                    interval={0}
+                  />
                   <Tooltip
                     formatter={(value) => [
                       `₱${parseInt(value).toLocaleString()}`,
@@ -4118,19 +4127,8 @@ const AnalyticsPage = () => {
                       boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
                     }}
                   />
-                  <Legend
-                    verticalAlign="bottom"
-                    height={60}
-                    wrapperStyle={{
-                      paddingTop: "10px",
-                      fontSize: "11px",
-                      overflow: "visible",
-                    }}
-                    iconType="circle"
-                    layout="horizontal"
-                    align="center"
-                  />
-                </PieChart>
+                  <Bar dataKey="revenue" fill="#10B981" radius={[0, 2, 2, 0]} />
+                </BarChart>
               </ResponsiveContainer>
             ) : (
               <div className="flex items-center justify-center h-60">
@@ -4830,66 +4828,6 @@ const AttendancePage = () => {
   );
 };
 const SettingsPage = () => {
-  const [statusInfo, setStatusInfo] = useState({});
-  const [loading, setLoading] = useState(false);
-
-  const fetchStatus = async () => {
-    try {
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL}/api/system-status`
-      );
-      setStatusInfo(res.data);
-    } catch (err) {
-      console.error("Error fetching status:", err);
-    }
-  };
-
-  const updateStatus = async (newStatus) => {
-    const result = await Swal.fire({
-      title: "Are you sure?",
-      text: `Do you want to change the system status to "${newStatus.toUpperCase()}"?`,
-      icon: "question",
-      showCancelButton: true,
-      confirmButtonText: "Yes, update it",
-      cancelButtonText: "Cancel",
-    });
-
-    if (!result.isConfirmed) return;
-
-    setLoading(true);
-
-    try {
-      const token = localStorage.getItem("token");
-      await axios.put(
-        `${import.meta.env.VITE_API_URL}/api/system-status`,
-        { status: newStatus },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      Swal.fire({
-        icon: "success",
-        title: "System status updated!",
-        text: `Status is now ${newStatus.toUpperCase()}`,
-      });
-
-      fetchStatus(); // refresh status
-    } catch (err) {
-      console.error(err);
-      Swal.fire({
-        icon: "error",
-        title: "Failed to update status",
-        text: err.response?.data?.message || "Unknown error",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Para sa password change
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [repeatPassword, setRepeatPassword] = useState("");
@@ -4899,7 +4837,6 @@ const SettingsPage = () => {
   const [showNew, setShowNew] = useState(false);
   const [showRepeat, setShowRepeat] = useState(false);
 
-  // Change password function
   const changePassword = async () => {
     if (!oldPassword || !newPassword || !repeatPassword) {
       return Swal.fire("Error", "Please fill in all fields", "error");
@@ -4945,122 +4882,177 @@ const SettingsPage = () => {
   };
 
   return (
-    <div className="p-6 max-w-xl mx-auto">
-      <h2 className="text-2xl font-bold mb-4">System Settings</h2>
-
-      <div className="bg-white rounded-xl p-4 shadow border border-gray-200 space-y-2">
-        <p>
-          <strong>Current Status:</strong>{" "}
-          <span className="uppercase text-red-600 font-semibold">
-            {statusInfo.status || "Loading..."}
-          </span>
-        </p>
-        <p>
-          <strong>Last Updated By:</strong> {statusInfo.updated_by || "Unknown"}
-        </p>
-        <p>
-          <strong>At:</strong>{" "}
-          {statusInfo.updated_at
-            ? new Date(statusInfo.updated_at).toLocaleString()
-            : "Unknown"}
-        </p>
-
-        <div className="mt-4 space-x-2">
-          <button
-            onClick={() => updateStatus("online")}
-            disabled={loading}
-            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
-          >
-            Set Online
-          </button>
-          <button
-            onClick={() => updateStatus("offline")}
-            disabled={loading}
-            className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded"
-          >
-            Set Offline
-          </button>
-          <button
-            onClick={() => updateStatus("maintenance")}
-            disabled={loading}
-            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
-          >
-            Set Maintenance
-          </button>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6 lg:p-8">
+      <div className="max-w-2xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-red-500 to-red-600 rounded-2xl shadow-lg mb-4">
+            <ShieldCheck className="w-8 h-8 text-white" />
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Security Settings
+          </h1>
+          <p className="text-gray-600">
+            Update your password to keep your account secure
+          </p>
         </div>
-        <div className="p-6 max-w-xl mx-auto">
-          <h2 className="text-2xl font-bold mb-4">System Settings</h2>
 
-          {/* Existing status panel */}
-          <div className="bg-white rounded-xl p-4 shadow border border-gray-200 space-y-2">
-            {/* dito yung status details at buttons mo */}
+        {/* Change Password Card */}
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
+          {/* Card Header */}
+          <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-4">
+            <div className="flex items-center space-x-3">
+              <KeyRound className="w-6 h-6 text-white" />
+              <h2 className="text-xl font-semibold text-white">
+                Change Password
+              </h2>
+            </div>
           </div>
 
-          {/* Change Password Section */}
-          <div className="bg-white rounded-xl p-4 shadow border border-gray-200 space-y-2 mt-6">
-            <h3 className="text-lg font-semibold">Change Password</h3>
-
+          {/* Card Body */}
+          <div className="p-6 sm:p-8 space-y-6">
             {/* Old Password */}
-            <div className="relative">
-              <input
-                type={showOld ? "text" : "password"}
-                placeholder="Old Password"
-                value={oldPassword}
-                onChange={(e) => setOldPassword(e.target.value)}
-                className="border p-2 w-full rounded"
-              />
-              <button
-                type="button"
-                onClick={() => setShowOld(!showOld)}
-                className="absolute right-2 top-2 text-gray-600"
-              >
-                {showOld ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Current Password
+              </label>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                  <Lock className="w-5 h-5" />
+                </div>
+                <input
+                  type={showOld ? "text" : "password"}
+                  placeholder="Enter your current password"
+                  value={oldPassword}
+                  onChange={(e) => setOldPassword(e.target.value)}
+                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowOld(!showOld)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  {showOld ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
             </div>
 
             {/* New Password */}
-            <div className="relative">
-              <input
-                type={showNew ? "text" : "password"}
-                placeholder="New Password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="border p-2 w-full rounded"
-              />
-              <button
-                type="button"
-                onClick={() => setShowNew(!showNew)}
-                className="absolute right-2 top-2 text-gray-600"
-              >
-                {showNew ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                New Password
+              </label>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                  <Lock className="w-5 h-5" />
+                </div>
+                <input
+                  type={showNew ? "text" : "password"}
+                  placeholder="Enter your new password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNew(!showNew)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  {showNew ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Password must be at least 6 characters long
+              </p>
             </div>
 
             {/* Repeat Password */}
-            <div className="relative">
-              <input
-                type={showRepeat ? "text" : "password"}
-                placeholder="Repeat New Password"
-                value={repeatPassword}
-                onChange={(e) => setRepeatPassword(e.target.value)}
-                className="border p-2 w-full rounded"
-              />
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Confirm New Password
+              </label>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                  <Lock className="w-5 h-5" />
+                </div>
+                <input
+                  type={showRepeat ? "text" : "password"}
+                  placeholder="Confirm your new password"
+                  value={repeatPassword}
+                  onChange={(e) => setRepeatPassword(e.target.value)}
+                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowRepeat(!showRepeat)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  {showRepeat ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <div className="pt-4">
               <button
-                type="button"
-                onClick={() => setShowRepeat(!showRepeat)}
-                className="absolute right-2 top-2 text-gray-600"
+                onClick={changePassword}
+                disabled={loadingPw}
+                className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
-                {showRepeat ? <EyeOff size={18} /> : <Eye size={18} />}
+                {loadingPw ? (
+                  <span className="flex items-center justify-center">
+                    <svg
+                      className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    Updating Password...
+                  </span>
+                ) : (
+                  "Update Password"
+                )}
               </button>
             </div>
 
-            <button
-              onClick={changePassword}
-              disabled={loadingPw}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded mt-2"
-            >
-              {loadingPw ? "Updating..." : "Update Password"}
-            </button>
+            {/* Security Tips */}
+            <div className="mt-6 p-4 bg-red-50 border border-red-100 rounded-lg">
+              <h3 className="text-sm font-semibold text-red-800 mb-2">
+                Security Tips:
+              </h3>
+              <ul className="text-xs text-red-700 space-y-1">
+                <li>• Use a mix of letters, numbers, and special characters</li>
+                <li>• Avoid using personal information</li>
+                <li>• Don't reuse passwords from other accounts</li>
+                <li>• Change your password regularly</li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>
@@ -5120,19 +5112,6 @@ const ManagerDashboard = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Mobile Header - Static (Not Fixed) */}
       <div className="lg:hidden bg-white shadow-lg border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-gradient-to-r from-white-600 to-white-700 rounded-lg flex items-center justify-center">
-            <img
-              src={logo}
-              alt="Logo"
-              className="w-7 h-7 object-contain rounded-full"
-            />
-          </div>
-          <div>
-            <div className="font-bold text-sm">First Safety</div>
-            <div className="text-gray-500 text-xs">Manager Panel</div>
-          </div>
-        </div>
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
@@ -5143,6 +5122,20 @@ const ManagerDashboard = () => {
             <Menu className="w-6 h-6 text-gray-700" />
           )}
         </button>
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 bg-gradient-to-r from-white-600 to-white-700 rounded-lg flex items-center justify-center">
+            <img
+              src={logo}
+              alt="Logo"
+              className="w-7 h-7 object-contain rounded-full"
+            />
+          </div>
+          <div>
+            <div className="font-bold text-sm">1st Safety</div>
+            <div className="text-gray-500 text-xs">Driving School</div>
+          </div>
+        </div>
+        <div className="w-10"></div>
       </div>
 
       {/* Overlay for mobile */}
