@@ -1621,7 +1621,7 @@ const Instructor = () => {
               />
             </div>
             <div>
-              <div className="font-bold text-lg">1st6 Safety</div>
+              <div className="font-bold text-lg">1st Safety</div>
               <div className="text-red-100 text-sm">Driving School</div>
             </div>
           </div>

@@ -13,6 +13,9 @@ import {
   LogOut,
   Menu,
   X,
+  MessageSquare,
+  FileText,
+  ClipboardList,
   Calendar,
   CheckCircle2,
   Clock,
@@ -21,6 +24,13 @@ import {
   Phone,
   FileImage,
   AlertCircle,
+  Star,
+  Send,
+  Building,
+  Home,
+  Car,
+  BookOpen,
+  CheckCircle,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import { FcFeedback } from "react-icons/fc";
@@ -519,7 +529,7 @@ const CoursesPage = () => {
               >
                 {course.image ? (
                   <img
-                    src={`${import.meta.env.VITE_API_URL}${course.image}`}
+                    src={course.image}
                     alt={course.name}
                     className="w-full h-40 sm:h-48 object-cover"
                   />
@@ -577,8 +587,9 @@ const EnrollmentPage = () => {
   const [selectedEnrollment, setSelectedEnrollment] = useState(null);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [instructorRating, setInstructorRating] = useState(0); // NEW: Star rating state
-  const [hoveredStar, setHoveredStar] = useState(0); // NEW: For hover effect
+  const [instructorRating, setInstructorRating] = useState(0);
+  const [hoveredStar, setHoveredStar] = useState(0);
+  const [formData, setFormData] = useState({});
 
   const questions = {
     training_course: [
@@ -614,6 +625,22 @@ const EnrollmentPage = () => {
     ],
   };
 
+  const categoryIcons = {
+    training_course: <FileText className="w-5 h-5" />,
+    instructor_evaluation: <User className="w-5 h-5" />,
+    admin_staff: <Building className="w-5 h-5" />,
+    classroom: <Home className="w-5 h-5" />,
+    vehicle: <Car className="w-5 h-5" />,
+  };
+
+  const categoryColors = {
+    training_course: "from-blue-500 to-blue-600",
+    instructor_evaluation: "from-purple-500 to-purple-600",
+    admin_staff: "from-green-500 to-green-600",
+    classroom: "from-orange-500 to-orange-600",
+    vehicle: "from-cyan-500 to-cyan-600",
+  };
+
   useEffect(() => {
     const fetchEnrollments = async () => {
       const token = localStorage.getItem("token");
@@ -640,32 +667,51 @@ const EnrollmentPage = () => {
 
   const handleOpenFeedback = (enrollment) => {
     setSelectedEnrollment(enrollment);
-    setInstructorRating(0); // Reset rating when opening modal
+    setInstructorRating(0);
     setHoveredStar(0);
+    setFormData({});
     setShowFeedbackModal(true);
   };
 
-  const handleSubmitFeedback = async (e) => {
-    e.preventDefault();
+  const handleInputChange = (name, value) => {
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmitFeedback = async () => {
     if (!selectedEnrollment) return;
 
-    // Validate instructor rating
     if (instructorRating === 0) {
       await Swal.fire({
         icon: "warning",
         title: "Rating Required",
         text: "Please provide a star rating for the instructor.",
+        confirmButtonColor: "#dc2626",
       });
       return;
     }
 
-    const token = localStorage.getItem("token");
-    const formData = new FormData(e.target);
-    const payload = Object.fromEntries(formData.entries());
+    // Validate all required fields
+    let isValid = true;
+    Object.entries(questions).forEach(([category, items]) => {
+      items.forEach((_, qIndex) => {
+        const fieldName = `${category}_q${qIndex + 1}`;
+        if (!formData[fieldName]) {
+          isValid = false;
+        }
+      });
+    });
 
-    // Add instructor rating to payload
-    payload.instructor_rating = instructorRating;
+    if (!isValid) {
+      await Swal.fire({
+        icon: "warning",
+        title: "Incomplete Form",
+        text: "Please answer all questions before submitting.",
+        confirmButtonColor: "#dc2626",
+      });
+      return;
+    }
 
+    // Ask for confirmation
     const confirmResult = await Swal.fire({
       title: "Submit Feedback?",
       text: "Are you sure you want to submit your feedback?",
@@ -673,14 +719,18 @@ const EnrollmentPage = () => {
       showCancelButton: true,
       confirmButtonText: "Yes, submit it!",
       cancelButtonText: "Cancel",
+      confirmButtonColor: "#16a34a",
+      cancelButtonColor: "#6b7280",
     });
 
     if (!confirmResult.isConfirmed) return;
 
+    const token = localStorage.getItem("token");
+    const payload = { ...formData, instructor_rating: instructorRating };
+
     setSubmitting(true);
     try {
       const enrollmentIdNum = Number(selectedEnrollment.enrollment_id);
-
       const res = await fetch(
         `${import.meta.env.VITE_API_URL}/api/feedback/${enrollmentIdNum}`,
         {
@@ -694,30 +744,13 @@ const EnrollmentPage = () => {
       );
 
       if (!res.ok) {
-        const responseText = await res.text();
-        let errorData;
-        try {
-          errorData = JSON.parse(responseText);
-        } catch {
-          throw new Error(
-            `HTTP ${res.status}: ${res.statusText}. Response: ${responseText}`
-          );
-        }
+        const errorData = await res.json().catch(() => ({}));
         throw new Error(
-          errorData.error ||
-            errorData.message ||
-            `HTTP ${res.status}: ${res.statusText}`
+          errorData.message || errorData.error || "Failed to submit feedback"
         );
       }
 
-      await Swal.fire({
-        icon: "success",
-        title: "Thank you!",
-        text: "Your feedback has been submitted successfully.",
-        timer: 1500,
-        showConfirmButton: false,
-      });
-
+      // Update enrollments state
       setEnrollments((prevEnrollments) =>
         prevEnrollments.map((enrollment) =>
           Number(enrollment.enrollment_id) === enrollmentIdNum
@@ -726,19 +759,26 @@ const EnrollmentPage = () => {
         )
       );
 
-      setSelectedEnrollment((prev) =>
-        prev && Number(prev.enrollment_id) === enrollmentIdNum
-          ? { ...prev, has_feedback: true }
-          : prev
-      );
-
+      // Close modal first
       setShowFeedbackModal(false);
       setInstructorRating(0);
+      setFormData({});
+
+      // Show success message
+      await Swal.fire({
+        icon: "success",
+        title: "Thank You!",
+        text: "Your feedback has been submitted successfully.",
+        timer: 2000,
+        showConfirmButton: false,
+      });
     } catch (err) {
+      console.error("Feedback submission error:", err);
       await Swal.fire({
         icon: "error",
-        title: "Error",
+        title: "Submission Failed",
         text: `There was an error submitting your feedback: ${err.message}`,
+        confirmButtonColor: "#dc2626",
       });
     } finally {
       setSubmitting(false);
@@ -768,299 +808,484 @@ const EnrollmentPage = () => {
       .toLowerCase();
   };
 
-  // NEW: Star Rating Component
   const StarRating = () => {
     return (
       <div className="flex items-center gap-2">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <button
-            key={star}
-            type="button"
-            onClick={() => setInstructorRating(star)}
-            onMouseEnter={() => setHoveredStar(star)}
-            onMouseLeave={() => setHoveredStar(0)}
-            className="focus:outline-none transition-transform hover:scale-110"
-          >
-            <svg
-              className={`w-8 h-8 lg:w-10 lg:h-10 ${
-                star <= (hoveredStar || instructorRating)
-                  ? "fill-yellow-400 text-yellow-400"
-                  : "fill-gray-300 text-gray-300"
-              }`}
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth="1"
+        <div className="flex gap-1">
+          {[1, 2, 3, 4, 5].map((star) => (
+            <button
+              key={star}
+              type="button"
+              onClick={() => setInstructorRating(star)}
+              onMouseEnter={() => setHoveredStar(star)}
+              onMouseLeave={() => setHoveredStar(0)}
+              className="transition-transform hover:scale-110 focus:outline-none"
             >
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-            </svg>
-          </button>
-        ))}
-        <span className="ml-2 text-sm lg:text-base font-semibold text-gray-700">
+              <Star
+                className={`w-8 h-8 sm:w-10 sm:h-10 transition-colors ${
+                  star <= (hoveredStar || instructorRating)
+                    ? "fill-yellow-400 text-yellow-400"
+                    : "text-gray-300"
+                }`}
+              />
+            </button>
+          ))}
+        </div>
+        <span className="text-sm font-medium text-gray-700 ml-2">
           {instructorRating > 0 ? `${instructorRating} / 5` : "Not rated"}
         </span>
       </div>
     );
   };
 
-  if (loading) return <p className="p-4 lg:p-8">Loading your enrollments…</p>;
-  if (error) return <p className="text-red-600 p-4 lg:p-8">{error}</p>;
-  if (!enrollments || enrollments.length === 0)
-    return <p className="p-4 lg:p-8">You have no enrollments yet.</p>;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-gray-50 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="relative">
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-gray-200 border-t-red-600 mx-auto mb-4"></div>
+            <BookOpen className="w-6 h-6 text-red-600 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+          </div>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">
+            Loading your enrollments
+          </h3>
+          <p className="text-sm text-gray-500">
+            Please wait while we fetch your courses...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-gray-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full">
+          <div className="bg-white rounded-2xl shadow-xl border border-red-200 p-8 text-center">
+            <div className="bg-red-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-8 h-8 text-red-600" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">
+              Oops! Something went wrong
+            </h3>
+            <p className="text-sm text-gray-600 mb-6">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-6 py-3 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition-all shadow-lg"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!enrollments || enrollments.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-gray-50 flex items-center justify-center p-4">
+        <div className="max-w-2xl w-full text-center space-y-8">
+          <div className="flex justify-center">
+            <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-full p-8 shadow-2xl">
+              <BookOpen className="w-20 h-20 text-white" />
+            </div>
+          </div>
+
+          <div>
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+              No Enrollments Yet
+            </h2>
+            <p className="text-lg text-gray-600 max-w-md mx-auto">
+              You haven't enrolled in any courses yet. Start your learning
+              journey today!
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+              <div className="text-red-600 font-bold text-2xl mb-2">Step 1</div>
+              <p className="text-sm text-gray-600">Browse available courses</p>
+            </div>
+            <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+              <div className="text-yellow-600 font-bold text-2xl mb-2">
+                Step 2
+              </div>
+              <p className="text-sm text-gray-600">
+                Select your preferred course
+              </p>
+            </div>
+            <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
+              <div className="text-green-600 font-bold text-2xl mb-2">
+                Step 3
+              </div>
+              <p className="text-sm text-gray-600">
+                Complete enrollment and start learning
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-4 lg:p-8 bg-gray-50 min-h-screen">
-      <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-6 lg:mb-8">
-        My Enrollments
-      </h1>
-      <div className="space-y-4 lg:space-y-6">
-        {enrollments.map((e) => {
-          const isOnlineTheoretical =
-            (e.course_name ?? "").toLowerCase() ===
-            "online theoretical driving course";
+    <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-gray-50 p-4 sm:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
+            My Enrollments
+          </h1>
+          <p className="text-gray-600">
+            {enrollments.length} course{enrollments.length !== 1 ? "s" : ""}{" "}
+            enrolled
+          </p>
+        </div>
 
-          const hasFeedback = e.has_feedback === true || e.has_feedback === 1;
+        <div className="space-y-6">
+          {enrollments.map((e) => {
+            const isOnlineTheoretical =
+              (e.course_name ?? "").toLowerCase() ===
+              "online theoretical driving course";
+            const hasFeedback = e.has_feedback === true || e.has_feedback === 1;
+            const hasMultipleSchedules =
+              e.multiple_schedules && e.multiple_schedules.length > 0;
 
-          const hasMultipleSchedules =
-            e.multiple_schedules && e.multiple_schedules.length > 0;
+            let imageUrl = "";
+            if (e.course_image) {
+              imageUrl = e.course_image.startsWith("http")
+                ? e.course_image
+                : `${import.meta.env.VITE_API_URL}${e.course_image}`;
+            }
 
-          let imageUrl = "";
-          if (e.course_image) {
-            imageUrl = e.course_image.startsWith("http")
-              ? e.course_image
-              : `${import.meta.env.VITE_API_URL}${e.course_image}`;
-          }
+            return (
+              <div
+                key={e.enrollment_id ?? Math.random()}
+                className="bg-white shadow-lg rounded-2xl overflow-hidden border border-gray-100 hover:shadow-xl transition-all duration-300"
+              >
+                <div className="flex flex-col lg:flex-row">
+                  {imageUrl && (
+                    <div className="lg:w-64 flex-shrink-0">
+                      <img
+                        src={imageUrl}
+                        alt={e.course_name ?? "Course"}
+                        className="w-full h-48 lg:h-full object-cover"
+                        onError={(evt) =>
+                          (evt.currentTarget.style.display = "none")
+                        }
+                      />
+                    </div>
+                  )}
 
-          return (
-            <div
-              key={e.enrollment_id ?? Math.random()}
-              className="bg-white shadow-lg rounded-xl p-4 lg:p-6 border border-gray-200 hover:shadow-xl transition-shadow duration-300"
-            >
-              <div className="flex flex-col lg:flex-row lg:items-start gap-4 lg:gap-6">
-                {imageUrl && (
-                  <div className="flex-shrink-0 mx-auto lg:mx-0">
-                    <img
-                      src={imageUrl}
-                      alt={e.course_name ?? "Course"}
-                      className="w-full max-w-xs lg:w-32 lg:h-32 object-cover rounded-lg shadow-md"
-                      onError={(evt) =>
-                        (evt.currentTarget.style.display = "none")
-                      }
-                    />
-                  </div>
-                )}
-
-                <div className="flex-grow">
-                  <h2 className="text-lg lg:text-xl font-bold text-gray-900 mb-3 text-center lg:text-left">
-                    {e.course_name ?? "Unnamed Course"}
-                  </h2>
-
-                  <div className="space-y-2 mb-4">
-                    {!isOnlineTheoretical && (
-                      <>
-                        {hasMultipleSchedules ? (
-                          <div className="text-gray-700">
-                            <span className="text-sm font-medium block mb-2">
-                              Schedules:
-                            </span>
-                            <div className="space-y-1 pl-2">
-                              {e.multiple_schedules.map((sched, idx) => (
-                                <div key={idx} className="text-sm">
-                                  <span className="font-medium">
-                                    Day {sched.day_number}:
-                                  </span>{" "}
-                                  {fmtDate(new Date(sched.start_date))} —{" "}
-                                  {fmtTime(sched.start_time)} to{" "}
-                                  {fmtTime(sched.end_time)}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex flex-col lg:flex-row lg:items-center text-gray-700">
-                            <span className="text-sm font-medium">
-                              Schedule:
-                            </span>
-                            <span className="text-sm lg:ml-2 break-words">
-                              {e.start_date
-                                ? e.is_theoretical
-                                  ? `${fmtDate(
-                                      new Date(e.start_date)
-                                    )} to ${fmtDate(
-                                      new Date(
-                                        new Date(e.start_date).getTime() +
-                                          86400000
-                                      )
-                                    )} — ${fmtTime(e.start_time)} to ${fmtTime(
-                                      e.end_time
-                                    )}`
-                                  : `${fmtDate(
-                                      new Date(e.start_date)
-                                    )} — ${fmtTime(e.start_time)} to ${fmtTime(
-                                      e.end_time
-                                    )}`
-                                : "No Schedule"}
-                            </span>
-                          </div>
-                        )}
-
-                        <div className="flex flex-col lg:flex-row lg:items-center text-gray-700">
-                          <span className="text-sm font-medium">
-                            Instructor:
-                          </span>
-                          <span className="text-sm lg:ml-2">
-                            {e.instructor_name ?? "Wala pa"}
-                          </span>
-                        </div>
-                      </>
-                    )}
-
-                    <div className="flex flex-col lg:flex-row lg:items-center">
-                      <span className="text-sm font-medium text-gray-700">
-                        Status:
-                      </span>
-                      <span className="text-sm lg:ml-2 mt-1 lg:mt-0 inline-block px-3 py-1 rounded-full bg-blue-100 text-blue-800 font-semibold capitalize w-fit">
-                        {e.status ?? "pending"}
+                  <div className="flex-grow p-6">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+                      <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
+                        {e.course_name ?? "Unnamed Course"}
+                      </h2>
+                      <span
+                        className={`inline-block px-4 py-2 rounded-full font-semibold text-sm whitespace-nowrap ${
+                          (e.payment_status ?? "").toLowerCase() === "paid"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-yellow-100 text-yellow-800"
+                        }`}
+                      >
+                        {(e.payment_status ?? "unpaid").replace(/_/g, " ")}
                       </span>
                     </div>
-                  </div>
 
-                  {(e.status ?? "").toLowerCase() === "passed/completed" &&
-                    !isOnlineTheoretical && (
-                      <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="space-y-3 mb-6">
+                      {!isOnlineTheoretical && (
+                        <>
+                          {hasMultipleSchedules ? (
+                            <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
+                              <div className="flex items-center gap-2 mb-3">
+                                <Calendar className="w-5 h-5 text-blue-600" />
+                                <span className="font-semibold text-gray-800">
+                                  Schedules:
+                                </span>
+                              </div>
+                              <div className="space-y-2 pl-7">
+                                {e.multiple_schedules.map((sched, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="text-sm text-gray-700"
+                                  >
+                                    <span className="font-medium">
+                                      Day {sched.day_number}:
+                                    </span>{" "}
+                                    {fmtDate(new Date(sched.start_date))} —{" "}
+                                    {fmtTime(sched.start_time)} to{" "}
+                                    {fmtTime(sched.end_time)}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-start gap-3 bg-blue-50 rounded-lg p-4 border border-blue-100">
+                              <Calendar className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                              <div>
+                                <span className="font-semibold text-gray-800 block mb-1">
+                                  Schedule
+                                </span>
+                                <span className="text-sm text-gray-700">
+                                  {e.start_date
+                                    ? e.is_theoretical
+                                      ? `${fmtDate(
+                                          new Date(e.start_date)
+                                        )} to ${fmtDate(
+                                          new Date(
+                                            new Date(e.start_date).getTime() +
+                                              86400000
+                                          )
+                                        )} — ${fmtTime(
+                                          e.start_time
+                                        )} to ${fmtTime(e.end_time)}`
+                                      : `${fmtDate(
+                                          new Date(e.start_date)
+                                        )} — ${fmtTime(
+                                          e.start_time
+                                        )} to ${fmtTime(e.end_time)}`
+                                    : "No Schedule"}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-3 bg-purple-50 rounded-lg p-4 border border-purple-100">
+                            <User className="w-5 h-5 text-purple-600 flex-shrink-0" />
+                            <div>
+                              <span className="font-semibold text-gray-800 block">
+                                Instructor
+                              </span>
+                              <span className="text-sm text-gray-700">
+                                {e.instructor_name ?? "Not assigned yet"}
+                              </span>
+                            </div>
+                          </div>
+                        </>
+                      )}
+
+                      <div className="flex items-center gap-3 bg-gray-50 rounded-lg p-4 border border-gray-200">
+                        <div className="flex-shrink-0">
+                          <span
+                            className={`inline-flex px-3 py-1 rounded-full text-sm font-semibold capitalize ${
+                              (e.status ?? "").toLowerCase() ===
+                              "passed/completed"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-blue-100 text-blue-800"
+                            }`}
+                          >
+                            {e.status ?? "pending"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {(e.status ?? "").toLowerCase() === "passed/completed" &&
+                      !isOnlineTheoretical && (
                         <button
-                          className={`px-4 lg:px-6 py-2.5 rounded-lg font-medium transition-colors duration-200 shadow-sm text-sm lg:text-base ${
+                          className={`w-full sm:w-auto px-6 py-3 rounded-xl font-semibold transition-all duration-200 shadow-md flex items-center justify-center gap-2 ${
                             hasFeedback
-                              ? "bg-gray-400 cursor-not-allowed text-gray-200"
-                              : "bg-blue-600 hover:bg-blue-700 text-white"
+                              ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                              : "bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white hover:shadow-lg"
                           }`}
                           onClick={() => !hasFeedback && handleOpenFeedback(e)}
                           disabled={hasFeedback}
                         >
-                          {hasFeedback ? "Feedback Submitted" : "Give Feedback"}
+                          {hasFeedback ? (
+                            <>
+                              <CheckCircle className="w-5 h-5" />
+                              Feedback Submitted
+                            </>
+                          ) : (
+                            <>
+                              <MessageSquare className="w-5 h-5" />
+                              Give Feedback
+                            </>
+                          )}
                         </button>
-                      </div>
-                    )}
+                      )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Enhanced Feedback Modal */}
+      {showFeedbackModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-red-600 to-red-500 p-6 sm:p-8 relative">
+              <button
+                type="button"
+                onClick={() => setShowFeedbackModal(false)}
+                className="absolute top-4 right-4 text-white hover:bg-white hover:bg-opacity-20 rounded-full p-2 transition-all"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white pr-12">
+                Training Course Evaluation
+              </h2>
+              <p className="text-red-100 mt-2 text-sm sm:text-base">
+                {selectedEnrollment?.course_name ?? "Course"}
+              </p>
+            </div>
+
+            {/* Content */}
+            <div className="overflow-y-auto max-h-[calc(90vh-180px)] p-6 sm:p-8">
+              <div className="space-y-8">
+                {/* Instructor Rating */}
+                <div className="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-2xl p-6 border-2 border-yellow-200">
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="bg-yellow-400 rounded-full p-3 shadow-md">
+                      <Star className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-1">
+                        Rate Your Instructor
+                      </h3>
+                      <p className="text-sm sm:text-base text-gray-700 font-medium">
+                        {selectedEnrollment?.instructor_name ?? "Instructor"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex justify-center sm:justify-start">
+                    <StarRating />
+                  </div>
                 </div>
 
-                <div className="flex-shrink-0 self-start lg:self-auto text-center lg:text-right">
-                  <span
-                    className={`inline-block px-3 lg:px-4 py-2 rounded-lg font-semibold text-xs lg:text-sm ${
-                      (e.payment_status ?? "").toLowerCase() === "paid"
-                        ? "bg-green-100 text-green-800"
-                        : "bg-yellow-100 text-yellow-800"
-                    }`}
+                {/* Question Categories */}
+                {Object.entries(questions).map(
+                  ([category, items], categoryIndex) => (
+                    <div key={categoryIndex} className="space-y-4">
+                      <div className="flex items-center gap-3 mb-4 pb-3 border-b-2">
+                        <div
+                          className={`bg-gradient-to-r ${categoryColors[category]} rounded-lg p-2.5 text-white shadow-md`}
+                        >
+                          {categoryIcons[category]}
+                        </div>
+                        <h3 className="text-lg sm:text-xl font-bold text-gray-900 capitalize">
+                          {category.replace(/_/g, " ")}
+                        </h3>
+                      </div>
+
+                      <div className="space-y-6">
+                        {items.map((question, qIndex) => (
+                          <div
+                            key={qIndex}
+                            className="bg-gray-50 rounded-xl p-4 sm:p-5"
+                          >
+                            <p className="font-semibold text-sm sm:text-base text-gray-800 mb-3">
+                              {qIndex + 1}. {question}
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3">
+                              {[
+                                "Strongly Agree",
+                                "Agree",
+                                "Neutral",
+                                "Disagree",
+                                "Strongly Disagree",
+                              ].map((option) => (
+                                <label
+                                  key={option}
+                                  className="flex items-center gap-2 p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-gray-400 hover:bg-white transition-all"
+                                >
+                                  <input
+                                    type="radio"
+                                    name={`${category}_q${qIndex + 1}`}
+                                    value={option}
+                                    checked={
+                                      formData[`${category}_q${qIndex + 1}`] ===
+                                      option
+                                    }
+                                    onChange={(e) =>
+                                      handleInputChange(
+                                        e.target.name,
+                                        e.target.value
+                                      )
+                                    }
+                                    className="w-4 h-4 text-red-600 focus:ring-2 focus:ring-red-500 flex-shrink-0"
+                                  />
+                                  <span className="text-xs sm:text-sm font-medium text-gray-700">
+                                    {option}
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                )}
+
+                {/* Comments */}
+                <div className="space-y-6 pt-4">
+                  <div className="bg-gradient-to-br from-purple-50 to-white rounded-xl p-5 border border-purple-100">
+                    <label className="flex items-center gap-2 font-semibold mb-3 text-sm sm:text-base text-gray-800">
+                      <MessageSquare className="w-5 h-5 text-purple-600" />
+                      Comments about Instructor
+                    </label>
+                    <textarea
+                      value={formData.instructor_comments || ""}
+                      onChange={(e) =>
+                        handleInputChange("instructor_comments", e.target.value)
+                      }
+                      className="w-full border-2 border-gray-200 rounded-lg p-3 text-sm sm:text-base focus:border-purple-400 focus:ring-2 focus:ring-purple-200 transition-all resize-none"
+                      rows="3"
+                      placeholder="Share your thoughts..."
+                    ></textarea>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-blue-50 to-white rounded-xl p-5 border border-blue-100">
+                    <label className="flex items-center gap-2 font-semibold mb-3 text-sm sm:text-base text-gray-800">
+                      <MessageSquare className="w-5 h-5 text-blue-600" />
+                      Additional Comments & Recommendations
+                    </label>
+                    <textarea
+                      value={formData.comments || ""}
+                      onChange={(e) =>
+                        handleInputChange("comments", e.target.value)
+                      }
+                      className="w-full border-2 border-gray-200 rounded-lg p-3 text-sm sm:text-base focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-all resize-none"
+                      rows="4"
+                      placeholder="Any suggestions..."
+                    ></textarea>
+                  </div>
+                </div>
+
+                {/* Buttons */}
+                <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t-2">
+                  <button
+                    type="button"
+                    className="px-6 py-3 bg-gray-100 rounded-xl hover:bg-gray-200 text-gray-700 font-semibold transition-all"
+                    onClick={() => setShowFeedbackModal(false)}
                   >
-                    {(e.payment_status ?? "unpaid").replace(/_/g, " ")}
-                  </span>
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSubmitFeedback}
+                    disabled={submitting}
+                    className="px-6 py-3 bg-gradient-to-r from-green-600 to-green-500 rounded-xl text-white font-semibold transition-all hover:shadow-lg disabled:opacity-60 flex items-center justify-center gap-2"
+                  >
+                    {submitting ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-5 h-5" />
+                        Submit Feedback
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
             </div>
-          );
-        })}
-      </div>
-
-      {/* Feedback Modal */}
-      {showFeedbackModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-          <div className="bg-white p-4 lg:p-6 rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg lg:text-xl font-bold mb-4">
-              Training Course Evaluation –{" "}
-              {selectedEnrollment?.course_name ?? "Course"}
-            </h2>
-            <form onSubmit={handleSubmitFeedback}>
-              {/* NEW: Instructor Star Rating Section */}
-              <div className="mb-8 p-4 bg-yellow-50 rounded-lg border-2 border-yellow-200">
-                <h3 className="text-base lg:text-lg font-bold mb-3 text-gray-900">
-                  Rate Your Instructor
-                </h3>
-                <p className="text-sm text-gray-600 mb-3">
-                  {selectedEnrollment?.instructor_name ?? "Instructor"}
-                </p>
-                <StarRating />
-              </div>
-
-              {Object.entries(questions).map(
-                ([category, items], categoryIndex) => (
-                  <div key={categoryIndex} className="mb-6">
-                    <h3 className="text-base lg:text-lg font-bold capitalize mb-2">
-                      {category.replace(/_/g, " ")}
-                    </h3>
-                    {items.map((question, qIndex) => (
-                      <div key={qIndex} className="mb-4">
-                        <p className="font-semibold text-sm lg:text-base">
-                          {qIndex + 1}. {question}
-                        </p>
-                        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 lg:gap-4 mt-2">
-                          {[
-                            "Strongly Agree",
-                            "Agree",
-                            "Neutral",
-                            "Disagree",
-                            "Strongly Disagree",
-                          ].map((option) => (
-                            <label
-                              key={option}
-                              className="flex items-center gap-2 text-sm lg:text-base"
-                            >
-                              <input
-                                type="radio"
-                                name={`${category}_q${qIndex + 1}`}
-                                value={option}
-                                required
-                                className="flex-shrink-0"
-                              />{" "}
-                              <span className="whitespace-nowrap">
-                                {option}
-                              </span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )
-              )}
-
-              <div className="mb-4">
-                <label className="block font-semibold mb-1 text-sm lg:text-base">
-                  Comments about Instructor:
-                </label>
-                <textarea
-                  name="instructor_comments"
-                  className="w-full border rounded p-2 text-sm lg:text-base"
-                  rows="3"
-                ></textarea>
-              </div>
-
-              <div className="mb-4">
-                <label className="block font-semibold mb-1 text-sm lg:text-base">
-                  Additional Comments/Recommendations:
-                </label>
-                <textarea
-                  name="comments"
-                  className="w-full border rounded p-2 text-sm lg:text-base"
-                  rows="4"
-                ></textarea>
-              </div>
-
-              <div className="flex flex-col sm:flex-row justify-end gap-2">
-                <button
-                  type="button"
-                  className="px-4 py-2 bg-gray-400 rounded hover:bg-gray-500 text-white text-sm lg:text-base order-2 sm:order-1"
-                  onClick={() => setShowFeedbackModal(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-4 py-2 bg-green-600 rounded hover:bg-green-700 text-white text-sm lg:text-base order-1 sm:order-2 disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {submitting ? "Submitting..." : "Submit Feedback"}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
@@ -1090,10 +1315,68 @@ const FeedbacksPage = () => {
       });
   }, []);
 
-  if (loading) return <p className="p-6">Loading feedback...</p>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading feedback...</p>
+        </div>
+      </div>
+    );
+  }
 
-  if (feedbacks.length === 0)
-    return <p className="p-6">You have not submitted any feedback yet.</p>;
+  if (feedbacks.length === 0) {
+    return (
+      <div className="p-6">
+        <h2 className="text-2xl font-bold text-red-600 mb-6">
+          My Submitted Feedback
+        </h2>
+
+        <div className="flex flex-col items-center justify-center min-h-[400px] bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+          <div className="bg-red-50 rounded-full p-6 mb-6">
+            <MessageSquare className="w-16 h-16 text-red-600" />
+          </div>
+
+          <h3 className="text-xl font-semibold text-gray-800 mb-2">
+            No Feedback Yet
+          </h3>
+
+          <p className="text-gray-600 text-center max-w-md mb-6">
+            You haven't submitted any feedback yet. After completing your
+            courses, you can share your experience to help us improve our
+            services.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-2xl mt-4">
+            <div className="bg-gray-50 rounded-lg p-4 text-center">
+              <FileText className="w-8 h-8 text-red-600 mx-auto mb-2" />
+              <p className="text-sm font-medium text-gray-700">Rate Courses</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Share your learning experience
+              </p>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-4 text-center">
+              <ClipboardList className="w-8 h-8 text-red-600 mx-auto mb-2" />
+              <p className="text-sm font-medium text-gray-700">
+                Rate Instructors
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Evaluate teaching quality
+              </p>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-4 text-center">
+              <MessageSquare className="w-8 h-8 text-red-600 mx-auto mb-2" />
+              <p className="text-sm font-medium text-gray-700">Give Comments</p>
+              <p className="text-xs text-gray-500 mt-1">Suggest improvements</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
@@ -1186,6 +1469,7 @@ const FeedbacksPage = () => {
     </div>
   );
 };
+
 const Student = () => {
   const [activePage, setActivePage] = useState("Dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);

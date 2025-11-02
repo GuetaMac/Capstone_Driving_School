@@ -376,8 +376,6 @@ const EnrollmentsPage = () => {
   const [selectedYear, setSelectedYear] = useState("all");
   const [loading, setLoading] = useState(true);
 
-  const [showCompleted, setShowCompleted] = useState(false);
-
   useEffect(() => {
     fetchEnrollments();
     fetchInstructors();
@@ -582,7 +580,7 @@ const EnrollmentsPage = () => {
             }
           );
 
-          await Swal.fire("✅ Success", "Payment status updated.", "success");
+          await Swal.fire("Success", "Payment status updated.", "success");
           fetchEnrollments();
         } else {
           if (resetStatus) resetStatus();
@@ -595,7 +593,6 @@ const EnrollmentsPage = () => {
     }
   };
 
-  // NEW: Update enrollment status for online theoretical courses
   const updateEnrollmentStatus = async (
     enrollmentId,
     newStatus,
@@ -755,7 +752,6 @@ const EnrollmentsPage = () => {
     }
   };
 
-  // Utility functions
   const fmtDate = (d) =>
     new Date(d).toLocaleDateString("en-US", {
       month: "long",
@@ -868,16 +864,15 @@ const EnrollmentsPage = () => {
   };
 
   const filteredEnrollments = enrollments.filter((enrollment) => {
-    if (!showCompleted) {
-      const isCompleted =
-        enrollment.status?.toLowerCase() === "completed" ||
-        enrollment.status?.toLowerCase() === "passed/completed";
-      const isFullyPaid =
-        enrollment.payment_status?.toLowerCase() === "fully paid";
+    // Auto-hide completed AND fully paid enrollments
+    const isCompleted =
+      enrollment.status?.toLowerCase() === "completed" ||
+      enrollment.status?.toLowerCase() === "passed/completed";
+    const isFullyPaid =
+      enrollment.payment_status?.toLowerCase() === "fully paid";
 
-      if (isCompleted && isFullyPaid) {
-        return false;
-      }
+    if (isCompleted && isFullyPaid) {
+      return false;
     }
 
     const matchesSearch =
@@ -951,7 +946,6 @@ const EnrollmentsPage = () => {
     }
   };
 
-  // Check if course is online theoretical
   const isOnlineTheoretical = (courseName) => {
     return (
       courseName?.toLowerCase().includes("online") &&
@@ -1025,17 +1019,13 @@ const EnrollmentsPage = () => {
           <td className="px-6 py-4">
             {e.proof_of_payment ? (
               <a
-                href={`${import.meta.env.VITE_API_URL}/uploads/${
-                  e.proof_of_payment
-                }`}
+                href={e.proof_of_payment}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-block"
               >
                 <img
-                  src={`${import.meta.env.VITE_API_URL}/uploads/${
-                    e.proof_of_payment
-                  }`}
+                  src={e.proof_of_payment}
                   alt="Proof of Payment"
                   className="h-12 w-12 object-cover rounded-lg border-2 border-gray-200 hover:border-indigo-300 transition-all hover:scale-105"
                 />
@@ -1212,16 +1202,12 @@ const EnrollmentsPage = () => {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">Payment Proof:</span>
                 <a
-                  href={`${import.meta.env.VITE_API_URL}/uploads/${
-                    e.proof_of_payment
-                  }`}
+                  href={e.proof_of_payment}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
                   <img
-                    src={`${import.meta.env.VITE_API_URL}/uploads/${
-                      e.proof_of_payment
-                    }`}
+                    src={e.proof_of_payment}
                     alt="Proof"
                     className="h-10 w-10 object-cover rounded-lg border-2 border-gray-200"
                   />
@@ -1307,33 +1293,6 @@ const EnrollmentsPage = () => {
               : "View student enrollments and their details"}
           </p>
         </div>
-
-        {!showCompleted && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <div className="flex items-start">
-              <Info className="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
-              <div>
-                <p className="text-sm text-blue-900 font-medium">
-                  Completed & Fully Paid students are hidden
-                </p>
-                <p className="text-xs text-blue-700 mt-1">
-                  {
-                    enrollments.filter((e) => {
-                      const isCompleted =
-                        e.status?.toLowerCase() === "completed" ||
-                        e.status?.toLowerCase() === "passed/completed";
-                      const isFullyPaid =
-                        e.payment_status?.toLowerCase() === "fully paid";
-                      return isCompleted && isFullyPaid;
-                    }).length
-                  }{" "}
-                  completed enrollments are archived. Click "Show Completed" to
-                  view them.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -1514,29 +1473,6 @@ const EnrollmentsPage = () => {
                   </button>
                 </div>
               )}
-            </div>
-
-            <div className="flex items-center">
-              <button
-                onClick={() => setShowCompleted(!showCompleted)}
-                className={`px-4 py-3 text-sm font-medium rounded-lg transition-colors duration-200 flex items-center gap-2 ${
-                  showCompleted
-                    ? "bg-green-100 text-green-700 hover:bg-green-200"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-              >
-                {showCompleted ? (
-                  <>
-                    <Eye className="h-4 w-4" />
-                    Hiding Completed
-                  </>
-                ) : (
-                  <>
-                    <EyeOff className="h-4 w-4" />
-                    Show Completed
-                  </>
-                )}
-              </button>
             </div>
 
             {/* Filter summary */}

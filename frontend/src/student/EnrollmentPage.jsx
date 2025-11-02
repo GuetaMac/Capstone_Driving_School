@@ -165,8 +165,7 @@ const EnrollmentPage = () => {
     setLoading(true);
     try {
       const token = window.localStorage?.getItem("token");
-
-      // ✅ USE NEW ENDPOINT with vehicle availability checking
+      // Use latest with-availability endpoint
       const res = await fetch(
         `${
           import.meta.env.VITE_API_URL
@@ -176,7 +175,6 @@ const EnrollmentPage = () => {
         }
       );
       const data = await res.json();
-
       let filtered = data.filter((s) =>
         isTheoretical ? s.is_theoretical : !s.is_theoretical
       );
@@ -188,7 +186,6 @@ const EnrollmentPage = () => {
         schedDate.setHours(0, 0, 0, 0);
         return schedDate >= today && s.slots > 0;
       });
-
       setSchedules(filtered);
     } catch (error) {
       console.error("Error fetching schedules:", error);
@@ -210,11 +207,10 @@ const EnrollmentPage = () => {
     const endTotalMin = endHour * 60 + endMin;
     const durationInMinutes = endTotalMin - startTotalMin;
     const clockHours = durationInMinutes / 60;
-
+    // Only subtract 1hr for lunch if duration >= 8
     if (clockHours >= 8) {
       return clockHours - 1;
     }
-
     return clockHours;
   };
 
@@ -291,25 +287,19 @@ const EnrollmentPage = () => {
     if (selectedSchedules.length >= requiredSchedules) {
       return [];
     }
-
     const currentDayIndex = selectedSchedules.length;
     const currentConfig = scheduleConfig[currentDayIndex];
-
     if (!currentConfig) return [];
-
     return schedules.filter((s) => {
       const duration = getScheduleDuration(s.start_time, s.end_time);
       const alreadySelected = selectedSchedules.some(
         (selected) => selected.schedule_id === s.schedule_id
       );
-
       if (alreadySelected) return false;
-
-      if (currentConfig.hours !== duration) return false;
-
+      // Allow for floating point difference (e.g. 3 vs 3.000...01)
+      if (Math.abs(currentConfig.hours - duration) > 0.05) return false;
       if (currentConfig.time && currentConfig.time !== "flexible") {
         const startHour = parseInt(s.start_time.split(":")[0]);
-
         if (
           currentConfig.time.includes("am") ||
           currentConfig.time.includes("pm")
@@ -320,13 +310,11 @@ const EnrollmentPage = () => {
           if (timeMatch) {
             let configHour = parseInt(timeMatch[1]);
             const period = timeMatch[3].toLowerCase();
-
             if (period === "pm" && configHour !== 12) {
               configHour += 12;
             } else if (period === "am" && configHour === 12) {
               configHour = 0;
             }
-
             if (startHour !== configHour) return false;
           }
         } else if (currentConfig.time === "morning") {
@@ -335,7 +323,6 @@ const EnrollmentPage = () => {
           if (startHour !== 13) return false;
         }
       }
-
       return true;
     });
   };

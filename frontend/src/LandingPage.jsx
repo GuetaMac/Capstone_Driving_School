@@ -437,7 +437,7 @@ function LandingPage() {
                     <ChevronRight size={16} className="text-red-500" />
                   </div>
                   <span className="text-gray-700 text-sm sm:text-base">
-                    15+ Certified Instructors
+                    10+ Certified Instructors
                   </span>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -461,7 +461,7 @@ function LandingPage() {
                     <ChevronRight size={16} className="text-red-500" />
                   </div>
                   <span className="text-gray-700 text-sm sm:text-base">
-                    Government Accredited
+                    LTO Accredited
                   </span>
                 </div>
               </div>
@@ -573,7 +573,7 @@ function LandingPage() {
 
                   {course.image ? (
                     <img
-                      src={`${import.meta.env.VITE_API_URL}${course.image}`}
+                      src={course.image}
                       alt={course.name}
                       className="w-full h-48 object-cover rounded mb-4"
                     />
@@ -813,7 +813,23 @@ function LandingPage() {
                       Call Us
                     </h4>
                     <p className="text-gray-600 text-sm sm:text-base">
-                      (0912) 345-6789
+                      <span className="font-medium text-gray-700">
+                        San Pablo Branch:
+                      </span>
+                      <br />
+                      SMART - 0949 509 4742
+                      <br />
+                      GLOBE - 0915 920 9418
+                      <br />
+                      TEL - (049) 557 3332
+                    </p>
+
+                    <p className="text-gray-600 text-sm sm:text-base mt-3">
+                      <span className="font-medium text-gray-700">
+                        Tanauan Branch:
+                      </span>
+                      <br />
+                      0995 910 3180
                     </p>
                   </div>
                 </div>
@@ -828,7 +844,18 @@ function LandingPage() {
                       Email Us
                     </h4>
                     <p className="text-gray-600 text-sm sm:text-base break-all">
-                      support@1stsafetydrivingschool.com
+                      <span className="font-medium text-gray-700">
+                        San Pablo Branch:
+                      </span>
+                      <br />
+                      1stsafetydriving@gmail.com
+                    </p>
+                    <p className="text-gray-600 text-sm sm:text-base break-all mt-2">
+                      <span className="font-medium text-gray-700">
+                        Tanauan Branch:
+                      </span>
+                      <br />
+                      1stsafetydrivingtanauan@gmail.com
                     </p>
                   </div>
                 </div>
@@ -843,7 +870,7 @@ function LandingPage() {
                       Operating Hours
                     </h4>
                     <p className="text-gray-600 text-sm sm:text-base">
-                      Monday - Saturday: 8AM – 6PM
+                      Monday - Sunday: 8AM – 5PM
                     </p>
                   </div>
                 </div>
@@ -890,184 +917,146 @@ function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-800 text-white py-8 sm:py-12">
-        <div className="container mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 mb-6 sm:mb-8">
-            <div className="sm:col-span-2 lg:col-span-1">
-              <div className="flex items-center space-x-3 mb-4">
-                <img
-                  src={logo}
-                  alt="Logo"
-                  className="h-8 w-8 sm:h-10 sm:w-10 rounded-full"
-                />
-                <span className="text-lg sm:text-xl font-extrabold tracking-wide">
+      <footer className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white py-12 sm:py-16 relative overflow-hidden">
+        {/* Background decoration */}
+        <div className="absolute inset-0 opacity-5">
+          <div className="absolute top-0 left-0 w-96 h-96 bg-red-500 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-0 right-0 w-96 h-96 bg-blue-500 rounded-full blur-3xl"></div>
+        </div>
+
+        <div className="container mx-auto px-4 sm:px-6 relative z-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 sm:gap-12 mb-8 sm:mb-12">
+            {/* Brand Section */}
+            <div className="space-y-4">
+              <div className="flex items-center space-x-3 mb-6">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-red-500 rounded-full blur-md opacity-50"></div>
+                  <img
+                    src={logo}
+                    alt="Logo"
+                    className="h-10 w-10 sm:h-12 sm:w-12 rounded-full relative z-10 ring-2 ring-white/20"
+                  />
+                </div>
+                <span className="text-xl sm:text-2xl font-extrabold tracking-wide bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
                   1ST SAFETY
                 </span>
               </div>
-              <p className="text-gray-400 mb-4 text-sm sm:text-base">
-                Your trusted partner in driving education since 2020.
+              <p className="text-gray-300 text-sm sm:text-base leading-relaxed">
+                Your trusted partner in driving education since 2020. Building
+                safer roads, one driver at a time.
               </p>
-              <div className="flex space-x-4">
-                <a
-                  href="#"
-                  className="bg-gray-700 w-8 h-8 rounded-full flex items-center justify-center hover:bg-red-500 transition"
-                >
-                  <span className="sr-only">Facebook</span>
-                  <FaFacebook className="text-white text-sm" />
-                </a>
-                <a
-                  href="#"
-                  className="bg-gray-700 w-8 h-8 rounded-full flex items-center justify-center hover:bg-red-500 transition"
-                >
-                  <span className="sr-only">Instagram</span>
-                  <FaInstagram className="text-white text-sm" />
-                </a>
-                <a
-                  href="#"
-                  className="bg-gray-700 w-8 h-8 rounded-full flex items-center justify-center hover:bg-red-500 transition"
-                >
-                  <span className="sr-only">Twitter</span>
-                  <FaTwitter className="text-white text-sm" />
-                </a>
-              </div>
             </div>
 
+            {/* Quick Links */}
             <div>
-              <h4 className="text-base sm:text-lg font-bold mb-3 sm:mb-4">
+              <h4 className="text-lg sm:text-xl font-bold mb-5 sm:mb-6 ">
                 Quick Links
               </h4>
-              <ul className="space-y-2">
-                <li>
-                  <a
-                    href="#home"
-                    className="text-gray-400 hover:text-white transition text-sm sm:text-base"
-                  >
-                    Home
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#about"
-                    className="text-gray-400 hover:text-white transition text-sm sm:text-base"
-                  >
-                    About Us
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#courses"
-                    className="text-gray-400 hover:text-white transition text-sm sm:text-base"
-                  >
-                    Courses
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#testimonials"
-                    className="text-gray-400 hover:text-white transition text-sm sm:text-base"
-                  >
-                    Testimonials
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#contact"
-                    className="text-gray-400 hover:text-white transition text-sm sm:text-base"
-                  >
-                    Contact
-                  </a>
-                </li>
+              <ul className="space-y-3">
+                {["Home", "About", "Courses", "Testimonials", "Contact"].map(
+                  (item) => (
+                    <li key={item} className="group">
+                      <a
+                        href={`#${item.toLowerCase().replace(" ", "")}`}
+                        className="text-gray-300 hover:text-white transition-all duration-300 text-sm sm:text-base flex items-center group-hover:translate-x-2"
+                      >
+                        <span className="w-0 group-hover:w-2 h-0.5 bg-red-500 mr-0 group-hover:mr-2 transition-all duration-300"></span>
+                        {item}
+                      </a>
+                    </li>
+                  )
+                )}
               </ul>
             </div>
 
+            {/* Contact Info */}
             <div>
-              <h4 className="text-base sm:text-lg font-bold mb-3 sm:mb-4">
-                Courses
-              </h4>
-              <ul className="space-y-2">
-                <li>
-                  <a
-                    href="#"
-                    className="text-gray-400 hover:text-white transition text-sm sm:text-base"
-                  >
-                    Beginner Course
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#"
-                    className="text-gray-400 hover:text-white transition text-sm sm:text-base"
-                  >
-                    Intermediate Course
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#"
-                    className="text-gray-400 hover:text-white transition text-sm sm:text-base"
-                  >
-                    Advanced Course
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#"
-                    className="text-gray-400 hover:text-white transition text-sm sm:text-base"
-                  >
-                    Defensive Driving
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#"
-                    className="text-gray-400 hover:text-white transition text-sm sm:text-base"
-                  >
-                    Refresher Lessons
-                  </a>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="text-base sm:text-lg font-bold mb-3 sm:mb-4">
+              <h4 className="text-lg sm:text-xl font-bold mb-5 sm:mb-6 relative inline-block">
                 Contact Info
               </h4>
-              <ul className="space-y-3">
-                <li className="flex items-start">
-                  <MapPin
-                    size={16}
-                    className="text-red-500 mr-2 mt-1 flex-shrink-0"
-                  />
-                  <span className="text-gray-400 text-sm sm:text-base">
-                    123 Driving Avenue, Metro City
-                  </span>
+              <ul className="space-y-4">
+                {/* San Pablo Branch */}
+                <li className="p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-all duration-300">
+                  <div className="flex items-start mb-2">
+                    <MapPin
+                      size={18}
+                      className="text-red-500 mr-3 mt-1 flex-shrink-0"
+                    />
+                    <div>
+                      <p className="text-white font-semibold text-sm mb-1">
+                        San Pablo Branch
+                      </p>
+                      <span className="text-gray-300 text-sm">
+                        Brgy. San Nicolas, San Pablo City, Laguna
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center ml-9">
+                    <Phone
+                      size={14}
+                      className="text-red-500 mr-2 flex-shrink-0"
+                    />
+                    <span className="text-gray-300 text-xs sm:text-sm">
+                      0949 509 4742 • 0915 920 9418
+                    </span>
+                  </div>
+                  <div className="flex items-center ml-9 mt-1">
+                    <Mail
+                      size={14}
+                      className="text-red-500 mr-2 flex-shrink-0"
+                    />
+                    <span className="text-gray-300 text-xs sm:text-sm break-all">
+                      1stsafetydriving@gmail.com
+                    </span>
+                  </div>
                 </li>
-                <li className="flex items-center">
-                  <Phone
-                    size={16}
-                    className="text-red-500 mr-2 flex-shrink-0"
-                  />
-                  <span className="text-gray-400 text-sm sm:text-base">
-                    (0912) 345-6789
-                  </span>
-                </li>
-                <li className="flex items-start">
-                  <Mail
-                    size={16}
-                    className="text-red-500 mr-2 mt-1 flex-shrink-0"
-                  />
-                  <span className="text-gray-400 text-sm sm:text-base break-all">
-                    support@1stsafetydrivingschool.com
-                  </span>
+
+                {/* Tanauan Branch */}
+                <li className="p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-all duration-300">
+                  <div className="flex items-start mb-2">
+                    <MapPin
+                      size={18}
+                      className="text-red-500 mr-3 mt-1 flex-shrink-0"
+                    />
+                    <div>
+                      <p className="text-white font-semibold text-sm mb-1">
+                        Tanauan Branch
+                      </p>
+                      <span className="text-gray-300 text-sm">
+                        Brgy. Darasa, Tanauan City, Batangas
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center ml-9">
+                    <Phone
+                      size={14}
+                      className="text-red-500 mr-2 flex-shrink-0"
+                    />
+                    <span className="text-gray-300 text-xs sm:text-sm">
+                      0995 910 3180
+                    </span>
+                  </div>
+                  <div className="flex items-center ml-9 mt-1">
+                    <Mail
+                      size={14}
+                      className="text-red-500 mr-2 flex-shrink-0"
+                    />
+                    <span className="text-gray-300 text-xs sm:text-sm break-all">
+                      1stsafetydrivingtanauan@gmail.com
+                    </span>
+                  </div>
                 </li>
               </ul>
             </div>
           </div>
 
-          <div className="border-t border-gray-700 pt-6 sm:pt-8 mt-6 sm:mt-8 text-center">
-            <p className="text-gray-400 text-sm sm:text-base">
-              &copy; 2025 1st Safety Driving School. All rights reserved.
-            </p>
+          {/* Bottom bar */}
+          <div className="border-t border-gray-700/50 pt-8 mt-8">
+            <div className="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
+              <p className="text-gray-400 text-sm sm:text-base text-center sm:text-left">
+                &copy; 2025 1st Safety Driving School. All rights reserved.
+              </p>
+            </div>
           </div>
         </div>
       </footer>

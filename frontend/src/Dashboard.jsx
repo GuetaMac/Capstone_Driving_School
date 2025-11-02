@@ -27,6 +27,7 @@ import {
   Monitor,
   Wrench,
   Sparkles,
+  Database,
 } from "lucide-react";
 import {
   User,
@@ -1517,7 +1518,7 @@ const CoursesPage = () => {
                   <div className="flex-shrink-0">
                     {course.image ? (
                       <img
-                        src={`${import.meta.env.VITE_API_URL}${course.image}`}
+                        src={course.image}
                         alt="Course"
                         className="w-full sm:w-24 h-32 sm:h-24 object-cover rounded-lg"
                       />
@@ -1680,7 +1681,7 @@ const CoursesPage = () => {
                     <td className="border px-4 py-2">
                       {course.image ? (
                         <img
-                          src={`${import.meta.env.VITE_API_URL}${course.image}`}
+                          src={course.image}
                           alt="Course"
                           className="w-16 h-16 object-cover rounded"
                         />
@@ -4832,10 +4833,80 @@ const SettingsPage = () => {
   const [newPassword, setNewPassword] = useState("");
   const [repeatPassword, setRepeatPassword] = useState("");
   const [loadingPw, setLoadingPw] = useState(false);
+  const [loadingBackup, setLoadingBackup] = useState(false);
+
+  const [autoBackupEnabled, setAutoBackupEnabled] = useState(false);
+  const [backupFrequency, setBackupFrequency] = useState("daily");
+  const [lastBackup, setLastBackup] = useState(null);
 
   const [showOld, setShowOld] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showRepeat, setShowRepeat] = useState(false);
+
+  // Load auto backup settings on mount
+  useEffect(() => {
+    fetchBackupSettings();
+  }, []);
+
+  const fetchBackupSettings = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.get(
+        `${import.meta.env.VITE_API_URL}/api/backup/settings`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      setAutoBackupEnabled(response.data.enabled);
+      setBackupFrequency(response.data.frequency || "daily");
+      setLastBackup(response.data.lastBackup);
+    } catch (err) {
+      console.error("Failed to fetch backup settings:", err);
+    }
+  };
+
+  const toggleAutoBackup = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const newState = !autoBackupEnabled;
+
+      await axios.put(
+        `${import.meta.env.VITE_API_URL}/api/backup/settings`,
+        { enabled: newState, frequency: backupFrequency },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      setAutoBackupEnabled(newState);
+      Swal.fire(
+        "Success",
+        `Automatic backup ${newState ? "enabled" : "disabled"}!`,
+        "success"
+      );
+    } catch (err) {
+      Swal.fire("Error", "Failed to update backup settings", "error");
+    }
+  };
+
+  const updateBackupFrequency = async (frequency) => {
+    try {
+      const token = localStorage.getItem("token");
+
+      await axios.put(
+        `${import.meta.env.VITE_API_URL}/api/backup/settings`,
+        { enabled: autoBackupEnabled, frequency },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      setBackupFrequency(frequency);
+      Swal.fire("Success", "Backup frequency updated!", "success");
+    } catch (err) {
+      Swal.fire("Error", "Failed to update frequency", "error");
+    }
+  };
 
   const changePassword = async () => {
     if (!oldPassword || !newPassword || !repeatPassword) {
@@ -4881,9 +4952,50 @@ const SettingsPage = () => {
     }
   };
 
+  const handleBackup = async () => {
+    setLoadingBackup(true);
+    try {
+      const token = localStorage.getItem("token");
+
+      const response = await axios.post(
+        `${import.meta.env.VITE_API_URL}/api/backup`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: "blob",
+        }
+      );
+
+      const blob = new Blob([response.data], { type: "application/sql" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `backup_${new Date().toISOString().split("T")[0]}.sql`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      Swal.fire(
+        "Success",
+        "Database backup downloaded successfully!",
+        "success"
+      );
+      fetchBackupSettings(); // Refresh last backup time
+    } catch (err) {
+      Swal.fire(
+        "Error",
+        err.response?.data?.message || "Failed to backup database",
+        "error"
+      );
+    } finally {
+      setLoadingBackup(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6 lg:p-8">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-red-500 to-red-600 rounded-2xl shadow-lg mb-4">
@@ -4893,165 +5005,297 @@ const SettingsPage = () => {
             Security Settings
           </h1>
           <p className="text-gray-600">
-            Update your password to keep your account secure
+            Manage your security and backup preferences
           </p>
         </div>
 
-        {/* Change Password Card */}
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
-          {/* Card Header */}
-          <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-4">
-            <div className="flex items-center space-x-3">
-              <KeyRound className="w-6 h-6 text-white" />
-              <h2 className="text-xl font-semibold text-white">
-                Change Password
-              </h2>
+        {/* Two Column Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Database Backup Card */}
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
+            {/* Card Header */}
+            <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-4">
+              <div className="flex items-center space-x-3">
+                <Database className="w-6 h-6 text-white" />
+                <h2 className="text-xl font-semibold text-white">
+                  Database Backup
+                </h2>
+              </div>
+            </div>
+
+            {/* Card Body */}
+            <div className="p-6 sm:p-8 space-y-6">
+              {/* Automatic Backup Toggle */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    Automatic Backup
+                  </h3>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Automatically backup database on schedule
+                  </p>
+                </div>
+                <button
+                  onClick={toggleAutoBackup}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    autoBackupEnabled ? "bg-red-600" : "bg-gray-300"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      autoBackupEnabled ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Backup Frequency */}
+              {autoBackupEnabled && (
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Backup Frequency
+                  </label>
+                  <select
+                    value={backupFrequency}
+                    onChange={(e) => updateBackupFrequency(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
+                  >
+                    <option value="hourly">Every Hour</option>
+                    <option value="every6hours">Every 6 Hours</option>
+                    <option value="daily">Daily (2:00 AM)</option>
+                    <option value="weekly">Weekly (Sunday 3:00 AM)</option>
+                    <option value="monthly">Monthly (1st day 4:00 AM)</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Last Backup Info */}
+              {lastBackup && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-green-800">
+                    <span className="font-semibold">Last backup:</span>{" "}
+                    {new Date(lastBackup).toLocaleString()}
+                  </p>
+                </div>
+              )}
+
+              {/* Manual Backup Button */}
+              <div className="pt-2">
+                <p className="text-sm text-gray-600 mb-3">
+                  Download a manual backup of your database
+                </p>
+                <button
+                  onClick={handleBackup}
+                  disabled={loadingBackup}
+                  className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center space-x-2"
+                >
+                  {loadingBackup ? (
+                    <>
+                      <svg
+                        className="animate-spin h-5 w-5 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      <span>Creating Backup...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-5 h-5" />
+                      <span>Download Manual Backup</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Info */}
+              <div className="p-4 bg-blue-50 border border-blue-100 rounded-lg">
+                <h3 className="text-sm font-semibold text-blue-800 mb-2">
+                  Backup Info:
+                </h3>
+                <ul className="text-xs text-blue-700 space-y-1">
+                  <li>• SQL format file</li>
+                  <li>• Includes all tables and data</li>
+                  <li>• Automatic backups stored on server</li>
+                  <li>• Keeps last 7 backups (older ones deleted)</li>
+                  <li>• Can be restored using PostgreSQL tools</li>
+                </ul>
+              </div>
             </div>
           </div>
 
-          {/* Card Body */}
-          <div className="p-6 sm:p-8 space-y-6">
-            {/* Old Password */}
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Current Password
-              </label>
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                  <Lock className="w-5 h-5" />
-                </div>
-                <input
-                  type={showOld ? "text" : "password"}
-                  placeholder="Enter your current password"
-                  value={oldPassword}
-                  onChange={(e) => setOldPassword(e.target.value)}
-                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowOld(!showOld)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
-                >
-                  {showOld ? (
-                    <EyeOff className="w-5 h-5" />
-                  ) : (
-                    <Eye className="w-5 h-5" />
-                  )}
-                </button>
+          {/* Change Password Card */}
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
+            {/* Card Header */}
+            <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-4">
+              <div className="flex items-center space-x-3">
+                <KeyRound className="w-6 h-6 text-white" />
+                <h2 className="text-xl font-semibold text-white">
+                  Change Password
+                </h2>
               </div>
             </div>
 
-            {/* New Password */}
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                New Password
-              </label>
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                  <Lock className="w-5 h-5" />
+            {/* Card Body */}
+            <div className="p-6 sm:p-8 space-y-6">
+              {/* Old Password */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Current Password
+                </label>
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <Lock className="w-5 h-5" />
+                  </div>
+                  <input
+                    type={showOld ? "text" : "password"}
+                    placeholder="Enter your current password"
+                    value={oldPassword}
+                    onChange={(e) => setOldPassword(e.target.value)}
+                    className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowOld(!showOld)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                  >
+                    {showOld ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
                 </div>
-                <input
-                  type={showNew ? "text" : "password"}
-                  placeholder="Enter your new password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all outline-none"
-                />
+              </div>
+
+              {/* New Password */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  New Password
+                </label>
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <Lock className="w-5 h-5" />
+                  </div>
+                  <input
+                    type={showNew ? "text" : "password"}
+                    placeholder="Enter your new password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNew(!showNew)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                  >
+                    {showNew ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Password must be at least 6 characters long
+                </p>
+              </div>
+
+              {/* Repeat Password */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Confirm New Password
+                </label>
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <Lock className="w-5 h-5" />
+                  </div>
+                  <input
+                    type={showRepeat ? "text" : "password"}
+                    placeholder="Confirm your new password"
+                    value={repeatPassword}
+                    onChange={(e) => setRepeatPassword(e.target.value)}
+                    className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowRepeat(!showRepeat)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                  >
+                    {showRepeat ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <div className="pt-4">
                 <button
-                  type="button"
-                  onClick={() => setShowNew(!showNew)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                  onClick={changePassword}
+                  disabled={loadingPw}
+                  className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
-                  {showNew ? (
-                    <EyeOff className="w-5 h-5" />
+                  {loadingPw ? (
+                    <span className="flex items-center justify-center">
+                      <svg
+                        className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Updating Password...
+                    </span>
                   ) : (
-                    <Eye className="w-5 h-5" />
+                    "Update Password"
                   )}
                 </button>
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Password must be at least 6 characters long
-              </p>
-            </div>
 
-            {/* Repeat Password */}
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Confirm New Password
-              </label>
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                  <Lock className="w-5 h-5" />
-                </div>
-                <input
-                  type={showRepeat ? "text" : "password"}
-                  placeholder="Confirm your new password"
-                  value={repeatPassword}
-                  onChange={(e) => setRepeatPassword(e.target.value)}
-                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowRepeat(!showRepeat)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
-                >
-                  {showRepeat ? (
-                    <EyeOff className="w-5 h-5" />
-                  ) : (
-                    <Eye className="w-5 h-5" />
-                  )}
-                </button>
+              {/* Security Tips */}
+              <div className="mt-6 p-4 bg-red-50 border border-red-100 rounded-lg">
+                <h3 className="text-sm font-semibold text-red-800 mb-2">
+                  Security Tips:
+                </h3>
+                <ul className="text-xs text-red-700 space-y-1">
+                  <li>
+                    • Use a mix of letters, numbers, and special characters
+                  </li>
+                  <li>• Avoid using personal information</li>
+                  <li>• Don't reuse passwords from other accounts</li>
+                  <li>• Change your password regularly</li>
+                </ul>
               </div>
-            </div>
-
-            {/* Submit Button */}
-            <div className="pt-4">
-              <button
-                onClick={changePassword}
-                disabled={loadingPw}
-                className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-              >
-                {loadingPw ? (
-                  <span className="flex items-center justify-center">
-                    <svg
-                      className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
-                    Updating Password...
-                  </span>
-                ) : (
-                  "Update Password"
-                )}
-              </button>
-            </div>
-
-            {/* Security Tips */}
-            <div className="mt-6 p-4 bg-red-50 border border-red-100 rounded-lg">
-              <h3 className="text-sm font-semibold text-red-800 mb-2">
-                Security Tips:
-              </h3>
-              <ul className="text-xs text-red-700 space-y-1">
-                <li>• Use a mix of letters, numbers, and special characters</li>
-                <li>• Avoid using personal information</li>
-                <li>• Don't reuse passwords from other accounts</li>
-                <li>• Change your password regularly</li>
-              </ul>
             </div>
           </div>
         </div>

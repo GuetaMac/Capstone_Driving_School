@@ -3,7 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const multer = require("multer"); // For file uploads
+const { upload, uploadToCloudinary } = require("./upload");
 const path = require("path"); // For serving static files
 const { Pool } = require("pg");
 const authenticateToken = require("./middleware/authenticateToken");
@@ -12,6 +12,9 @@ const { v4: uuidv4 } = require("uuid");
 const fs = require("fs");
 const PDFDocument = require("pdfkit");
 const { Parser } = require("json2csv");
+
+const cron = require("node-cron");
+const { exec } = require("child_process");
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -395,16 +398,6 @@ First Safety Driving School Team`,
   }
 });
 
-// Multer setup for file uploads
-const storage = multer.diskStorage({
-  destination: "uploads/",
-  filename: (req, file, cb) => {
-    const uniqueName = `${Date.now()}-${file.originalname}`;
-    cb(null, uniqueName);
-  },
-});
-const upload = multer({ storage });
-
 // Get all courses (with optional branch filter)
 app.get("/courses", async (req, res) => {
   try {
@@ -454,7 +447,7 @@ app.get("/api/student-profile", authenticateToken, async (req, res) => {
   }
 });
 
-// Add new course
+// POST - Add new course
 app.post("/courses", upload.single("image"), async (req, res) => {
   try {
     const {
@@ -465,18 +458,28 @@ app.post("/courses", upload.single("image"), async (req, res) => {
       description,
       price,
       branch_id,
+      vehicle_category, // ✅ Added
       required_schedules,
       schedule_config,
     } = req.body;
 
-    const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
+    let imagePath = null;
+
+    // Upload to Cloudinary if image exists
+    if (req.file) {
+      const result = await uploadToCloudinary(
+        req.file.buffer,
+        "courses" // folder name in Cloudinary
+      );
+      imagePath = result.secure_url; // Get Cloudinary URL
+    }
 
     await pool.query(
       `INSERT INTO courses (
         name, codename, type, mode, description, price, image, branch_id,
-        required_schedules, schedule_config
+        vehicle_category, required_schedules, schedule_config
       )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
       [
         name,
         codeName,
@@ -484,22 +487,23 @@ app.post("/courses", upload.single("image"), async (req, res) => {
         mode,
         description,
         price,
-        imagePath,
+        imagePath, // Store Cloudinary URL
         branch_id,
+        vehicle_category || null,
         required_schedules || 1,
         schedule_config ||
           JSON.stringify([{ day: 1, hours: 4, time: "flexible" }]),
       ]
     );
 
-    res.json({ message: "Course added!" });
+    res.json({ message: "Course added!", imageUrl: imagePath });
   } catch (error) {
     console.error("Error adding course:", error);
     res.status(500).json({ error: "Failed to add course" });
   }
 });
 
-// Update course - WITH schedule config from form
+// PUT -
 app.put("/courses/:id", upload.single("image"), async (req, res) => {
   try {
     const { id } = req.params;
@@ -511,27 +515,35 @@ app.put("/courses/:id", upload.single("image"), async (req, res) => {
       description,
       price,
       branch_id,
+      vehicle_category,
       required_schedules,
       schedule_config,
     } = req.body;
 
-    const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
-
+    // Get current course data
     const course = await pool.query(
       "SELECT * FROM courses WHERE course_id = $1",
       [id]
     );
-    if (!course.rows.length)
-      return res.status(404).json({ error: "Course not found" });
 
-    const updatedImage = imagePath || course.rows[0].image;
+    if (!course.rows.length) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    let imagePath = course.rows[0].image; // Keep old image by default
+
+    // Upload new image to Cloudinary if provided
+    if (req.file) {
+      const result = await uploadToCloudinary(req.file.buffer, "courses");
+      imagePath = result.secure_url;
+    }
 
     await pool.query(
       `UPDATE courses 
        SET name=$1, codename=$2, type=$3, mode=$4, description=$5, 
            price=$6, image=$7, branch_id=$8,
-           required_schedules=$9, schedule_config=$10
-       WHERE course_id=$11`,
+           vehicle_category=$9, required_schedules=$10, schedule_config=$11
+       WHERE course_id=$12`,
       [
         name,
         codeName,
@@ -539,8 +551,9 @@ app.put("/courses/:id", upload.single("image"), async (req, res) => {
         mode,
         description,
         price,
-        updatedImage,
+        imagePath,
         branch_id,
+        vehicle_category || null,
         required_schedules || 1,
         schedule_config ||
           JSON.stringify([{ day: 1, hours: 4, time: "flexible" }]),
@@ -548,7 +561,7 @@ app.put("/courses/:id", upload.single("image"), async (req, res) => {
       ]
     );
 
-    res.json({ message: "Course updated!" });
+    res.json({ message: "Course updated!", imageUrl: imagePath });
   } catch (error) {
     console.error("Error updating course:", error);
     res.status(500).json({ error: "Failed to update course" });
@@ -593,7 +606,23 @@ app.post(
     } = req.body;
 
     const user_id = req.user.userId;
-    const proof_of_payment = req.file ? req.file.filename : null;
+    let proof_of_payment = null;
+
+    // ✅ Upload proof of payment to Cloudinary
+    if (req.file) {
+      try {
+        const result = await uploadToCloudinary(
+          req.file.buffer,
+          "proof-of-payment"
+        );
+        proof_of_payment = result.secure_url;
+      } catch (uploadError) {
+        console.error("Cloudinary upload error:", uploadError);
+        return res
+          .status(500)
+          .json({ error: "Failed to upload proof of payment" });
+      }
+    }
 
     // Validate required fields
     if (
@@ -714,11 +743,11 @@ app.post(
 
         // Get total vehicles available for this course type
         const vehicleCountRes = await client.query(
-          `SELECT COUNT(*) as total_vehicles
-           FROM vehicle_units
-           WHERE branch_id = $1 
-           AND vehicle_category = $2 
-           AND type = $3`,
+          `SELECT COALESCE(SUM(total_units), 0) as total_vehicles
+            FROM vehicle_units
+            WHERE branch_id = $1 
+            AND vehicle_category = $2 
+            AND type = $3`,
           [
             courseBranchId,
             courseVehicleCategory || vehicle_category,
@@ -763,18 +792,17 @@ app.post(
 
           const conflictQuery = await client.query(
             `SELECT COUNT(DISTINCT e.enrollment_id) as booked_count
-             FROM enrollments e
-             JOIN enrollment_schedules es ON e.enrollment_id = es.enrollment_id
-             JOIN schedules s ON es.schedule_id = s.schedule_id
-             WHERE e.vehicle_category = $1
-             AND e.vehicle_type = $2
-             AND s.branch_id = $3
-             AND e.status IN ('pending', 'active', 'ongoing')
-             AND s.date = $4
-             AND (
-               (s.start_time < $6::time AND s.end_time > $5::time) OR
-               (s.start_time >= $5::time AND s.start_time < $6::time)
-             )`,
+              FROM enrollments e
+              JOIN enrollment_schedules es ON e.enrollment_id = es.enrollment_id
+              JOIN schedules s ON es.schedule_id = s.schedule_id
+              WHERE e.vehicle_category = $1
+              AND e.vehicle_type = $2
+              AND s.branch_id = $3
+              AND e.status IN ('pending', 'approved', 'active', 'ongoing')
+              AND s.date = $4
+              AND (
+                (s.start_time, s.end_time) OVERLAPS ($5::time, $6::time)
+              )`,
             [
               courseVehicleCategory || vehicle_category,
               courseVehicleType || vehicle_type,
@@ -784,9 +812,17 @@ app.post(
               schedule.end_time,
             ]
           );
-
           const bookedVehicles = parseInt(conflictQuery.rows[0].booked_count);
           const availableVehicles = totalVehicles - bookedVehicles;
+
+          console.log(`📊 Vehicle Check:`, {
+            schedule_id: sid,
+            date: schedule.date,
+            time: `${schedule.start_time}-${schedule.end_time}`,
+            total: totalVehicles,
+            booked: bookedVehicles,
+            available: availableVehicles,
+          });
 
           if (availableVehicles <= 0) {
             await client.query("ROLLBACK");
@@ -1252,14 +1288,6 @@ app.get("/api/admin/enrollments", authenticateToken, async (req, res) => {
           enrollment.end_time = firstSchedule.end_time;
           enrollment.is_theoretical = firstSchedule.is_theoretical;
           enrollment.multiple_schedules = multiScheduleResult.rows;
-        }
-
-        // Handle proof of payment filename
-        if (enrollment.proof_of_payment) {
-          const filename = enrollment.proof_of_payment
-            .replace(/^.*[\\\/]/, "")
-            .replace("/uploads/", "");
-          enrollment.proof_of_payment = filename;
         }
 
         return enrollment;
@@ -2904,33 +2932,6 @@ app.put("/api/admin/maintenance/:id", authenticateToken, async (req, res) => {
   }
 });
 
-app.put("/api/system-status", authenticateToken, async (req, res) => {
-  const { role, userId } = req.user;
-  const { status } = req.body;
-
-  if (role !== "manager") {
-    return res.status(403).json({ message: "Access denied." });
-  }
-
-  await pool.query(
-    "INSERT INTO system_status (status, updated_by) VALUES ($1, $2)",
-    [status, userId]
-  );
-
-  res.json({ message: "System status updated." });
-});
-
-app.get("/api/system-status", async (req, res) => {
-  const result = await pool.query(`
-    SELECT s.status, s.updated_at, u.name AS updated_by
-    FROM system_status s
-    LEFT JOIN users u ON s.updated_by = u.user_id
-    ORDER BY s.status_id DESC
-    LIMIT 1
-  `);
-  res.json(result.rows[0]);
-});
-
 app.post("/check-user", async (req, res) => {
   const { identifier } = req.body;
 
@@ -4439,6 +4440,397 @@ app.post("/api/vehicles/check-availability", async (req, res) => {
       return res.status(401).json({ error: "Invalid token" });
     }
     res.status(500).json({ error: "Database error" });
+  }
+});
+
+// Create backups folder
+const backupsDir = path.join(__dirname, "backups");
+if (!fs.existsSync(backupsDir)) {
+  fs.mkdirSync(backupsDir, { recursive: true });
+}
+
+// Test connection
+pool.query("SELECT NOW()", (err) => {
+  if (err) {
+    console.error("❌ Database connection failed:", err.message);
+  } else {
+    console.log("✅ Database connected successfully");
+  }
+});
+
+// Backup settings
+let backupSettings = {
+  enabled: false,
+  frequency: "daily",
+  lastBackup: null,
+};
+
+let activeCronJobs = {};
+
+// ========================================
+// MAIN BACKUP FUNCTION
+// ========================================
+const createBackup = async () => {
+  const client = await pool.connect();
+
+  try {
+    console.log(`\n[${new Date().toISOString()}] 🔄 Starting backup...`);
+
+    let sqlDump = "";
+
+    // Header
+    sqlDump += `-- ========================================\n`;
+    sqlDump += `-- PostgreSQL Database Backup\n`;
+    sqlDump += `-- Database: ${process.env.DB_NAME}\n`;
+    sqlDump += `-- Created: ${new Date().toISOString()}\n`;
+    sqlDump += `-- ========================================\n\n`;
+
+    // Settings
+    sqlDump += `SET statement_timeout = 0;\n`;
+    sqlDump += `SET lock_timeout = 0;\n`;
+    sqlDump += `SET client_encoding = 'UTF8';\n`;
+    sqlDump += `SET standard_conforming_strings = on;\n`;
+    sqlDump += `SET check_function_bodies = false;\n`;
+    sqlDump += `SET xmloption = content;\n`;
+    sqlDump += `SET client_min_messages = warning;\n`;
+    sqlDump += `SET row_security = off;\n\n`;
+
+    // Get all tables
+    const tablesResult = await client.query(`
+      SELECT tablename 
+      FROM pg_tables 
+      WHERE schemaname = 'public'
+      ORDER BY tablename
+    `);
+
+    console.log(`   📊 Found ${tablesResult.rows.length} tables`);
+
+    // Get all foreign keys FIRST
+    const fkResult = await client.query(`
+      SELECT
+        tc.table_name,
+        tc.constraint_name,
+        kcu.column_name,
+        ccu.table_name AS foreign_table_name,
+        ccu.column_name AS foreign_column_name
+      FROM information_schema.table_constraints AS tc
+      JOIN information_schema.key_column_usage AS kcu
+        ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
+      JOIN information_schema.constraint_column_usage AS ccu
+        ON ccu.constraint_name = tc.constraint_name AND ccu.table_schema = tc.table_schema
+      WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_schema = 'public'
+    `);
+
+    const foreignKeys = {};
+    fkResult.rows.forEach((fk) => {
+      if (!foreignKeys[fk.table_name]) foreignKeys[fk.table_name] = [];
+      foreignKeys[fk.table_name].push(fk);
+    });
+
+    // ========================================
+    // STEP 1: CREATE TABLES (without FK)
+    // ========================================
+    sqlDump += `-- ========================================\n`;
+    sqlDump += `-- TABLE STRUCTURES\n`;
+    sqlDump += `-- ========================================\n\n`;
+
+    for (const { tablename } of tablesResult.rows) {
+      console.log(`   📦 Structure: ${tablename}`);
+
+      // Drop table
+      sqlDump += `DROP TABLE IF EXISTS "${tablename}" CASCADE;\n`;
+
+      // Get columns
+      const colsResult = await client.query(
+        `
+        SELECT 
+          column_name, 
+          data_type,
+          character_maximum_length,
+          numeric_precision,
+          numeric_scale,
+          is_nullable,
+          column_default,
+          udt_name
+        FROM information_schema.columns
+        WHERE table_name = $1 AND table_schema = 'public'
+        ORDER BY ordinal_position
+      `,
+        [tablename]
+      );
+
+      // Get primary keys
+      const pkResult = await client.query(
+        `
+        SELECT a.attname
+        FROM pg_index i
+        JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+        WHERE i.indrelid = $1::regclass AND i.indisprimary
+      `,
+        [tablename]
+      );
+
+      const primaryKeys = pkResult.rows.map((r) => r.attname);
+
+      // Create table
+      sqlDump += `CREATE TABLE "${tablename}" (\n`;
+
+      const columnDefs = colsResult.rows.map((col) => {
+        let def = `    "${col.column_name}" `;
+
+        // Handle data types
+        if (col.column_default && col.column_default.includes("nextval")) {
+          // Serial types
+          if (col.data_type === "integer") def += "SERIAL";
+          else if (col.data_type === "bigint") def += "BIGSERIAL";
+          else if (col.data_type === "smallint") def += "SMALLSERIAL";
+        } else {
+          // Regular types
+          if (col.data_type === "character varying") {
+            def += col.character_maximum_length
+              ? `VARCHAR(${col.character_maximum_length})`
+              : "VARCHAR";
+          } else if (col.data_type === "character") {
+            def += col.character_maximum_length
+              ? `CHAR(${col.character_maximum_length})`
+              : "CHAR";
+          } else if (col.data_type === "numeric" && col.numeric_precision) {
+            def += `NUMERIC(${col.numeric_precision},${
+              col.numeric_scale || 0
+            })`;
+          } else if (col.data_type === "USER-DEFINED") {
+            def += col.udt_name.toUpperCase();
+          } else {
+            def += col.data_type.toUpperCase();
+          }
+
+          // Default value (skip serial defaults)
+          if (col.column_default && !col.column_default.includes("nextval")) {
+            def += ` DEFAULT ${col.column_default}`;
+          }
+        }
+
+        // NOT NULL
+        if (col.is_nullable === "NO") {
+          def += " NOT NULL";
+        }
+
+        return def;
+      });
+
+      sqlDump += columnDefs.join(",\n");
+
+      // Primary key
+      if (primaryKeys.length > 0) {
+        sqlDump += `,\n    PRIMARY KEY ("${primaryKeys.join('", "')}")`;
+      }
+
+      sqlDump += `\n);\n\n`;
+    }
+
+    // ========================================
+    // STEP 2: INSERT DATA
+    // ========================================
+    sqlDump += `\n-- ========================================\n`;
+    sqlDump += `-- TABLE DATA\n`;
+    sqlDump += `-- ========================================\n\n`;
+
+    for (const { tablename } of tablesResult.rows) {
+      const dataResult = await client.query(`SELECT * FROM "${tablename}"`);
+
+      if (dataResult.rows.length > 0) {
+        console.log(
+          `   💾 Data: ${tablename} (${dataResult.rows.length} rows)`
+        );
+
+        sqlDump += `-- Data for ${tablename}\n`;
+
+        for (const row of dataResult.rows) {
+          const columns = Object.keys(row);
+          const values = columns.map((col) => {
+            const val = row[col];
+
+            if (val === null) return "NULL";
+            if (typeof val === "boolean") return val ? "true" : "false";
+            if (typeof val === "number") return val;
+            if (val instanceof Date) return `'${val.toISOString()}'`;
+            if (typeof val === "object") {
+              const jsonStr = JSON.stringify(val)
+                .replace(/\\/g, "\\\\")
+                .replace(/'/g, "''");
+              return `'${jsonStr}'::jsonb`;
+            }
+            if (typeof val === "string") {
+              const escaped = val.replace(/\\/g, "\\\\").replace(/'/g, "''");
+              return `'${escaped}'`;
+            }
+            return `'${val}'`;
+          });
+
+          sqlDump += `INSERT INTO "${tablename}" ("${columns.join(
+            '", "'
+          )}") VALUES (${values.join(", ")});\n`;
+        }
+
+        sqlDump += `\n`;
+      }
+    }
+
+    // ========================================
+    // STEP 3: ADD FOREIGN KEYS
+    // ========================================
+    if (Object.keys(foreignKeys).length > 0) {
+      sqlDump += `\n-- ========================================\n`;
+      sqlDump += `-- FOREIGN KEY CONSTRAINTS\n`;
+      sqlDump += `-- ========================================\n\n`;
+
+      for (const [tableName, fks] of Object.entries(foreignKeys)) {
+        for (const fk of fks) {
+          sqlDump += `ALTER TABLE "${tableName}"\n`;
+          sqlDump += `    ADD CONSTRAINT "${fk.constraint_name}"\n`;
+          sqlDump += `    FOREIGN KEY ("${fk.column_name}")\n`;
+          sqlDump += `    REFERENCES "${fk.foreign_table_name}" ("${fk.foreign_column_name}");\n\n`;
+        }
+      }
+    }
+
+    sqlDump += `\n-- Backup completed successfully\n`;
+
+    // Save to file
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const backupFile = path.join(backupsDir, `backup_${timestamp}.sql`);
+
+    fs.writeFileSync(backupFile, sqlDump, "utf8");
+
+    const fileSize = (fs.statSync(backupFile).size / 1024).toFixed(2);
+    console.log(`[${new Date().toISOString()}] ✅ Backup SUCCESS!`);
+    console.log(`   📄 File: ${backupFile}`);
+    console.log(`   📊 Size: ${fileSize} KB`);
+    console.log(`   📋 Tables: ${tablesResult.rows.length}\n`);
+
+    backupSettings.lastBackup = new Date();
+    cleanOldBackups(7);
+
+    return backupFile;
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] ❌ Backup FAILED:`, error);
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+// ========================================
+// CLEAN OLD BACKUPS
+// ========================================
+const cleanOldBackups = (keepCount = 7) => {
+  try {
+    const files = fs.readdirSync(backupsDir);
+
+    const backupFiles = files
+      .filter((file) => file.endsWith(".sql"))
+      .map((file) => ({
+        name: file,
+        path: path.join(backupsDir, file),
+        time: fs.statSync(path.join(backupsDir, file)).mtime.getTime(),
+      }))
+      .sort((a, b) => b.time - a.time);
+
+    if (backupFiles.length > keepCount) {
+      backupFiles.slice(keepCount).forEach((file) => {
+        fs.unlinkSync(file.path);
+        console.log(`   🗑️ Deleted old backup: ${file.name}`);
+      });
+    }
+  } catch (error) {
+    console.error("Error cleaning backups:", error.message);
+  }
+};
+
+// ========================================
+// CRON SCHEDULER
+// ========================================
+const updateCronJobs = () => {
+  Object.values(activeCronJobs).forEach((job) => {
+    if (job) job.stop();
+  });
+  activeCronJobs = {};
+
+  if (!backupSettings.enabled) {
+    console.log("❌ Automatic backups disabled");
+    return;
+  }
+
+  const schedules = {
+    hourly: "0 * * * *",
+    every6hours: "0 */6 * * *",
+    daily: "0 2 * * *",
+    weekly: "0 3 * * 0",
+    monthly: "0 4 1 * *",
+  };
+
+  const schedule = schedules[backupSettings.frequency];
+  if (schedule) {
+    activeCronJobs[backupSettings.frequency] = cron.schedule(schedule, () => {
+      console.log(`\n🔄 [AUTO BACKUP - ${backupSettings.frequency}]`);
+      createBackup().catch((err) => console.error("Auto backup failed:", err));
+    });
+    console.log(`✅ Auto backup enabled: ${backupSettings.frequency}`);
+  }
+};
+
+// GET backup settings
+app.get("/api/backup/settings", authenticateToken, (req, res) => {
+  res.json(backupSettings);
+});
+
+// UPDATE backup settings
+app.put("/api/backup/settings", authenticateToken, (req, res) => {
+  try {
+    const { enabled, frequency } = req.body;
+
+    if (typeof enabled !== "undefined") {
+      backupSettings.enabled = enabled;
+    }
+
+    if (frequency) {
+      backupSettings.frequency = frequency;
+    }
+
+    updateCronJobs();
+
+    res.json({
+      message: "Settings updated",
+      settings: backupSettings,
+    });
+  } catch (error) {
+    console.error("Error updating settings:", error);
+    res.status(500).json({ message: "Failed to update settings" });
+  }
+});
+
+// MANUAL backup
+app.post("/api/backup", authenticateToken, async (req, res) => {
+  try {
+    console.log("\n🔄 Manual backup requested by user");
+    const backupFile = await createBackup();
+
+    const fileContent = fs.readFileSync(backupFile, "utf8");
+
+    res.setHeader("Content-Type", "application/sql; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="backup_${
+        new Date().toISOString().split("T")[0]
+      }.sql"`
+    );
+    res.send(fileContent);
+  } catch (error) {
+    console.error("❌ Manual backup error:", error);
+    res.status(500).json({
+      message: "Backup failed",
+      error: error.message,
+    });
   }
 });
 

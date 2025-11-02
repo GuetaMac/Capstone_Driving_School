@@ -38,25 +38,6 @@ function Login() {
       const isVerified = preLogin.data?.is_verified;
       const userEmail = preLogin.data?.email;
 
-      // 2. Check system status (skip for managers)
-      const statusRes = await axios.get(
-        `${import.meta.env.VITE_API_URL}/api/system-status`
-      );
-      const systemStatus = statusRes.data.status;
-
-      if (
-        (systemStatus === "offline" || systemStatus === "maintenance") &&
-        userRole !== "manager"
-      ) {
-        Swal.fire({
-          icon: "warning",
-          title: "System Unavailable",
-          text: `The system is currently ${systemStatus}. Please try again later.`,
-        });
-        setLoading(false);
-        return;
-      }
-
       // 3. Check if student is verified
       if (userRole === "student" && !isVerified) {
         const result = await Swal.fire({
@@ -299,11 +280,6 @@ function Login() {
               </p>
             </div>
           </div>
-        </div>
-
-        {/* Footer */}
-        <div className="text-center mt-6 text-sm text-gray-500">
-          <p>© 2024 1st Safety Driving School. Learn to drive safely.</p>
         </div>
       </div>
     </div>
