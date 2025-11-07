@@ -3,8 +3,8 @@ const express = require("express");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { upload, uploadToCloudinary } = require("./upload");
 const path = require("path"); // For serving static files
+const multer = require("multer");
 const { Pool } = require("pg");
 const authenticateToken = require("./middleware/authenticateToken");
 const nodemailer = require("nodemailer");
@@ -32,6 +32,16 @@ const transporter = nodemailer.createTransport({
     rejectUnauthorized: false,
   },
 });
+
+// Multer setup for file uploads
+const storage = multer.diskStorage({
+  destination: "uploads/",
+  filename: (req, file, cb) => {
+    const uniqueName = `${Date.now()}-${file.originalname}`;
+    cb(null, uniqueName);
+  },
+});
+const upload = multer({ storage });
 
 app.use(cors());
 app.use(express.json());
@@ -463,16 +473,7 @@ app.post("/courses", upload.single("image"), async (req, res) => {
       schedule_config,
     } = req.body;
 
-    let imagePath = null;
-
-    // Upload to Cloudinary if image exists
-    if (req.file) {
-      const result = await uploadToCloudinary(
-        req.file.buffer,
-        "courses" // folder name in Cloudinary
-      );
-      imagePath = result.secure_url; // Get Cloudinary URL
-    }
+    const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
 
     await pool.query(
       `INSERT INTO courses (
@@ -487,7 +488,7 @@ app.post("/courses", upload.single("image"), async (req, res) => {
         mode,
         description,
         price,
-        imagePath, // Store Cloudinary URL
+        imagePath,
         branch_id,
         vehicle_category || null,
         required_schedules || 1,
@@ -530,13 +531,9 @@ app.put("/courses/:id", upload.single("image"), async (req, res) => {
       return res.status(404).json({ error: "Course not found" });
     }
 
-    let imagePath = course.rows[0].image; // Keep old image by default
-
-    // Upload new image to Cloudinary if provided
-    if (req.file) {
-      const result = await uploadToCloudinary(req.file.buffer, "courses");
-      imagePath = result.secure_url;
-    }
+    const imagePath = req.file
+      ? `/uploads/${req.file.filename}`
+      : course.rows[0].image;
 
     await pool.query(
       `UPDATE courses 
@@ -606,23 +603,8 @@ app.post(
     } = req.body;
 
     const user_id = req.user.userId;
-    let proof_of_payment = null;
 
-    // ✅ Upload proof of payment to Cloudinary
-    if (req.file) {
-      try {
-        const result = await uploadToCloudinary(
-          req.file.buffer,
-          "proof-of-payment"
-        );
-        proof_of_payment = result.secure_url;
-      } catch (uploadError) {
-        console.error("Cloudinary upload error:", uploadError);
-        return res
-          .status(500)
-          .json({ error: "Failed to upload proof of payment" });
-      }
-    }
+    const proof_of_payment = req.file ? req.file.filename : null;
 
     // Validate required fields
     if (
@@ -3234,6 +3216,42 @@ app.get("/api/analytics", async (req, res) => {
       return `WHERE ${paymentConditions.join(" AND ")}`;
     };
 
+    // Build WHERE clause for maintenance reports
+    const buildMaintenanceWhereClause = () => {
+      let maintenanceConditions = [];
+      let maintenanceParams = [];
+      let maintenanceParamIndex = 1;
+
+      if (branch_id) {
+        maintenanceConditions.push(`u.branch_id = $${maintenanceParamIndex}`);
+        maintenanceParams.push(branch_id);
+        maintenanceParamIndex++;
+      }
+
+      if (year) {
+        maintenanceConditions.push(
+          `EXTRACT(YEAR FROM mr.created_at) = $${maintenanceParamIndex}`
+        );
+        maintenanceParams.push(year);
+        maintenanceParamIndex++;
+      }
+
+      if (month) {
+        maintenanceConditions.push(
+          `EXTRACT(MONTH FROM mr.created_at) = $${maintenanceParamIndex}`
+        );
+        maintenanceParams.push(month);
+        maintenanceParamIndex++;
+      }
+
+      const whereClause =
+        maintenanceConditions.length > 0
+          ? `WHERE ${maintenanceConditions.join(" AND ")}`
+          : "";
+
+      return { whereClause, params: maintenanceParams };
+    };
+
     // Enrollment trends per month (with filters)
     const trendsQuery = `
       SELECT 
@@ -3291,7 +3309,6 @@ app.get("/api/analytics", async (req, res) => {
 
     // Revenue per course (with filters) - separate params for payment status queries
     const revenueParams = [...queryParams]; // Copy existing params for revenue queries
-    const revenueParamIndex = paramIndex;
 
     const revenuePerCourseQuery = `
       SELECT c.name AS "courseName", COALESCE(SUM(e.amount_paid), 0) AS revenue
@@ -3336,6 +3353,42 @@ app.get("/api/analytics", async (req, res) => {
     );
     const totalRevenue = parseFloat(totalRevenueResult.rows[0].total) || 0;
 
+    // === MAINTENANCE COST QUERIES ===
+    const maintenanceWhere = buildMaintenanceWhereClause();
+
+    // Total maintenance cost (with filters)
+    const totalMaintenanceCostQuery = `
+      SELECT COALESCE(SUM(mr.price), 0) AS total
+      FROM maintenance_reports mr
+      JOIN users u ON mr.instructor_id = u.user_id
+      ${maintenanceWhere.whereClause}
+    `;
+    const totalMaintenanceCostResult = await pool.query(
+      totalMaintenanceCostQuery,
+      maintenanceWhere.params
+    );
+    const totalMaintenanceCost =
+      parseFloat(totalMaintenanceCostResult.rows[0].total) || 0;
+
+    // Maintenance cost per branch (with filters)
+    const maintenanceCostPerBranchQuery = `
+      SELECT 
+        b.name AS "branchName", 
+        COALESCE(SUM(mr.price), 0) AS cost,
+        COUNT(mr.maintenance_id) AS "maintenanceCount"
+      FROM maintenance_reports mr
+      JOIN users u ON mr.instructor_id = u.user_id
+      JOIN branches b ON u.branch_id = b.branch_id
+      ${maintenanceWhere.whereClause}
+      GROUP BY b.name
+      ORDER BY cost DESC
+    `;
+    const maintenanceCostPerBranchResult = await pool.query(
+      maintenanceCostPerBranchQuery,
+      maintenanceWhere.params
+    );
+    const maintenanceCostPerBranch = maintenanceCostPerBranchResult.rows;
+
     // Get branch info if filtering by branch
     let branchInfo = null;
     if (branch_id) {
@@ -3349,7 +3402,7 @@ app.get("/api/analytics", async (req, res) => {
     const branchesResult = await pool.query(branchesQuery);
     const branches = branchesResult.rows;
 
-    // Response data (no insights)
+    // Response data with maintenance costs
     const responseData = {
       enrollmentTrends,
       courseStats,
@@ -3358,10 +3411,12 @@ app.get("/api/analytics", async (req, res) => {
       leastCourses,
       revenuePerCourse,
       monthlyRevenue,
+      // Maintenance data (only per branch)
+      totalMaintenanceCost,
+      maintenanceCostPerBranch,
       branchInfo,
       branches,
       selectedBranchId: branch_id || null,
-      // Add filter information
       filters: {
         branchId: branch_id || null,
         year: year || null,
@@ -3664,6 +3719,76 @@ app.get("/api/attendance/today", authenticateToken, async (req, res) => {
   }
 });
 
+// Get user profile
+app.get("/api/profile", authenticateToken, async (req, res) => {
+  const userId = req.user.userId;
+
+  try {
+    const result = await pool.query(
+      "SELECT name, username FROM users WHERE user_id = $1",
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error fetching profile:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Update user profile
+app.put("/api/profile", authenticateToken, async (req, res) => {
+  const { name, username } = req.body;
+  const userId = req.user.userId;
+
+  try {
+    // Validate input
+    if (!name || !username) {
+      return res
+        .status(400)
+        .json({ message: "Name and username are required" });
+    }
+
+    if (username.length < 3) {
+      return res.status(400).json({
+        message: "Username must be at least 3 characters long",
+      });
+    }
+
+    // Check if username is already taken by another user
+    const existingUser = await pool.query(
+      "SELECT user_id FROM users WHERE username = $1 AND user_id != $2",
+      [username, userId]
+    );
+
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({
+        message: "Username is already taken",
+      });
+    }
+
+    // Update the user profile
+    await pool.query(
+      "UPDATE users SET name = $1, username = $2 WHERE user_id = $3",
+      [name, username, userId]
+    );
+
+    res.json({
+      message: "Profile updated successfully",
+      name,
+      username,
+    });
+  } catch (err) {
+    console.error("Error updating profile:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// manager change password
 app.put("/change-password", authenticateToken, async (req, res) => {
   const { oldPassword, newPassword } = req.body;
   const userId = req.user.userId;
@@ -4467,9 +4592,8 @@ let backupSettings = {
 
 let activeCronJobs = {};
 
-// ========================================
 // MAIN BACKUP FUNCTION
-// ========================================
+
 const createBackup = async () => {
   const client = await pool.connect();
 
@@ -4527,9 +4651,7 @@ const createBackup = async () => {
       foreignKeys[fk.table_name].push(fk);
     });
 
-    // ========================================
     // STEP 1: CREATE TABLES (without FK)
-    // ========================================
     sqlDump += `-- ========================================\n`;
     sqlDump += `-- TABLE STRUCTURES\n`;
     sqlDump += `-- ========================================\n\n`;
@@ -4628,9 +4750,8 @@ const createBackup = async () => {
       sqlDump += `\n);\n\n`;
     }
 
-    // ========================================
     // STEP 2: INSERT DATA
-    // ========================================
+
     sqlDump += `\n-- ========================================\n`;
     sqlDump += `-- TABLE DATA\n`;
     sqlDump += `-- ========================================\n\n`;
@@ -4676,9 +4797,7 @@ const createBackup = async () => {
       }
     }
 
-    // ========================================
     // STEP 3: ADD FOREIGN KEYS
-    // ========================================
     if (Object.keys(foreignKeys).length > 0) {
       sqlDump += `\n-- ========================================\n`;
       sqlDump += `-- FOREIGN KEY CONSTRAINTS\n`;
@@ -4720,9 +4839,8 @@ const createBackup = async () => {
   }
 };
 
-// ========================================
 // CLEAN OLD BACKUPS
-// ========================================
+
 const cleanOldBackups = (keepCount = 7) => {
   try {
     const files = fs.readdirSync(backupsDir);
@@ -4747,9 +4865,8 @@ const cleanOldBackups = (keepCount = 7) => {
   }
 };
 
-// ========================================
 // CRON SCHEDULER
-// ========================================
+
 const updateCronJobs = () => {
   Object.values(activeCronJobs).forEach((job) => {
     if (job) job.stop();

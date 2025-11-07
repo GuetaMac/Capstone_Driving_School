@@ -539,7 +539,7 @@ const EnrollmentsPage = () => {
           }
         );
 
-        await Swal.fire("✅ Success", "Amount paid updated.", "success");
+        await Swal.fire(" Success", "Amount paid updated.", "success");
         fetchEnrollments();
       } else {
         if (resetValue) resetValue();
@@ -886,14 +886,18 @@ const EnrollmentsPage = () => {
 
     const matchesFilter =
       filterStatus === "all" ||
-      (filterStatus === "paid" && enrollment.payment_status === "Fully Paid") ||
+      (filterStatus === "paid" &&
+        enrollment.payment_status?.toLowerCase() === "fully paid") ||
       (filterStatus === "unpaid" &&
-        enrollment.payment_status === "not fully paid") ||
+        enrollment.payment_status?.toLowerCase() !== "fully paid") ||
       (filterStatus === "assigned" && enrollment.instructor_id) ||
       (filterStatus === "unassigned" && !enrollment.instructor_id) ||
-      (filterStatus === "pending" && enrollment.status === "pending") ||
-      (filterStatus === "approved" && enrollment.status === "approved") ||
-      (filterStatus === "completed" && enrollment.status === "completed");
+      (filterStatus === "pending" &&
+        enrollment.status?.toLowerCase() === "pending") ||
+      (filterStatus === "approved" &&
+        enrollment.status?.toLowerCase() === "approved") ||
+      (filterStatus === "completed" &&
+        enrollment.status?.toLowerCase() === "completed");
 
     let matchesDate = true;
     if (selectedMonth !== "all" || selectedYear !== "all") {
@@ -1019,13 +1023,17 @@ const EnrollmentsPage = () => {
           <td className="px-6 py-4">
             {e.proof_of_payment ? (
               <a
-                href={e.proof_of_payment}
+                href={`${import.meta.env.VITE_API_URL}/uploads/${
+                  e.proof_of_payment
+                }`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-block"
               >
                 <img
-                  src={e.proof_of_payment}
+                  src={`${import.meta.env.VITE_API_URL}/uploads/${
+                    e.proof_of_payment
+                  }`}
                   alt="Proof of Payment"
                   className="h-12 w-12 object-cover rounded-lg border-2 border-gray-200 hover:border-indigo-300 transition-all hover:scale-105"
                 />
@@ -1202,12 +1210,16 @@ const EnrollmentsPage = () => {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">Payment Proof:</span>
                 <a
-                  href={e.proof_of_payment}
+                  href={`${import.meta.env.VITE_API_URL}/uploads/${
+                    e.proof_of_payment
+                  }`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
                   <img
-                    src={e.proof_of_payment}
+                    src={`${import.meta.env.VITE_API_URL}/uploads/${
+                      e.proof_of_payment
+                    }`}
                     alt="Proof"
                     className="h-10 w-10 object-cover rounded-lg border-2 border-gray-200"
                   />
@@ -1355,8 +1367,7 @@ const EnrollmentsPage = () => {
                 <p className="text-2xl font-bold text-gray-900">
                   {hasAdminFeatures
                     ? enrollments.filter(
-                        (e) =>
-                          e.payment_status?.toLowerCase() === "not fully paid"
+                        (e) => e.payment_status?.toLowerCase() !== "fully paid"
                       ).length
                     : enrollments.filter((e) => e.status === "pending").length}
                 </p>

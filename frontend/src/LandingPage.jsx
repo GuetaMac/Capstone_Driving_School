@@ -573,7 +573,7 @@ function LandingPage() {
 
                   {course.image ? (
                     <img
-                      src={course.image}
+                      src={`${import.meta.env.VITE_API_URL}${course.image}`}
                       alt={course.name}
                       className="w-full h-48 object-cover rounded mb-4"
                     />

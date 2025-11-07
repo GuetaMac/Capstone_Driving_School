@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import Swal from "sweetalert2";
 import axios from "axios";
+import logo from "./assets/logo.png";
 
 function Register() {
   const [name, setName] = useState("");
@@ -180,22 +181,6 @@ function Register() {
     setLoading(true);
 
     try {
-      // Check system status
-      const statusRes = await axios.get(
-        `${import.meta.env.VITE_API_URL}/api/system-status`
-      );
-      const systemStatus = statusRes.data.status;
-
-      if (systemStatus === "offline" || systemStatus === "maintenance") {
-        Swal.fire({
-          icon: "warning",
-          title: "System Unavailable",
-          text: `The system is currently ${systemStatus}. Please try again later.`,
-        });
-        setLoading(false);
-        return;
-      }
-
       const response = await axios.post(
         `${import.meta.env.VITE_API_URL}/register`,
         {
@@ -264,9 +249,11 @@ function Register() {
         {/* Logo and Header */}
         <div className="text-center mb-8">
           <div className="inline-block mb-4">
-            <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-              1S
-            </div>
+            <img
+              src={logo}
+              alt="1st SAFETY Logo"
+              className="w-16 h-16 object-contain"
+            />
           </div>
           <h1 className="text-3xl font-bold text-gray-800 mb-2">1st SAFETY</h1>
           <p className="text-lg font-semibold text-red-500 mb-1">
