@@ -11,7 +11,6 @@ import Instructor from "./instructor/Instructor";
 import Forgot from "./student/Forgot";
 import Reset from "./student/Reset";
 import EnrollmentPage from "./student/EnrollmentPage";
-import { UserProvider } from "./UserContext";
 
 function App() {
   return (
