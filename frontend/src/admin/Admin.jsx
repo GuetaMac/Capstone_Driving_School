@@ -2302,15 +2302,68 @@ const Schedules = ({ currentUser }) => {
   const getSchedulesForCurrentMonth = () => {
     const year = currentCalendarDate.getFullYear();
     const month = currentCalendarDate.getMonth();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     return schedules.filter((schedule) => {
       const scheduleDate = new Date(schedule.start_date);
+      scheduleDate.setHours(0, 0, 0, 0);
+
       return (
         scheduleDate.getFullYear() === year &&
         scheduleDate.getMonth() === month &&
-        schedule.slots > 0
+        schedule.slots > 0 &&
+        scheduleDate >= today
       );
     });
+  };
+
+  const handleDeleteSchedule = async (scheduleId) => {
+    const result = await Swal.fire({
+      title: "Delete Schedule?",
+      text: "This action cannot be undone. All bookings for this schedule will be affected.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, delete it!",
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const token = localStorage.getItem("token");
+
+      // Optimistic UI update - remove from state immediately
+      setSchedules((prevSchedules) =>
+        prevSchedules.filter((s) => s.schedule_id !== scheduleId)
+      );
+
+      await axios.delete(
+        `${import.meta.env.VITE_API_URL}/api/schedules/${scheduleId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      Swal.fire({
+        icon: "success",
+        title: "Deleted!",
+        text: "Schedule has been deleted.",
+        timer: 1500,
+        showConfirmButton: false,
+      });
+
+      // Refresh to make sure we're in sync with server
+      fetchSchedules();
+    } catch (err) {
+      // If error, revert the optimistic update
+      fetchSchedules();
+
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: err.response?.data?.error || "Failed to delete schedule",
+      });
+    }
   };
 
   const CalendarView = () => (
@@ -2884,7 +2937,7 @@ const Schedules = ({ currentUser }) => {
                   <Calendar className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-gray-400" />
                 </div>
                 <p className="text-gray-500 text-sm sm:text-base md:text-lg font-medium">
-                  No schedules for this month
+                  No upcoming schedules for this month
                 </p>
                 <p className="text-gray-400 text-xs sm:text-sm">
                   Create schedules to see them here
@@ -2898,7 +2951,7 @@ const Schedules = ({ currentUser }) => {
                     key={schedule.schedule_id}
                     className="p-3 sm:p-4 md:p-5 bg-gradient-to-r from-white to-gray-50 border-2 border-gray-100 rounded-lg sm:rounded-xl hover:shadow-lg hover:border-blue-200 transition-all"
                   >
-                    <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="flex items-start gap-2 sm:gap-3">
                       <div
                         className={`p-1.5 sm:p-2 rounded-lg ${
                           schedule.is_theoretical
@@ -2947,6 +3000,15 @@ const Schedules = ({ currentUser }) => {
                           </div>
                         </div>
                       </div>
+                      <button
+                        onClick={() =>
+                          handleDeleteSchedule(schedule.schedule_id)
+                        }
+                        className="p-1.5 sm:p-2 hover:bg-red-100 rounded-lg transition-all group"
+                        title="Delete schedule"
+                      >
+                        <Trash2 className="w-3 h-3 sm:w-4 sm:h-4 text-red-400 group-hover:text-red-600" />
+                      </button>
                     </div>
                   </div>
                 ))
@@ -2957,6 +3019,7 @@ const Schedules = ({ currentUser }) => {
     </div>
   );
 };
+
 const FeedbackPage = () => {
   const [feedbackList, setFeedbackList] = useState([]);
   const [filteredFeedback, setFilteredFeedback] = useState([]);

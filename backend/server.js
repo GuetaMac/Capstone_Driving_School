@@ -1400,6 +1400,51 @@ app.post("/api/schedules", authenticateToken, async (req, res) => {
   }
 });
 
+// Delete schedule endpoint
+app.delete(
+  "/api/schedules/:scheduleId",
+  authenticateToken,
+  async (req, res) => {
+    const { scheduleId } = req.params;
+    const userId = req.user.userId;
+    const userRole = req.user.role;
+
+    try {
+      // Only admins can delete schedules
+      if (userRole !== "administrative_staff") {
+        return res
+          .status(403)
+          .json({ error: " Only admins can delete schedules" });
+      }
+
+      // Check if schedule exists
+      const scheduleCheck = await pool.query(
+        "SELECT * FROM schedules WHERE schedule_id = $1",
+        [scheduleId]
+      );
+
+      if (scheduleCheck.rows.length === 0) {
+        return res.status(404).json({ error: "❌ Schedule not found" });
+      }
+
+      // Delete related bookings first (if you want to cascade)
+      await pool.query("DELETE FROM enrollments WHERE schedule_id = $1", [
+        scheduleId,
+      ]);
+
+      // Delete the schedule
+      await pool.query("DELETE FROM schedules WHERE schedule_id = $1", [
+        scheduleId,
+      ]);
+
+      res.status(200).json({ message: "✅ Schedule deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting schedule:", error);
+      res.status(500).json({ error: "❌ Failed to delete schedule" });
+    }
+  }
+);
+
 // Get all schedules
 app.get("/api/schedules", authenticateToken, async (req, res) => {
   const branch_id = req.user.branch_id;
@@ -4352,9 +4397,9 @@ app.get("/api/schedules/with-availability", async (req, res) => {
       return res.status(400).json({ error: "Course ID required" });
     }
 
-    // Get course details including vehicle requirements
+    // Get course details including mode
     const courseRes = await pool.query(
-      "SELECT name, branch_id, vehicle_category, type FROM courses WHERE course_id = $1",
+      "SELECT name, branch_id, vehicle_category, type, mode FROM courses WHERE course_id = $1",
       [course_id]
     );
 
@@ -4362,10 +4407,13 @@ app.get("/api/schedules/with-availability", async (req, res) => {
       return res.status(404).json({ error: "Course not found" });
     }
 
-    const { branch_id, vehicle_category, type } = courseRes.rows[0];
+    const { branch_id, vehicle_category, type, mode } = courseRes.rows[0];
 
-    // If no vehicle category, it's theoretical - return all schedules
-    if (!vehicle_category) {
+    // ✅ Check if it's a theoretical course (ftof or online)
+    const isTheoreticalCourse = mode === "ftof" || mode === "online";
+
+    if (isTheoreticalCourse) {
+      // For theoretical courses, return theoretical schedules without vehicle info
       const schedules = await pool.query(
         `SELECT schedule_id, date as start_date, start_time, end_time, slots, is_theoretical, branch_id
          FROM schedules 
@@ -4376,7 +4424,14 @@ app.get("/api/schedules/with-availability", async (req, res) => {
          ORDER BY date, start_time`,
         [branch_id]
       );
+
+      // Return as-is, no vehicle availability needed for theoretical
       return res.json(schedules.rows);
+    }
+
+    // ✅ For practical courses, check vehicle availability
+    if (!vehicle_category || !type) {
+      return res.json([]); // Practical course needs vehicle info
     }
 
     // Get total vehicles available for this course type
@@ -4395,7 +4450,7 @@ app.get("/api/schedules/with-availability", async (req, res) => {
       return res.json([]); // No vehicles available at all
     }
 
-    // Get all future schedules for this branch
+    // Get all future practical schedules for this branch
     const schedulesRes = await pool.query(
       `SELECT schedule_id, date as start_date, start_time, end_time, slots, is_theoretical, branch_id
        FROM schedules 
