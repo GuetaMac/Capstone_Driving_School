@@ -369,6 +369,9 @@ const RecordsPage = () => {
   const [enrollments, setEnrollments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterMonth, setFilterMonth] = useState("");
+  const [filterYear, setFilterYear] = useState("");
 
   useEffect(() => {
     const fetchEnrollments = async () => {
@@ -461,6 +464,48 @@ const RecordsPage = () => {
     }
   };
 
+  // ✅ Convert 24h to 12h format
+  const formatTime = (time) => {
+    if (!time) return "";
+    const [hours, minutes] = time.split(":");
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes} ${ampm}`;
+  };
+
+  // ✅ Filter enrollments
+  const filteredEnrollments = enrollments.filter((enrollment) => {
+    // Filter by status
+    if (
+      filterStatus &&
+      enrollment.status?.toLowerCase() !== filterStatus.toLowerCase()
+    ) {
+      return false;
+    }
+
+    // Filter by month and year
+    if (filterMonth || filterYear) {
+      const enrollmentDate = new Date(enrollment.start_date);
+      const enrollmentMonth = enrollmentDate.getMonth() + 1; // 0-indexed
+      const enrollmentYear = enrollmentDate.getFullYear();
+
+      if (filterMonth && enrollmentMonth !== parseInt(filterMonth)) {
+        return false;
+      }
+      if (filterYear && enrollmentYear !== parseInt(filterYear)) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  // ✅ Get unique years from enrollments
+  const availableYears = [
+    ...new Set(enrollments.map((e) => new Date(e.start_date).getFullYear())),
+  ].sort((a, b) => b - a);
+
   // ✅ Get status badge color
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
@@ -509,14 +554,106 @@ const RecordsPage = () => {
         </p>
       </div>
 
-      {enrollments.length === 0 ? (
+      {/* Filters */}
+      {enrollments.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Status Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Filter by Status
+              </label>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500"
+              >
+                <option value="">All Statuses</option>
+                <option value="pending">Pending</option>
+                <option value="in progress">In Progress</option>
+                <option value="day 1 - completed">Day 1 - Completed</option>
+                <option value="day 2 - completed">Day 2 - Completed</option>
+                <option value="passed/completed">Passed/Completed</option>
+                <option value="failed">Failed</option>
+              </select>
+            </div>
+
+            {/* Month Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Filter by Month
+              </label>
+              <select
+                value={filterMonth}
+                onChange={(e) => setFilterMonth(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500"
+              >
+                <option value="">All Months</option>
+                <option value="1">January</option>
+                <option value="2">February</option>
+                <option value="3">March</option>
+                <option value="4">April</option>
+                <option value="5">May</option>
+                <option value="6">June</option>
+                <option value="7">July</option>
+                <option value="8">August</option>
+                <option value="9">September</option>
+                <option value="10">October</option>
+                <option value="11">November</option>
+                <option value="12">December</option>
+              </select>
+            </div>
+
+            {/* Year Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Filter by Year
+              </label>
+              <select
+                value={filterYear}
+                onChange={(e) => setFilterYear(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500"
+              >
+                <option value="">All Years</option>
+                {availableYears.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Clear Filters Button */}
+          {(filterStatus || filterMonth || filterYear) && (
+            <div className="mt-4">
+              <button
+                onClick={() => {
+                  setFilterStatus("");
+                  setFilterMonth("");
+                  setFilterYear("");
+                }}
+                className="text-sm text-red-600 hover:text-red-700 font-medium"
+              >
+                Clear all filters
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {filteredEnrollments.length === 0 ? (
         <div className="bg-white rounded-xl p-6 sm:p-8 shadow-lg text-center">
           <Users className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">
-            No Students Assigned
+            {enrollments.length === 0
+              ? "No Students Assigned"
+              : "No Results Found"}
           </h3>
           <p className="text-gray-600 text-sm sm:text-base">
-            You don't have any students assigned to you yet.
+            {enrollments.length === 0
+              ? "You don't have any students assigned to you yet."
+              : "No students match the selected filters. Try adjusting your filters."}
           </p>
         </div>
       ) : (
@@ -525,7 +662,7 @@ const RecordsPage = () => {
           <div className="hidden lg:block bg-white rounded-xl shadow-lg overflow-hidden">
             <div className="p-6 bg-gradient-to-r from-red-600 to-red-700 text-white">
               <h2 className="text-2xl font-bold">
-                Assigned Students ({enrollments.length})
+                Assigned Students ({filteredEnrollments.length})
               </h2>
             </div>
 
@@ -551,7 +688,7 @@ const RecordsPage = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {enrollments.map((enrollment) => (
+                  {filteredEnrollments.map((enrollment) => (
                     <tr
                       key={enrollment.enrollment_id}
                       className="hover:bg-gray-50"
@@ -598,7 +735,8 @@ const RecordsPage = () => {
                                   </div>
                                   <div className="flex items-center">
                                     <Clock className="w-3 h-3 mr-1" />
-                                    {sched.start_time} - {sched.end_time}
+                                    {formatTime(sched.start_time)} -{" "}
+                                    {formatTime(sched.end_time)}
                                   </div>
                                 </div>
                               </div>
@@ -622,7 +760,8 @@ const RecordsPage = () => {
                             </div>
                             <div className="flex items-center">
                               <Clock className="w-4 h-4 mr-1" />
-                              {enrollment.start_time} - {enrollment.end_time}
+                              {formatTime(enrollment.start_time)} -{" "}
+                              {formatTime(enrollment.end_time)}
                             </div>
                           </div>
                         )}
@@ -666,11 +805,11 @@ const RecordsPage = () => {
           <div className="lg:hidden space-y-4">
             <div className="bg-gradient-to-r from-red-600 to-red-700 rounded-xl p-4 text-white mb-4">
               <h2 className="text-lg sm:text-xl font-bold">
-                Assigned Students ({enrollments.length})
+                Assigned Students ({filteredEnrollments.length})
               </h2>
             </div>
 
-            {enrollments.map((enrollment) => (
+            {filteredEnrollments.map((enrollment) => (
               <div
                 key={enrollment.enrollment_id}
                 className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6"
@@ -725,7 +864,8 @@ const RecordsPage = () => {
                           </div>
                           <div className="flex items-center">
                             <Clock className="w-3 h-3 mr-1" />
-                            {sched.start_time} - {sched.end_time}
+                            {formatTime(sched.start_time)} -{" "}
+                            {formatTime(sched.end_time)}
                           </div>
                         </div>
                       </div>
@@ -740,7 +880,8 @@ const RecordsPage = () => {
                           Schedule
                         </div>
                         <div className="text-sm font-medium">
-                          {enrollment.start_time} - {enrollment.end_time}
+                          {formatTime(enrollment.start_time)} -{" "}
+                          {formatTime(enrollment.end_time)}
                         </div>
                       </div>
                     </div>

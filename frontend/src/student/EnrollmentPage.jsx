@@ -29,6 +29,7 @@ const EnrollmentPage = () => {
   const [hasActiveEnrollment, setHasActiveEnrollment] = useState(false);
   const [checkingEnrollment, setCheckingEnrollment] = useState(true);
   const [loadingCourse, setLoadingCourse] = useState(true);
+  const [studentBranch, setStudentBranch] = useState(null);
 
   // Pre-enrollment state
   const [hasStudentPermit, setHasStudentPermit] = useState(null);
@@ -101,6 +102,7 @@ const EnrollmentPage = () => {
   useEffect(() => {
     checkActiveEnrollment();
     fetchFullCourseDetails();
+    fetchStudentBranch();
   }, []);
 
   useEffect(() => {
@@ -128,6 +130,24 @@ const EnrollmentPage = () => {
       console.error("Error fetching course details:", error);
     } finally {
       setLoadingCourse(false);
+    }
+  };
+
+  const fetchStudentBranch = async () => {
+    try {
+      const token = window.localStorage?.getItem("token");
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/student-profile`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      const data = await res.json();
+      if (res.ok) {
+        setStudentBranch(data.branch_id);
+      }
+    } catch (error) {
+      console.error("Error fetching student branch:", error);
     }
   };
 
@@ -582,6 +602,30 @@ const EnrollmentPage = () => {
       })
       .join("\n• ");
   };
+
+  // Get GCash details based on student's branch
+  const getGCashDetails = () => {
+    if (studentBranch === 1) {
+      // Tanuan Branch
+      return {
+        number: "09959103180",
+        name: "CH******N CE***E C.",
+      };
+    } else if (studentBranch === 2) {
+      // San Pablo Branch
+      return {
+        number: "09495094742",
+        name: "CH******N CE***E C.",
+      };
+    }
+    // Default fallback
+    return {
+      number: "09123456789",
+      name: "Driving School",
+    };
+  };
+
+  const gcashDetails = getGCashDetails();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-2 sm:p-4 lg:p-6">
@@ -1371,10 +1415,10 @@ const EnrollmentPage = () => {
                     </h3>
                     <div className="space-y-2 text-xs sm:text-sm text-blue-900">
                       <p>
-                        <strong>GCash Number:</strong> 09123456789
+                        <strong>GCash Number:</strong> {gcashDetails.number}
                       </p>
                       <p>
-                        <strong>Account Name:</strong> Driving School
+                        <strong>Account Name:</strong> {gcashDetails.name}
                       </p>
                       {isPWD && (
                         <p className="text-green-700 font-semibold">

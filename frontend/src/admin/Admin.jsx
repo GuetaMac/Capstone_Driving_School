@@ -2334,7 +2334,6 @@ const Schedules = ({ currentUser }) => {
     try {
       const token = localStorage.getItem("token");
 
-      // Optimistic UI update - remove from state immediately
       setSchedules((prevSchedules) =>
         prevSchedules.filter((s) => s.schedule_id !== scheduleId)
       );
@@ -2352,10 +2351,8 @@ const Schedules = ({ currentUser }) => {
         showConfirmButton: false,
       });
 
-      // Refresh to make sure we're in sync with server
       fetchSchedules();
     } catch (err) {
-      // If error, revert the optimistic update
       fetchSchedules();
 
       Swal.fire({
@@ -3272,22 +3269,6 @@ const FeedbackPage = () => {
                   Total Feedback: {filteredFeedback.length}
                 </span>
               </div>
-              {averageRating > 0 && (
-                <div className="bg-yellow-50 border-2 border-yellow-200 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full flex items-center gap-2">
-                  <svg
-                    className="w-4 h-4 sm:w-5 sm:h-5 fill-yellow-400 text-yellow-400"
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth="1"
-                  >
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                  </svg>
-                  <span className="text-yellow-700 font-medium text-sm sm:text-base">
-                    Avg Rating: {averageRating}/5
-                  </span>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -4415,10 +4396,17 @@ const AttendancePage = () => {
     </div>
   );
 };
+
 const MaintenancePage = () => {
   const [reports, setReports] = useState([]);
   const [editingId, setEditingId] = useState(null);
-  const [editingData, setEditingData] = useState({}); // Store editing data by ID
+  const [editingData, setEditingData] = useState({});
+
+  // Filter states
+  const [selectedMonth, setSelectedMonth] = useState("all");
+  const [selectedYear, setSelectedYear] = useState("all");
+  const [selectedStatus, setSelectedStatus] = useState("all");
+  const [availableYears, setAvailableYears] = useState([]);
 
   useEffect(() => {
     fetchReports();
@@ -4432,16 +4420,64 @@ const MaintenancePage = () => {
           headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         }
       );
+
       setReports(response.data);
+
+      // Extract unique years with date normalization
+      const years = [
+        ...new Set(
+          response.data.map((report) => {
+            let dateString = report.created_at;
+            if (dateString.includes(" ") && !dateString.includes("T")) {
+              dateString = dateString.replace(" ", "T");
+            }
+            const date = new Date(dateString);
+            return date.getFullYear();
+          })
+        ),
+      ].sort((a, b) => b - a);
+
+      setAvailableYears(years);
     } catch (error) {
       console.error("Error fetching maintenance reports:", error);
     }
   };
 
+  // 🆕 Filtered reports with date normalization
+  const filteredReports = reports.filter((report) => {
+    if (!report.created_at) return false;
+
+    // Normalize date format
+    let dateString = report.created_at;
+    if (dateString.includes(" ") && !dateString.includes("T")) {
+      dateString = dateString.replace(" ", "T");
+    }
+
+    const reportDate = new Date(dateString);
+    if (isNaN(reportDate.getTime())) return false;
+
+    const reportMonth = reportDate.getMonth();
+    const reportYear = reportDate.getFullYear();
+    const reportStatus = report.status || "Pending";
+
+    const monthMatch =
+      selectedMonth === "all" || reportMonth === parseInt(selectedMonth);
+    const yearMatch =
+      selectedYear === "all" || reportYear === parseInt(selectedYear);
+    const statusMatch =
+      selectedStatus === "all" || reportStatus === selectedStatus;
+
+    return monthMatch && yearMatch && statusMatch;
+  });
+
+  const handleResetFilters = () => {
+    setSelectedMonth("all");
+    setSelectedYear("all");
+    setSelectedStatus("all");
+  };
+
   const handleUpdateClick = (report) => {
-    // Use maintenance_id as the primary ID consistently
     const reportId = report.maintenance_id;
-    console.log("Setting editing ID:", reportId, "for report:", report);
     setEditingId(reportId);
     setEditingData({
       ...editingData,
@@ -4455,7 +4491,6 @@ const MaintenancePage = () => {
   const handleCancel = (report) => {
     const reportId = report.maintenance_id;
     setEditingId(null);
-    // Remove the editing data for this report
     const newEditingData = { ...editingData };
     delete newEditingData[reportId];
     setEditingData(newEditingData);
@@ -4474,48 +4509,41 @@ const MaintenancePage = () => {
 
   const handleSave = async (report) => {
     const reportId = report.maintenance_id;
-    const confirmResult = await Swal.fire({
-      title: "Save Changes?",
-      text: "Are you sure you want to update this maintenance report?",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Yes, save it!",
-      cancelButtonText: "Cancel",
-    });
-
-    if (!confirmResult.isConfirmed) return;
 
     try {
-      const dataToSave = editingData[reportId];
-      await axios.put(
+      const response = await axios.put(
         `${import.meta.env.VITE_API_URL}/api/admin/maintenance/${reportId}`,
-        dataToSave,
+        {
+          status: editingData[reportId].status,
+          price: editingData[reportId].price,
+        },
         {
           headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         }
       );
 
-      await Swal.fire({
-        icon: "success",
-        title: "Updated!",
-        text: "The maintenance report has been successfully updated.",
-        timer: 1500,
-        showConfirmButton: false,
-      });
+      if (response.status === 200) {
+        Swal.fire({
+          icon: "success",
+          title: "Success!",
+          text: "Maintenance report updated successfully",
+          confirmButtonColor: "#dc2626",
+        });
 
-      setEditingId(null);
-      // Remove the editing data for this report
-      const newEditingData = { ...editingData };
-      delete newEditingData[reportId];
-      setEditingData(newEditingData);
+        setEditingId(null);
+        const newEditingData = { ...editingData };
+        delete newEditingData[reportId];
+        setEditingData(newEditingData);
 
-      fetchReports();
-    } catch (err) {
-      console.error("Error updating report:", err);
-      await Swal.fire({
+        fetchReports();
+      }
+    } catch (error) {
+      console.error("Error updating maintenance report:", error);
+      Swal.fire({
         icon: "error",
-        title: "Update Failed",
-        text: "There was a problem updating the report. Please try again.",
+        title: "Oops...",
+        text: "Failed to update maintenance report",
+        confirmButtonColor: "#dc2626",
       });
     }
   };
@@ -4569,6 +4597,22 @@ const MaintenancePage = () => {
     }
   };
 
+  const months = [
+    { value: "all", label: "All Months" },
+    { value: 0, label: "January" },
+    { value: 1, label: "February" },
+    { value: 2, label: "March" },
+    { value: 3, label: "April" },
+    { value: 4, label: "May" },
+    { value: 5, label: "June" },
+    { value: 6, label: "July" },
+    { value: 7, label: "August" },
+    { value: 8, label: "September" },
+    { value: 9, label: "October" },
+    { value: 10, label: "November" },
+    { value: 11, label: "December" },
+  ];
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50 py-4 sm:py-8 px-2 sm:px-4">
       <div className="max-w-8xl mx-auto">
@@ -4616,6 +4660,111 @@ const MaintenancePage = () => {
           </div>
         </div>
 
+        {/* 🆕 Filter Section */}
+        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-6">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <h3 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
+                <svg
+                  className="w-5 h-5 text-red-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+                  />
+                </svg>
+                Filter Reports
+              </h3>
+              {(selectedMonth !== "all" ||
+                selectedYear !== "all" ||
+                selectedStatus !== "all") && (
+                <button
+                  onClick={handleResetFilters}
+                  className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white rounded-lg font-semibold transition-all shadow-md hover:shadow-lg text-sm"
+                >
+                  Reset Filters
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Month Filter */}
+              <div>
+                <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">
+                  Month
+                </label>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm sm:text-base"
+                >
+                  {months.map((month) => (
+                    <option key={month.label} value={month.value}>
+                      {month.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Year Filter */}
+              <div>
+                <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">
+                  Year
+                </label>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm sm:text-base"
+                >
+                  <option value="all">All Years</option>
+                  {availableYears.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Status Filter */}
+              <div>
+                <label className="block text-xs sm:text-sm font-semibold text-slate-700 mb-2">
+                  Status
+                </label>
+                <select
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm sm:text-base"
+                >
+                  <option value="all">All Status</option>
+                  <option value="Pending">Pending</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Resolved">Resolved</option>
+                </select>
+              </div>
+
+              {/* Results Count */}
+              <div className="flex items-end">
+                <div className="w-full p-3 sm:p-4 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg border-2 border-indigo-200">
+                  <p className="text-xs sm:text-sm text-slate-600">
+                    Showing Results
+                  </p>
+                  <p className="text-lg sm:text-2xl font-bold text-indigo-600">
+                    {filteredReports.length}{" "}
+                    <span className="text-sm sm:text-base text-slate-500">
+                      of {reports.length}
+                    </span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Table Section */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-4 sm:p-6 border-b border-slate-200">
@@ -4629,15 +4778,13 @@ const MaintenancePage = () => {
 
           {/* Mobile Card View */}
           <div className="block sm:hidden">
-            {reports.map((report) => {
+            {filteredReports.map((report) => {
               const isEditing = editingId === report.maintenance_id;
               const currentData = editingData[report.maintenance_id] || {};
+              const uniqueKey = `${selectedMonth}-${selectedYear}-${report.maintenance_id}`;
 
               return (
-                <div
-                  key={report.maintenance_id}
-                  className="border-b border-slate-100 p-4"
-                >
+                <div key={uniqueKey} className="border-b border-slate-100 p-4">
                   <div className="space-y-3">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
@@ -4684,31 +4831,15 @@ const MaintenancePage = () => {
                             }
                           )}
                         </p>
-                        <p className="text-xs text-slate-500">
-                          {new Date(report.created_at).toLocaleTimeString(
-                            "en-US",
-                            {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            }
-                          )}
-                        </p>
                       </div>
 
                       <div>
                         <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">
                           Reported By
                         </p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                            <span className="text-blue-600 font-semibold text-xs">
-                              {report.instructor_name.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                          <p className="font-medium text-slate-800 text-sm">
-                            {report.instructor_name}
-                          </p>
-                        </div>
+                        <p className="font-medium text-slate-800 text-sm">
+                          {report.instructor_name}
+                        </p>
                       </div>
                     </div>
 
@@ -4873,13 +5004,14 @@ const MaintenancePage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {reports.map((report) => {
+                {filteredReports.map((report) => {
                   const isEditing = editingId === report.maintenance_id;
                   const currentData = editingData[report.maintenance_id] || {};
+                  const uniqueKey = `${selectedMonth}-${selectedYear}-${report.maintenance_id}`;
 
                   return (
                     <tr
-                      key={report.maintenance_id}
+                      key={uniqueKey}
                       className="hover:bg-slate-50 transition-colors duration-150"
                     >
                       <td className="p-6">
@@ -4933,16 +5065,9 @@ const MaintenancePage = () => {
                         </div>
                       </td>
                       <td className="p-6">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                            <span className="text-blue-600 font-semibold text-sm">
-                              {report.instructor_name.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                          <p className="font-medium text-slate-800">
-                            {report.instructor_name}
-                          </p>
-                        </div>
+                        <p className="font-medium text-slate-800">
+                          {report.instructor_name}
+                        </p>
                       </td>
                       <td className="p-6">
                         {isEditing ? (
@@ -5077,7 +5202,7 @@ const MaintenancePage = () => {
             </table>
           </div>
 
-          {reports.length === 0 && (
+          {filteredReports.length === 0 && (
             <div className="p-8 sm:p-16 text-center">
               <div className="w-16 h-16 sm:w-24 sm:h-24 mx-auto mb-4 sm:mb-6 bg-slate-100 rounded-full flex items-center justify-center">
                 <svg
@@ -5095,10 +5220,14 @@ const MaintenancePage = () => {
                 </svg>
               </div>
               <h3 className="text-lg sm:text-xl font-semibold text-slate-700 mb-2">
-                No Maintenance Reports
+                {reports.length === 0
+                  ? "No Maintenance Reports"
+                  : "No matching reports"}
               </h3>
               <p className="text-slate-500 text-sm sm:text-base">
-                Maintenance reports will appear here once submitted.
+                {reports.length === 0
+                  ? "Maintenance reports will appear here once submitted."
+                  : "Try adjusting your filter settings"}
               </p>
             </div>
           )}
@@ -5107,7 +5236,6 @@ const MaintenancePage = () => {
     </div>
   );
 };
-
 const Records = () => {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -5126,13 +5254,19 @@ const Records = () => {
           }
         );
 
-        // ✅ SET THE RECORDS!
         setRecords(res.data);
 
-        // Extract unique years from enrollment dates
+        // Extract unique years - use local timezone
         const years = [
           ...new Set(
-            res.data.map((rec) => new Date(rec.enrollment_date).getFullYear())
+            res.data.map((rec) => {
+              let dateString = rec.enrollment_date;
+              if (dateString.includes(" ") && !dateString.includes("T")) {
+                dateString = dateString.replace(" ", "T");
+              }
+              const date = new Date(dateString);
+              return date.getFullYear();
+            })
           ),
         ].sort((a, b) => b - a);
 
@@ -5147,16 +5281,28 @@ const Records = () => {
     fetchRecords();
   }, []);
 
-  // Filter records based on selected month and year
+  //  Proper filtering with date normalization
   const filteredRecords = records.filter((rec) => {
-    const enrollmentDate = new Date(rec.enrollment_date);
+    if (!rec.enrollment_date) return false;
+
+    // Normalize date format (handle both ISO and SQL datetime)
+    let dateString = rec.enrollment_date;
+    if (dateString.includes(" ") && !dateString.includes("T")) {
+      dateString = dateString.replace(" ", "T");
+    }
+
+    const enrollmentDate = new Date(dateString);
+    if (isNaN(enrollmentDate.getTime())) return false;
+
+    // Use LOCAL timezone (not UTC)
     const recordMonth = enrollmentDate.getMonth();
     const recordYear = enrollmentDate.getFullYear();
 
+    // Compare as numbers
     const monthMatch =
-      selectedMonth === "all" || parseInt(selectedMonth) === recordMonth;
+      selectedMonth === "all" || recordMonth === parseInt(selectedMonth);
     const yearMatch =
-      selectedYear === "all" || parseInt(selectedYear) === recordYear;
+      selectedYear === "all" || recordYear === parseInt(selectedYear);
 
     return monthMatch && yearMatch;
   });
@@ -5213,7 +5359,6 @@ const Records = () => {
         {/* Filter Section */}
         <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-6">
           <div className="flex flex-col gap-4">
-            {/* Filter Label & Reset Button Row */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <h3 className="text-base sm:text-lg font-bold text-gray-800 flex items-center gap-2">
                 Filter Records
@@ -5228,7 +5373,6 @@ const Records = () => {
               )}
             </div>
 
-            {/* Filters */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Month Filter */}
               <div>
@@ -5241,7 +5385,7 @@ const Records = () => {
                   className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all text-sm sm:text-base"
                 >
                   {months.map((month) => (
-                    <option key={month.value} value={month.value}>
+                    <option key={month.label} value={month.value}>
                       {month.label}
                     </option>
                   ))}
@@ -5343,115 +5487,131 @@ const Records = () => {
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {filteredRecords.length > 0 ? (
-                  filteredRecords.map((rec, index) => (
-                    <tr
-                      key={rec.user_id}
-                      className={`hover:bg-red-50 transition-colors ${
-                        index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                      }`}
-                    >
-                      <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-gray-800 whitespace-nowrap">
-                        {rec.student_name || "N/A"}
-                      </td>
-                      <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-600 whitespace-nowrap">
-                        {rec.email || "N/A"}
-                      </td>
-                      <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-600 whitespace-nowrap">
-                        {rec.contact_number || "N/A"}
-                      </td>
-                      <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-600 max-w-xs truncate">
-                        {rec.address || "N/A"}
-                      </td>
-                      <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-600 whitespace-nowrap">
-                        {rec.birthday
-                          ? new Date(rec.birthday).toLocaleDateString("en-US", {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
-                            })
-                          : "N/A"}
-                      </td>
-                      <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-600 whitespace-nowrap">
-                        {rec.age || "N/A"}
-                      </td>
-                      <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-600 whitespace-nowrap">
-                        {rec.gender || "N/A"}
-                      </td>
-                      <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-600 whitespace-nowrap">
-                        {rec.civil_status || "N/A"}
-                      </td>
-                      <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-600 whitespace-nowrap">
-                        {rec.nationality || "N/A"}
-                      </td>
-                      <td className="px-3 sm:px-4 py-3 sm:py-4 text-center whitespace-nowrap">
-                        {rec.gender === "Female" ? (
-                          rec.is_pregnant === "true" ||
-                          rec.is_pregnant === true ? (
-                            <span className="inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800 shadow-sm">
+                  filteredRecords.map((rec, index) => {
+                    // Create unique key that includes filter state
+                    const uniqueKey = `${selectedMonth}-${selectedYear}-${rec.user_id}-${index}`;
+
+                    return (
+                      <tr
+                        key={uniqueKey}
+                        className={`hover:bg-red-50 transition-colors ${
+                          index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                        }`}
+                      >
+                        <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-gray-800 whitespace-nowrap">
+                          {rec.student_name || "N/A"}
+                        </td>
+                        <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-600 whitespace-nowrap">
+                          {rec.email || "N/A"}
+                        </td>
+                        <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-600 whitespace-nowrap">
+                          {rec.contact_number || "N/A"}
+                        </td>
+                        <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-600 max-w-xs truncate">
+                          {rec.address || "N/A"}
+                        </td>
+                        <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-600 whitespace-nowrap">
+                          {rec.birthday
+                            ? new Date(rec.birthday).toLocaleDateString(
+                                "en-US",
+                                {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                }
+                              )
+                            : "N/A"}
+                        </td>
+                        <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-600 whitespace-nowrap">
+                          {rec.age || "N/A"}
+                        </td>
+                        <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-600 whitespace-nowrap">
+                          {rec.gender || "N/A"}
+                        </td>
+                        <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-600 whitespace-nowrap">
+                          {rec.civil_status || "N/A"}
+                        </td>
+                        <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-600 whitespace-nowrap">
+                          {rec.nationality || "N/A"}
+                        </td>
+                        <td className="px-3 sm:px-4 py-3 sm:py-4 text-center whitespace-nowrap">
+                          {rec.gender === "Female" ? (
+                            rec.is_pregnant === "true" ||
+                            rec.is_pregnant === true ? (
+                              <span className="inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800 shadow-sm">
+                                Yes
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600 shadow-sm">
+                                No
+                              </span>
+                            )
+                          ) : (
+                            <span className="text-gray-400 text-xs">—</span>
+                          )}
+                        </td>
+                        <td className="px-3 sm:px-4 py-3 sm:py-4 text-center whitespace-nowrap">
+                          {rec.is_pwd === true || rec.is_pwd === "true" ? (
+                            <span className="inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 shadow-sm">
                               Yes
                             </span>
                           ) : (
                             <span className="inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600 shadow-sm">
                               No
                             </span>
-                          )
-                        ) : (
-                          <span className="text-gray-400 text-xs">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 sm:px-4 py-3 sm:py-4 text-center whitespace-nowrap">
-                        {rec.is_pwd === true || rec.is_pwd === "true" ? (
-                          <span className="inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 shadow-sm">
-                            Yes
+                          )}
+                        </td>
+                        <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-600 max-w-xs truncate font-semibold">
+                          {rec.course_name || "N/A"}
+                        </td>
+                        <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-600 whitespace-nowrap">
+                          {(() => {
+                            let dateString = rec.enrollment_date;
+                            if (
+                              dateString.includes(" ") &&
+                              !dateString.includes("T")
+                            ) {
+                              dateString = dateString.replace(" ", "T");
+                            }
+                            return new Date(dateString).toLocaleDateString(
+                              "en-US",
+                              {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                              }
+                            );
+                          })()}
+                        </td>
+                        <td className="px-3 sm:px-4 py-3 sm:py-4 text-center whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs font-bold shadow-sm ${
+                              rec.payment_status === "Paid" ||
+                              rec.payment_status === "Fully Paid"
+                                ? "bg-green-100 text-green-800"
+                                : rec.payment_status === "Partial" ||
+                                  rec.payment_status === "partial"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : "bg-red-100 text-red-800"
+                            }`}
+                          >
+                            {rec.payment_status || "Pending"}
                           </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600 shadow-sm">
-                            No
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-600 max-w-xs truncate font-semibold">
-                        {rec.course_name || "N/A"}
-                      </td>
-                      <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-600 whitespace-nowrap">
-                        {new Date(rec.enrollment_date).toLocaleDateString(
-                          "en-US",
-                          {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          }
-                        ) || "N/A"}
-                      </td>
-                      <td className="px-3 sm:px-4 py-3 sm:py-4 text-center whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs font-bold shadow-sm ${
-                            rec.payment_status === "Paid"
-                              ? "bg-green-100 text-green-800"
-                              : rec.payment_status === "Partial"
-                              ? "bg-orange-100 text-orange-800"
-                              : "bg-red-100 text-red-800"
-                          }`}
-                        >
-                          {rec.payment_status === "Paid" && "✅ "}
-                          {rec.payment_status === "Partial" && "⚠️ "}
-                          {rec.payment_status === "Pending" && "⏳ "}
-                          {rec.payment_status || "Pending"}
-                        </span>
-                      </td>
-                      <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-bold text-green-600 whitespace-nowrap">
-                        ₱{parseFloat(rec.amount_paid || 0).toFixed(2)}
-                      </td>
-                      <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-600 whitespace-nowrap">
-                        {rec.branch_name || "N/A"}
-                      </td>
-                    </tr>
-                  ))
+                        </td>
+                        <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-bold text-green-600 whitespace-nowrap">
+                          ₱{parseFloat(rec.amount_paid || 0).toFixed(2)}
+                        </td>
+                        <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-600 whitespace-nowrap">
+                          {rec.branch_name || "N/A"}
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
                     <td colSpan="16" className="px-4 py-12 text-center">
                       <div className="flex flex-col items-center justify-center">
-                        <div className="text-6xl mb-4"></div>
+                        <div className="text-6xl mb-4">🔍</div>
                         <p className="text-lg font-semibold text-gray-700 mb-2">
                           {records.length === 0
                             ? "No records found"

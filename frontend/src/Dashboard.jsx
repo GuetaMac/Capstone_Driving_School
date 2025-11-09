@@ -5541,7 +5541,7 @@ const ManagerDashboard = () => {
 
   const navigationItems = [
     { name: "Dashboard", icon: <BarChart3 className="w-5 h-5" /> },
-    { name: "Records", icon: <Users className="w-5 h-5" /> },
+    { name: "Accounts Records", icon: <Users className="w-5 h-5" /> },
     { name: "Courses", icon: <LucideBookOpen className="w-5 h-5" /> },
     { name: "Student Records", icon: <Users className="w-5 h-5" /> },
     { name: "Analytics", icon: <BarChart3 className="w-5 h-5" /> },
@@ -5668,7 +5668,7 @@ const ManagerDashboard = () => {
         <main className="p-4 lg:p-8 max-w-7xl mx-auto">
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 min-h-[calc(100vh-120px)] lg:min-h-[calc(100vh-64px)]">
             {activePage === "Dashboard" && <DashboardPage />}
-            {activePage === "Records" && <RecordsPage />}
+            {activePage === "Accounts Records" && <RecordsPage />}
             {activePage === "Courses" && <CoursesPage />}
             {activePage === "Student Records" && <StudentsRecords />}
             {activePage === "Analytics" && <AnalyticsPage />}
