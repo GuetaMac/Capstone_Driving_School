@@ -411,18 +411,33 @@ First Safety Driving School Team`,
 // Get all courses (with optional branch filter)
 app.get("/courses", async (req, res) => {
   try {
-    const { branch_id } = req.query;
+    const { branch_id, include_unavailable } = req.query;
 
     let query = `
       SELECT c.*, b.name as branch_name 
       FROM courses c
       LEFT JOIN branches b ON c.branch_id = b.branch_id
+      WHERE 1=1
     `;
-    const params = [];
 
+    const params = [];
+    let paramCount = 1;
+
+    // Filter by branch if specified
     if (branch_id) {
-      query += " WHERE c.branch_id = $1";
+      query += ` AND c.branch_id = $${paramCount}`;
       params.push(branch_id);
+      paramCount++;
+    }
+
+    // Filter by availability
+    // Default behavior: only show available courses (is_available = true OR is_available IS NULL for backward compatibility)
+    if (include_unavailable === "true") {
+      // Show ALL courses (available and unavailable)
+      // No filter needed
+    } else {
+      // Only show available courses
+      query += ` AND (c.is_available = true OR c.is_available IS NULL)`;
     }
 
     query += " ORDER BY c.course_id DESC";
@@ -480,7 +495,7 @@ app.post("/courses", upload.single("image"), async (req, res) => {
         name, codename, type, mode, description, price, image, branch_id,
         vehicle_category, required_schedules, schedule_config
       )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
       [
         name,
         codeName,
@@ -494,6 +509,7 @@ app.post("/courses", upload.single("image"), async (req, res) => {
         required_schedules || 1,
         schedule_config ||
           JSON.stringify([{ day: 1, hours: 4, time: "flexible" }]),
+        true,
       ]
     );
 
@@ -501,6 +517,39 @@ app.post("/courses", upload.single("image"), async (req, res) => {
   } catch (error) {
     console.error("Error adding course:", error);
     res.status(500).json({ error: "Failed to add course" });
+  }
+});
+
+// PATCH - Toggle course availability
+app.patch("/courses/:id/availability", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { is_available } = req.body;
+
+    // Check if course exists
+    const course = await pool.query(
+      "SELECT * FROM courses WHERE course_id = $1",
+      [id]
+    );
+
+    if (!course.rows.length) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    // Update availability status
+    await pool.query(
+      "UPDATE courses SET is_available = $1 WHERE course_id = $2",
+      [is_available, id]
+    );
+
+    const status = is_available ? "available" : "unavailable";
+    res.json({
+      message: `Course marked as ${status}!`,
+      is_available,
+    });
+  } catch (error) {
+    console.error("Error updating course availability:", error);
+    res.status(500).json({ error: "Failed to update course availability" });
   }
 });
 
@@ -4223,7 +4272,7 @@ Give me 3-4 SHORT insights using simple words. Make each point 1 sentence only. 
   }
 });
 
-// Optional: Health check endpoint to test API key
+// Health check endpoint to test API key
 app.get("/api/check-gemini", async (req, res) => {
   try {
     const response = await fetch(

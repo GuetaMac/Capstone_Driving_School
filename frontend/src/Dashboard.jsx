@@ -29,7 +29,9 @@ import {
   Sparkles,
   Database,
   AtSign,
+  Archive,
 } from "lucide-react";
+
 import {
   User,
   BarChart3,
@@ -764,6 +766,7 @@ const CoursesPage = () => {
   const [courses, setCourses] = useState([]);
   const [branches, setBranches] = useState([]);
   const [selectedBranch, setSelectedBranch] = useState("");
+  const [showUnavailable, setShowUnavailable] = useState(false);
   const [form, setForm] = useState({
     course_id: null,
     name: "",
@@ -788,13 +791,30 @@ const CoursesPage = () => {
       console.error("Error fetching branches:", err);
     }
   };
-
-  const fetchCourses = async (branchId = "") => {
+  const fetchCourses = async (branchId = "", includeUnavailable = false) => {
     try {
-      const url = branchId
-        ? `${import.meta.env.VITE_API_URL}/courses?branch_id=${branchId}`
-        : `${import.meta.env.VITE_API_URL}/courses`;
+      let url = `${import.meta.env.VITE_API_URL}/courses?`;
+
+      // ✅ Convert to string and trim to ensure proper comparison
+      const cleanBranchId = branchId ? String(branchId).trim() : "";
+
+      if (cleanBranchId && cleanBranchId !== "") {
+        url += `branch_id=${cleanBranchId}&`;
+      }
+
+      if (includeUnavailable) {
+        url += `include_unavailable=true`;
+      }
+
+      console.log("🔍 Fetching courses with URL:", url); // ✅ DEBUG LOG
+      console.log("📍 Selected Branch ID:", cleanBranchId); // ✅ DEBUG LOG
+      console.log("👁️ Show Unavailable:", includeUnavailable); // ✅ DEBUG LOG
+
       const res = await axios.get(url);
+
+      console.log("📦 Received courses:", res.data.length); // ✅ DEBUG LOG
+      console.log("📋 Courses data:", res.data); // ✅ DEBUG LOG
+
       setCourses(res.data);
     } catch (err) {
       console.error("Error fetching courses:", err);
@@ -803,13 +823,19 @@ const CoursesPage = () => {
 
   useEffect(() => {
     fetchBranches();
-    fetchCourses();
-  }, []);
+    fetchCourses(selectedBranch, showUnavailable);
+  }, []); // ✅ Empty - run once lang on mount
 
   const handleBranchFilterChange = (e) => {
     const branchId = e.target.value;
     setSelectedBranch(branchId);
-    fetchCourses(branchId);
+    fetchCourses(branchId, showUnavailable); // ✅ Make sure showUnavailable is passed
+  };
+
+  const toggleShowUnavailable = () => {
+    const newValue = !showUnavailable;
+    setShowUnavailable(newValue);
+    fetchCourses(selectedBranch, newValue); // ✅ Pass selectedBranch, not ""
   };
 
   const addScheduleDay = () => {
@@ -977,7 +1003,7 @@ const CoursesPage = () => {
       });
       setImage(null);
       setImagePreview(null);
-      fetchCourses(selectedBranch);
+      fetchCourses(selectedBranch, showUnavailable);
     } catch (err) {
       console.error("Error:", err);
       Swal.fire("Error", "Something went wrong.", "error");
@@ -1023,25 +1049,41 @@ const CoursesPage = () => {
     setImage(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
-  const handleDelete = async (id) => {
+  const handleToggleAvailability = async (course) => {
+    const newStatus = !course.is_available;
+    const action = newStatus ? "make available" : "mark as unavailable";
+
     const result = await Swal.fire({
-      title: "Are you sure?",
-      text: "This course will be permanently deleted.",
+      title: `${action.charAt(0).toUpperCase() + action.slice(1)}?`,
+      text: `Are you sure you want to ${action} "${course.name}"?`,
       icon: "warning",
       showCancelButton: true,
-      confirmButtonText: "Yes, delete it!",
+      confirmButtonText: `Yes, ${action}`,
       cancelButtonText: "Cancel",
+      confirmButtonColor: newStatus ? "#10b981" : "#f59e0b",
     });
 
     if (!result.isConfirmed) return;
 
     try {
-      await axios.delete(`${import.meta.env.VITE_API_URL}/courses/${id}`);
-      Swal.fire("Deleted!", "The course has been deleted.", "success");
-      fetchCourses(selectedBranch);
+      await axios.patch(
+        `${import.meta.env.VITE_API_URL}/courses/${
+          course.course_id
+        }/availability`,
+        {
+          is_available: newStatus,
+        }
+      );
+
+      Swal.fire(
+        "Success!",
+        `Course ${newStatus ? "is now available" : "marked as unavailable"}.`,
+        "success"
+      );
+      fetchCourses(selectedBranch, showUnavailable);
     } catch (err) {
-      console.error("Error deleting course:", err);
-      Swal.fire("Error", "Failed to delete the course.", "error");
+      console.error("Error updating availability:", err);
+      Swal.fire("Error", "Failed to update course availability.", "error");
     }
   };
 
@@ -1489,20 +1531,44 @@ const CoursesPage = () => {
             Course List
           </h3>
 
-          {/* Branch Filter */}
-          <div className="w-full sm:w-auto">
-            <select
-              value={selectedBranch}
-              onChange={handleBranchFilterChange}
-              className="block w-full sm:w-64 border border-gray-300 rounded-lg shadow-sm text-sm py-2 px-3"
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            {/* Toggle Unavailable Button */}
+            <button
+              onClick={toggleShowUnavailable}
+              className={`inline-flex items-center justify-center px-4 py-2 rounded-lg font-medium transition-colors ${
+                showUnavailable
+                  ? "bg-gray-600 text-white hover:bg-gray-700"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              }`}
             >
-              <option value="">All Branches</option>
-              {branches.map((branch) => (
-                <option key={branch.branch_id} value={branch.branch_id}>
-                  {branch.name}
-                </option>
-              ))}
-            </select>
+              {showUnavailable ? (
+                <>
+                  <Eye className="w-4 h-4 mr-2" />
+                  Showing All
+                </>
+              ) : (
+                <>
+                  <EyeOff className="w-4 h-4 mr-2" />
+                  Show Unavailable
+                </>
+              )}
+            </button>
+
+            {/* Branch Filter */}
+            <div className="w-full sm:w-auto">
+              <select
+                value={selectedBranch}
+                onChange={handleBranchFilterChange}
+                className="block w-full sm:w-64 border border-gray-300 rounded-lg shadow-sm text-sm py-2 px-3"
+              >
+                <option value="">All Branches</option>
+                {branches.map((branch) => (
+                  <option key={branch.branch_id} value={branch.branch_id}>
+                    {branch.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -1513,8 +1579,17 @@ const CoursesPage = () => {
             return (
               <div
                 key={course.course_id}
-                className="bg-gray-50 rounded-lg p-4 border shadow-sm"
+                className={`bg-gray-50 rounded-lg p-4 border shadow-sm ${
+                  !course.is_available ? "opacity-60 border-gray-400" : ""
+                }`}
               >
+                {/* Unavailable Badge */}
+                {!course.is_available && (
+                  <div className="mb-3 inline-flex items-center gap-2 bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-xs font-bold">
+                    <Archive className="w-3 h-3" />
+                    UNAVAILABLE
+                  </div>
+                )}
                 <div className="flex flex-col sm:flex-row gap-4">
                   <div className="flex-shrink-0">
                     {course.image ? (
@@ -1624,13 +1699,28 @@ const CoursesPage = () => {
                         onClick={() => handleEdit(course)}
                         className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
                       >
+                        <Edit2 className="w-4 h-4 inline mr-1" />
                         Edit
                       </button>
                       <button
-                        onClick={() => handleDelete(course.course_id)}
-                        className="flex-1 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                        onClick={() => handleToggleAvailability(course)}
+                        className={`flex-1 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                          course.is_available
+                            ? "bg-orange-500 hover:bg-orange-600 text-white"
+                            : "bg-green-500 hover:bg-green-600 text-white"
+                        }`}
                       >
-                        Delete
+                        {course.is_available ? (
+                          <>
+                            <Archive className="w-4 h-4 inline mr-1" />
+                            Mark Unavailable
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="w-4 h-4 inline mr-1" />
+                            Make Available
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -1645,6 +1735,7 @@ const CoursesPage = () => {
           <table className="min-w-full table-auto border-collapse border border-gray-200">
             <thead>
               <tr className="bg-gray-100">
+                <th className="border px-4 py-2 text-sm font-medium">Status</th>
                 <th className="border px-4 py-2 text-sm font-medium">Image</th>
                 <th className="border px-4 py-2 text-sm font-medium">Branch</th>
                 <th className="border px-4 py-2 text-sm font-medium">
@@ -1678,7 +1769,25 @@ const CoursesPage = () => {
               {courses.map((course) => {
                 const scheduleInfo = getScheduleConfigDisplay(course);
                 return (
-                  <tr key={course.course_id} className="hover:bg-gray-50">
+                  <tr
+                    key={course.course_id}
+                    className={`hover:bg-gray-50 ${
+                      !course.is_available ? "opacity-60 bg-gray-50" : ""
+                    }`}
+                  >
+                    <td className="border px-4 py-2 text-center">
+                      {course.is_available ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">
+                          <CheckCircle className="w-3 h-3" />
+                          Available
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold bg-gray-200 text-gray-700">
+                          <Archive className="w-3 h-3" />
+                          Unavailable
+                        </span>
+                      )}
+                    </td>
                     <td className="border px-4 py-2">
                       {course.image ? (
                         <img
@@ -1758,18 +1867,33 @@ const CoursesPage = () => {
                       </div>
                     </td>
                     <td className="border px-4 py-2">
-                      <div className="flex gap-2">
+                      <div className="flex flex-col gap-2">
                         <button
                           onClick={() => handleEdit(course)}
-                          className="bg-yellow-400 hover:bg-yellow-500 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
+                          className="bg-yellow-400 hover:bg-yellow-500 text-white px-3 py-1 rounded text-sm font-medium transition-colors inline-flex items-center justify-center gap-1"
                         >
+                          <Edit2 className="w-3 h-3" />
                           Edit
                         </button>
                         <button
-                          onClick={() => handleDelete(course.course_id)}
-                          className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
+                          onClick={() => handleToggleAvailability(course)}
+                          className={`px-3 py-1 rounded text-sm font-medium transition-colors inline-flex items-center justify-center gap-1 ${
+                            course.is_available
+                              ? "bg-orange-500 hover:bg-orange-600 text-white"
+                              : "bg-green-500 hover:bg-green-600 text-white"
+                          }`}
                         >
-                          Delete
+                          {course.is_available ? (
+                            <>
+                              <Archive className="w-3 h-3" />
+                              Unavailable
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="w-3 h-3" />
+                              Available
+                            </>
+                          )}
                         </button>
                       </div>
                     </td>

@@ -82,16 +82,20 @@ function LandingPage() {
       });
 
     // Fetch all courses
+    // Fetch all courses (only available ones for landing page)
     axios
       .get(`${import.meta.env.VITE_API_URL}/courses`)
       .then((res) => {
-        setAllCourses(res.data);
-        setCourses(res.data); // Initially show all courses
+        // Filter to show only available courses
+        const availableCourses = res.data.filter(
+          (course) => course.is_available !== false
+        );
+        setAllCourses(availableCourses);
+        setCourses(availableCourses); // Initially show all available courses
       })
       .catch((err) => {
         console.error("Error fetching courses:", err);
       });
-
     // Fetch featured testimonials
     axios
       .get(`${import.meta.env.VITE_API_URL}/api/testimonials`)
@@ -116,10 +120,17 @@ function LandingPage() {
     setSelectedBranch(branchId);
 
     if (branchId === "all") {
-      setCourses(allCourses);
+      // Show only available courses by default
+      const availableCourses = allCourses.filter(
+        (course) => course.is_available !== false
+      );
+      setCourses(availableCourses);
     } else {
+      // Filter by branch and only show available courses
       const filtered = allCourses.filter(
-        (course) => course.branch_id === parseInt(branchId)
+        (course) =>
+          course.branch_id === parseInt(branchId) &&
+          course.is_available !== false
       );
       setCourses(filtered);
     }
