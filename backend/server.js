@@ -411,7 +411,7 @@ First Safety Driving School Team`,
 // Get all courses (with optional branch filter)
 app.get("/courses", async (req, res) => {
   try {
-    const { branch_id, include_unavailable } = req.query;
+    const { branch_id, include_unavailable, unavailable_only } = req.query; // ✅ ADD unavailable_only
 
     let query = `
       SELECT c.*, b.name as branch_name 
@@ -430,13 +430,15 @@ app.get("/courses", async (req, res) => {
       paramCount++;
     }
 
-    // Filter by availability
-    // Default behavior: only show available courses (is_available = true OR is_available IS NULL for backward compatibility)
-    if (include_unavailable === "true") {
+    // ✅ NEW: Filter by availability with 3 modes
+    if (unavailable_only === "true") {
+      // Show ONLY unavailable courses
+      query += ` AND c.is_available = false`;
+    } else if (include_unavailable === "true") {
       // Show ALL courses (available and unavailable)
       // No filter needed
     } else {
-      // Only show available courses
+      // Default: only show available courses
       query += ` AND (c.is_available = true OR c.is_available IS NULL)`;
     }
 
@@ -449,7 +451,6 @@ app.get("/courses", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch courses" });
   }
 });
-
 // Get student profile with branch info
 app.get("/api/student-profile", authenticateToken, async (req, res) => {
   try {

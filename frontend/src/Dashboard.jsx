@@ -767,6 +767,7 @@ const CoursesPage = () => {
   const [branches, setBranches] = useState([]);
   const [selectedBranch, setSelectedBranch] = useState("");
   const [showUnavailable, setShowUnavailable] = useState(false);
+  const [showUnavailableOnly, setShowUnavailableOnly] = useState(false); // ✅ NEW STATE
   const [form, setForm] = useState({
     course_id: null,
     name: "",
@@ -791,29 +792,37 @@ const CoursesPage = () => {
       console.error("Error fetching branches:", err);
     }
   };
-  const fetchCourses = async (branchId = "", includeUnavailable = false) => {
+  const fetchCourses = async (
+    branchId = "",
+    includeUnavailable = false,
+    unavailableOnly = false
+  ) => {
+    // ✅ ADD unavailableOnly parameter
     try {
       let url = `${import.meta.env.VITE_API_URL}/courses?`;
 
-      // ✅ Convert to string and trim to ensure proper comparison
       const cleanBranchId = branchId ? String(branchId).trim() : "";
 
       if (cleanBranchId && cleanBranchId !== "") {
         url += `branch_id=${cleanBranchId}&`;
       }
 
-      if (includeUnavailable) {
+      // ✅ NEW LOGIC: Check unavailableOnly first
+      if (unavailableOnly) {
+        url += `unavailable_only=true`;
+      } else if (includeUnavailable) {
         url += `include_unavailable=true`;
       }
 
-      console.log("🔍 Fetching courses with URL:", url); // ✅ DEBUG LOG
-      console.log("📍 Selected Branch ID:", cleanBranchId); // ✅ DEBUG LOG
-      console.log("👁️ Show Unavailable:", includeUnavailable); // ✅ DEBUG LOG
+      console.log("🔍 Fetching courses with URL:", url);
+      console.log("📍 Selected Branch ID:", cleanBranchId);
+      console.log("👁️ Include Unavailable:", includeUnavailable);
+      console.log("🚫 Unavailable Only:", unavailableOnly); // ✅ NEW LOG
 
       const res = await axios.get(url);
 
-      console.log("📦 Received courses:", res.data.length); // ✅ DEBUG LOG
-      console.log("📋 Courses data:", res.data); // ✅ DEBUG LOG
+      console.log("📦 Received courses:", res.data.length);
+      console.log("📋 Courses data:", res.data);
 
       setCourses(res.data);
     } catch (err) {
@@ -823,19 +832,26 @@ const CoursesPage = () => {
 
   useEffect(() => {
     fetchBranches();
-    fetchCourses(selectedBranch, showUnavailable);
-  }, []); // ✅ Empty - run once lang on mount
-
+    fetchCourses(selectedBranch, showUnavailable, showUnavailableOnly); // ✅ ADD showUnavailableOnly
+  }, []);
   const handleBranchFilterChange = (e) => {
     const branchId = e.target.value;
     setSelectedBranch(branchId);
-    fetchCourses(branchId, showUnavailable); // ✅ Make sure showUnavailable is passed
+    fetchCourses(branchId, showUnavailable, showUnavailableOnly); // ✅ ADD showUnavailableOnly
   };
 
   const toggleShowUnavailable = () => {
-    const newValue = !showUnavailable;
-    setShowUnavailable(newValue);
-    fetchCourses(selectedBranch, newValue); // ✅ Pass selectedBranch, not ""
+    const newValue = !showUnavailableOnly; // ✅ TOGGLE showUnavailableOnly instead
+    setShowUnavailableOnly(newValue);
+
+    if (newValue) {
+      // Show ONLY unavailable courses
+      setShowUnavailable(false); // Reset the other toggle
+      fetchCourses(selectedBranch, false, true);
+    } else {
+      // Show available courses (default)
+      fetchCourses(selectedBranch, false, false);
+    }
   };
 
   const addScheduleDay = () => {
@@ -1536,20 +1552,20 @@ const CoursesPage = () => {
             <button
               onClick={toggleShowUnavailable}
               className={`inline-flex items-center justify-center px-4 py-2 rounded-lg font-medium transition-colors ${
-                showUnavailable
-                  ? "bg-gray-600 text-white hover:bg-gray-700"
+                showUnavailableOnly
+                  ? "bg-orange-600 text-white hover:bg-orange-700"
                   : "bg-gray-200 text-gray-700 hover:bg-gray-300"
               }`}
             >
-              {showUnavailable ? (
+              {showUnavailableOnly ? (
                 <>
-                  <Eye className="w-4 h-4 mr-2" />
-                  Showing All
+                  <Archive className="w-4 h-4 mr-2" />
+                  Unavailable Only
                 </>
               ) : (
                 <>
-                  <EyeOff className="w-4 h-4 mr-2" />
-                  Show Unavailable
+                  <Eye className="w-4 h-4 mr-2" />
+                  Show All
                 </>
               )}
             </button>
@@ -1607,11 +1623,11 @@ const CoursesPage = () => {
 
                   <div className="flex-1 space-y-3">
                     {/* Header */}
-                    <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-2">
                       <h4 className="font-bold text-gray-900 text-lg leading-tight">
                         {course.name}
                       </h4>
-                      <span className="inline-block px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded flex-shrink-0">
+                      <span className="inline-block px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded w-fit">
                         {course.branch_name}
                       </span>
                     </div>
