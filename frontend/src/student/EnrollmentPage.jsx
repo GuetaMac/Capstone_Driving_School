@@ -1242,12 +1242,36 @@ const EnrollmentPage = () => {
                       <input
                         type="date"
                         value={personalInfo.birthday}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const birthday = e.target.value;
+                          let calculatedAge = "";
+
+                          if (birthday) {
+                            const today = new Date();
+                            const birthDate = new Date(birthday);
+                            let age =
+                              today.getFullYear() - birthDate.getFullYear();
+                            const monthDiff =
+                              today.getMonth() - birthDate.getMonth();
+
+                            // Adjust age if birthday hasn't occurred this year yet
+                            if (
+                              monthDiff < 0 ||
+                              (monthDiff === 0 &&
+                                today.getDate() < birthDate.getDate())
+                            ) {
+                              age--;
+                            }
+
+                            calculatedAge = age.toString();
+                          }
+
                           setPersonalInfo({
                             ...personalInfo,
-                            birthday: e.target.value,
-                          })
-                        }
+                            birthday: birthday,
+                            age: calculatedAge,
+                          });
+                        }}
                         className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base"
                         required
                       />
@@ -1262,14 +1286,9 @@ const EnrollmentPage = () => {
                       <input
                         type="number"
                         value={personalInfo.age}
-                        onChange={(e) =>
-                          setPersonalInfo({
-                            ...personalInfo,
-                            age: e.target.value,
-                          })
-                        }
-                        className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base"
-                        placeholder="18"
+                        readOnly
+                        className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed text-sm sm:text-base"
+                        placeholder="Auto-calculated from birthday"
                         min="18"
                         max="100"
                         required
