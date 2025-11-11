@@ -248,7 +248,11 @@ const EnrollmentPage = () => {
   };
 
   const formatDate = (dateStr) => {
-    return new Date(dateStr).toLocaleDateString("en-US", {
+    // Parse date without timezone conversion
+    const [year, month, day] = dateStr.split("T")[0].split("-");
+    const date = new Date(year, parseInt(month) - 1, day);
+
+    return date.toLocaleDateString("en-US", {
       month: "long",
       day: "numeric",
       year: "numeric",
@@ -275,18 +279,27 @@ const EnrollmentPage = () => {
 
   const getSchedulesForDate = (date) => {
     if (!date) return [];
-    const dateStr = date.toISOString().split("T")[0];
+    // Use local date without timezone conversion
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const dateStr = `${year}-${month}-${day}`;
+
     return getFilteredSchedules().filter((s) => {
-      const schedDate = new Date(s.start_date).toISOString().split("T")[0];
+      const schedDate = s.start_date.split("T")[0];
       return schedDate === dateStr;
     });
   };
 
   const isDateSelected = (date) => {
     if (!date) return false;
-    const dateStr = date.toISOString().split("T")[0];
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const dateStr = `${year}-${month}-${day}`;
+
     return selectedSchedules.some((s) => {
-      const schedDate = new Date(s.start_date).toISOString().split("T")[0];
+      const schedDate = s.start_date.split("T")[0];
       return schedDate === dateStr;
     });
   };
