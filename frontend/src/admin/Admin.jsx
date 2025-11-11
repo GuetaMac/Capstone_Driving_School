@@ -1123,27 +1123,29 @@ const EnrollmentsPage = () => {
   const renderMobileCard = (e) => (
     <div
       key={e.enrollment_id}
-      className="bg-gray-50 rounded-lg p-4 ml-4 border-l-4 border-red-400"
+      className="bg-gray-50 rounded-lg p-3 sm:p-4 ml-2 sm:ml-4 border-l-4 border-red-400"
     >
       <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center">
-          <div className="h-10 w-10 rounded-full bg-red-200 flex items-center justify-center mr-3">
-            <span className="text-sm font-medium text-red-700">
+        <div className="flex items-center flex-1 min-w-0">
+          <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-red-200 flex items-center justify-center mr-2 sm:mr-3 flex-shrink-0">
+            <span className="text-xs sm:text-sm font-medium text-red-700">
               {e.student_name
                 ?.split(" ")
                 .map((n) => n[0])
                 .join("") || "N/A"}
             </span>
           </div>
-          <div>
-            <h4 className="font-medium text-gray-900">
+          <div className="min-w-0 flex-1">
+            <h4 className="font-medium text-gray-900 text-sm sm:text-base truncate">
               {e.student_name || "N/A"}
             </h4>
-            <p className="text-sm text-gray-600">{e.course_name || "N/A"}</p>
+            <p className="text-xs sm:text-sm text-gray-600 line-clamp-2">
+              {e.course_name || "N/A"}
+            </p>
           </div>
         </div>
         <span
-          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ml-2 flex-shrink-0 ${getStatusColor(
             hasAdminFeatures ? e.payment_status : e.status
           )}`}
         >
@@ -1151,11 +1153,16 @@ const EnrollmentsPage = () => {
         </span>
       </div>
 
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-600">Instructor:</span>
+      <div className="space-y-2 sm:space-y-3">
+        {/* Instructor */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <span className="text-xs sm:text-sm text-gray-600 font-medium">
+            Instructor:
+          </span>
           {isOnlineTheoretical(e.course_name) ? (
-            <span className="text-sm text-gray-500 italic">N/A (Online)</span>
+            <span className="text-xs sm:text-sm text-gray-500 italic">
+              N/A (Online)
+            </span>
           ) : hasAdminFeatures ? (
             <select
               value={e.instructor_id || ""}
@@ -1164,7 +1171,7 @@ const EnrollmentsPage = () => {
                 const reset = () => (ev.target.value = e.instructor_id || "");
                 assignInstructor(e.enrollment_id, instructorId, reset);
               }}
-              className="text-sm border border-gray-300 rounded-md px-2 py-1"
+              className="text-xs sm:text-sm border border-gray-300 rounded-md px-2 py-1 w-full sm:w-auto"
             >
               <option value="" disabled>
                 {e.instructor_name ? "Change" : "Assign"}
@@ -1176,20 +1183,25 @@ const EnrollmentsPage = () => {
               ))}
             </select>
           ) : e.instructor_name ? (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
               {e.instructor_name}
             </span>
           ) : (
-            <span className="text-sm text-gray-500">Not assigned</span>
+            <span className="text-xs sm:text-sm text-gray-500">
+              Not assigned
+            </span>
           )}
         </div>
 
         {hasAdminFeatures && (
           <>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Amount:</span>
+            {/* Amount */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <span className="text-xs sm:text-sm text-gray-600 font-medium">
+                Amount:
+              </span>
               <div className="flex items-center">
-                <span className="text-sm text-gray-500 mr-1">₱</span>
+                <span className="text-xs sm:text-sm text-gray-500 mr-1">₱</span>
                 <input
                   type="number"
                   defaultValue={e.amount_paid || ""}
@@ -1201,27 +1213,32 @@ const EnrollmentsPage = () => {
                       updateAmountPaid(e.enrollment_id, value, reset);
                     }
                   }}
-                  className="w-24 text-sm border border-gray-300 rounded px-2 py-1"
+                  className="w-full sm:w-24 text-xs sm:text-sm border border-gray-300 rounded px-2 py-1"
                 />
               </div>
             </div>
 
+            {/* Payment Proof */}
             {e.proof_of_payment && (
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Payment Proof:</span>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <span className="text-xs sm:text-sm text-gray-600 font-medium">
+                  Payment Proof:
+                </span>
+
                 <a
                   href={`${import.meta.env.VITE_API_URL}/uploads/${
                     e.proof_of_payment
                   }`}
                   target="_blank"
                   rel="noopener noreferrer"
+                  className="inline-block"
                 >
                   <img
                     src={`${import.meta.env.VITE_API_URL}/uploads/${
                       e.proof_of_payment
                     }`}
                     alt="Proof"
-                    className="h-10 w-10 object-cover rounded-lg border-2 border-gray-200"
+                    className="h-12 w-12 sm:h-10 sm:w-10 object-cover rounded-lg border-2 border-gray-200 hover:border-red-400 transition-colors"
                   />
                 </a>
               </div>
@@ -1229,8 +1246,11 @@ const EnrollmentsPage = () => {
           </>
         )}
 
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-600">Status:</span>
+        {/* Status */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <span className="text-xs sm:text-sm text-gray-600 font-medium">
+            Status:
+          </span>
           {hasAdminFeatures && isOnlineTheoretical(e.course_name) ? (
             <select
               value={e.status || "approved"}
@@ -1239,7 +1259,7 @@ const EnrollmentsPage = () => {
                 const reset = () => (ev.target.value = e.status || "approved");
                 updateEnrollmentStatus(e.enrollment_id, value, reset);
               }}
-              className={`text-sm border rounded-full px-2 py-1 font-medium ${getStatusColor(
+              className={`text-xs sm:text-sm border rounded-full px-2 py-1 font-medium w-full sm:w-auto ${getStatusColor(
                 e.status
               )}`}
             >
@@ -1249,7 +1269,7 @@ const EnrollmentsPage = () => {
             </select>
           ) : (
             <span
-              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+              className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
                 e.status
               )}`}
             >
@@ -1258,15 +1278,18 @@ const EnrollmentsPage = () => {
           )}
         </div>
 
+        {/* Actions */}
         {hasAdminFeatures && (
-          <div className="flex items-center justify-between pt-2 border-t border-gray-200">
-            <span className="text-sm text-gray-600">Actions:</span>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-2 border-t border-gray-200">
+            <span className="text-xs sm:text-sm text-gray-600 font-medium">
+              Actions:
+            </span>
             <button
               onClick={() => deleteEnrollment(e.enrollment_id, e.student_name)}
-              className="inline-flex items-center px-3 py-1.5 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 hover:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors duration-200"
+              className="inline-flex items-center justify-center px-3 py-1.5 border border-red-300 text-xs sm:text-sm font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 hover:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors duration-200 w-full sm:w-auto"
               title="Delete enrollment"
             >
-              <Trash2 className="h-4 w-4 mr-1" />
+              <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
               Delete
             </button>
           </div>
@@ -1538,7 +1561,7 @@ const EnrollmentsPage = () => {
                 <div className="flex items-center text-white">
                   <Calendar className="h-5 w-5 mr-3" />
                   <h3 className="text-lg font-semibold">{group.schedule}</h3>
-                  <span className="ml-auto bg-white bg-opacity-20 px-3 py-1 rounded-full text-sm text-red-500">
+                  <span className="ml-auto bg-white bg-opacity-20 px-3 py-1 rounded-full text-sm text-white-500">
                     {group.enrollments.length} students
                   </span>
                 </div>
