@@ -483,7 +483,7 @@ const CoursesPage = () => {
   useEffect(() => {
     const token = window.localStorage?.getItem("token");
     if (token) {
-      fetch(`${import.meta.env.VITE_API_URL}/api/student-profile`, {
+      fetch(`${import.meta.env.VITE_API_URL}/student-profile`, {
         headers: { Authorization: `Bearer ${token}` },
       })
         .then((res) => res.json())
@@ -732,7 +732,7 @@ const EnrollmentPage = () => {
     try {
       const enrollmentIdNum = Number(selectedEnrollment.enrollment_id);
       const res = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/feedback/${enrollmentIdNum}`,
+        `${import.meta.env.VITE_API_URL}/feedback/${enrollmentIdNum}`,
         {
           method: "POST",
           headers: {
@@ -1299,7 +1299,7 @@ const FeedbacksPage = () => {
   useEffect(() => {
     const token = localStorage.getItem("token");
 
-    fetch(`${import.meta.env.VITE_API_URL}/api/student/feedback`, {
+    fetch(`${import.meta.env.VITE_API_URL}/student/feedback`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },

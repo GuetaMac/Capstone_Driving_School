@@ -137,7 +137,7 @@ const EnrollmentPage = () => {
     try {
       const token = window.localStorage?.getItem("token");
       const res = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/student-profile`,
+        `${import.meta.env.VITE_API_URL}/student-profile`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -156,7 +156,7 @@ const EnrollmentPage = () => {
     try {
       const token = window.localStorage?.getItem("token");
       const res = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/check-active-enrollment`,
+        `${import.meta.env.VITE_API_URL}/check-active-enrollment`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -189,7 +189,7 @@ const EnrollmentPage = () => {
       const res = await fetch(
         `${
           import.meta.env.VITE_API_URL
-        }/api/schedules/with-availability?course_id=${course.course_id}`,
+        }/schedules/with-availability?course_id=${course.course_id}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }

@@ -194,7 +194,7 @@ const DashboardPage = () => {
   });
 
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL}/api/dashboard-stats`)
+    fetch(`${import.meta.env.VITE_API_URL}/dashboard-stats`)
       .then((res) => res.json())
       .then((data) => setStats(data))
       .catch((err) => console.error(err));
@@ -388,7 +388,7 @@ const RecordsPage = () => {
   const fetchAccounts = async () => {
     try {
       const { data } = await axios.get(
-        `${import.meta.env.VITE_API_URL}/api/accounts`
+        `${import.meta.env.VITE_API_URL}/accounts`
       );
       setAccounts(data);
     } catch (error) {
@@ -426,12 +426,12 @@ const RecordsPage = () => {
     try {
       if (editingId) {
         await axios.put(
-          `${import.meta.env.VITE_API_URL}/api/accounts/${editingId}`,
+          `${import.meta.env.VITE_API_URL}/accounts/${editingId}`,
           form
         );
         Swal.fire("Updated!", "Account updated successfully.", "success");
       } else {
-        await axios.post(`${import.meta.env.VITE_API_URL}/api/accounts`, form);
+        await axios.post(`${import.meta.env.VITE_API_URL}/accounts`, form);
         Swal.fire("Added!", "Account added successfully.", "success");
       }
 
@@ -474,7 +474,7 @@ const RecordsPage = () => {
     if (!result.isConfirmed) return;
 
     try {
-      await axios.delete(`${import.meta.env.VITE_API_URL}/api/accounts/${id}`);
+      await axios.delete(`${import.meta.env.VITE_API_URL}/accounts/${id}`);
       Swal.fire("Deleted!", "Account has been deleted.", "success");
       fetchAccounts();
     } catch (error) {
@@ -1936,7 +1936,7 @@ const StudentsRecords = () => {
 
   // export handler
   const handleExport = () => {
-    let url = `${import.meta.env.VITE_API_URL}/api/manager/export-records`;
+    let url = `${import.meta.env.VITE_API_URL}/manager/export-records`;
 
     const params = new URLSearchParams();
     if (selectedBranch) params.append("branch_id", selectedBranch);
@@ -1950,7 +1950,7 @@ const StudentsRecords = () => {
 
   // fetch branches
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL}/api/branches/records`)
+    fetch(`${import.meta.env.VITE_API_URL}/branches/records`)
       .then((res) => res.json())
       .then((data) => setBranches(data))
       .catch((err) => console.error("❌ Error fetching branches:", err));
@@ -1958,7 +1958,7 @@ const StudentsRecords = () => {
 
   // fetch years
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL}/api/manager/years`)
+    fetch(`${import.meta.env.VITE_API_URL}/manager/years`)
       .then((res) => res.json())
       .then((data) => setYears(data))
       .catch((err) => console.error("❌ Error fetching years:", err));
@@ -1967,7 +1967,7 @@ const StudentsRecords = () => {
   // fetch student records
   useEffect(() => {
     setLoading(true);
-    let url = `${import.meta.env.VITE_API_URL}/api/manager/student-records`;
+    let url = `${import.meta.env.VITE_API_URL}/manager/student-records`;
 
     const params = new URLSearchParams();
     if (selectedBranch) params.append("branch_id", selectedBranch);
@@ -2966,7 +2966,7 @@ const FeedbackPage = () => {
 
         const url = `${
           import.meta.env.VITE_API_URL
-        }/api/feedback?${params.toString()}`;
+        }/feedback?${params.toString()}`;
 
         const response = await fetch(url);
 
@@ -3022,7 +3022,7 @@ const FeedbackPage = () => {
       if (!result.isConfirmed) return;
 
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/feedback/${feedbackId}/feature`,
+        `${import.meta.env.VITE_API_URL}/feedback/${feedbackId}/feature`,
         {
           method: "PUT",
           headers: {
@@ -3675,7 +3675,7 @@ const AnalyticsPage = () => {
 
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/generate-insights`,
+        `${import.meta.env.VITE_API_URL}/generate-insights`,
         {
           method: "POST",
           headers: {
@@ -3712,7 +3712,7 @@ const AnalyticsPage = () => {
       if (year) params.append("year", year);
       if (month) params.append("month", month);
 
-      const url = `${import.meta.env.VITE_API_URL}/api/analytics${
+      const url = `${import.meta.env.VITE_API_URL}/analytics${
         params.toString() ? `?${params.toString()}` : ""
       }`;
 
@@ -4456,7 +4456,7 @@ const AttendancePage = () => {
         }
 
         const res = await axios.get(
-          `${import.meta.env.VITE_API_URL}/api/branches`,
+          `${import.meta.env.VITE_API_URL}/branches`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -4492,7 +4492,7 @@ const AttendancePage = () => {
 
         console.log("🔄 Loading attendance records...");
         const res = await axios.get(
-          `${import.meta.env.VITE_API_URL}/api/attendance/all`,
+          `${import.meta.env.VITE_API_URL}/attendance/all`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -5069,7 +5069,7 @@ const SettingsPage = () => {
     try {
       const token = localStorage.getItem("token");
       const response = await axios.get(
-        `${import.meta.env.VITE_API_URL}/api/profile`,
+        `${import.meta.env.VITE_API_URL}/profile`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -5085,7 +5085,7 @@ const SettingsPage = () => {
     try {
       const token = localStorage.getItem("token");
       const response = await axios.get(
-        `${import.meta.env.VITE_API_URL}/api/backup/settings`,
+        `${import.meta.env.VITE_API_URL}/backup/settings`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -5116,7 +5116,7 @@ const SettingsPage = () => {
       const token = localStorage.getItem("token");
 
       await axios.put(
-        `${import.meta.env.VITE_API_URL}/api/profile`,
+        `${import.meta.env.VITE_API_URL}/profile`,
         { name, username },
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -5141,7 +5141,7 @@ const SettingsPage = () => {
       const newState = !autoBackupEnabled;
 
       await axios.put(
-        `${import.meta.env.VITE_API_URL}/api/backup/settings`,
+        `${import.meta.env.VITE_API_URL}/backup/settings`,
         { enabled: newState, frequency: backupFrequency },
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -5164,7 +5164,7 @@ const SettingsPage = () => {
       const token = localStorage.getItem("token");
 
       await axios.put(
-        `${import.meta.env.VITE_API_URL}/api/backup/settings`,
+        `${import.meta.env.VITE_API_URL}/backup/settings`,
         { enabled: autoBackupEnabled, frequency },
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -5228,7 +5228,7 @@ const SettingsPage = () => {
       const token = localStorage.getItem("token");
 
       const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/backup`,
+        `${import.meta.env.VITE_API_URL}/backup`,
         {},
         {
           headers: { Authorization: `Bearer ${token}` },

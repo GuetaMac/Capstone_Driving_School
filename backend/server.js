@@ -452,7 +452,7 @@ app.get("/courses", async (req, res) => {
   }
 });
 // Get student profile with branch info
-app.get("/api/student-profile", authenticateToken, async (req, res) => {
+app.get("/student-profile", authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT u.user_id, u.name, u.email, u.branch_id, b.name as branch_name
@@ -1224,7 +1224,7 @@ app.get("/enrollments", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Failed to load enrollments" });
   }
 });
-app.get("/api/check-active-enrollment", authenticateToken, async (req, res) => {
+app.get("/check-active-enrollment", authenticateToken, async (req, res) => {
   const userId = req.user.userId;
   try {
     const result = await pool.query(
@@ -1244,7 +1244,7 @@ app.get("/api/check-active-enrollment", authenticateToken, async (req, res) => {
   }
 });
 
-app.get("/api/admin/enrollments", authenticateToken, async (req, res) => {
+app.get("/admin/enrollments", authenticateToken, async (req, res) => {
   const adminBranchId = req.user.branch_id;
 
   try {
@@ -1334,7 +1334,7 @@ app.get("/api/admin/enrollments", authenticateToken, async (req, res) => {
 });
 
 //add admin/instructor account
-app.post("/api/accounts", async (req, res) => {
+app.post("/accounts", async (req, res) => {
   const { name, username, password, role, branch_id } = req.body;
   const hashedPassword = await bcrypt.hash(password, 10);
   try {
@@ -1350,7 +1350,7 @@ app.post("/api/accounts", async (req, res) => {
 });
 
 // Get all accounts
-app.get("/api/accounts", async (req, res) => {
+app.get("/accounts", async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT u.user_id AS id, u.name, u.username, u.role, u.branch_id, b.name AS branch_name
@@ -1366,7 +1366,7 @@ app.get("/api/accounts", async (req, res) => {
 });
 
 // PUT (Update account)
-app.put("/api/accounts/:id", async (req, res) => {
+app.put("/accounts/:id", async (req, res) => {
   const { id } = req.params;
   const { name, username, password, role, branch_id } = req.body;
 
@@ -1396,7 +1396,7 @@ app.put("/api/accounts/:id", async (req, res) => {
 });
 
 // DELETE account
-app.delete("/api/accounts/:id", async (req, res) => {
+app.delete("/accounts/:id", async (req, res) => {
   const { id } = req.params;
   try {
     await pool.query(`DELETE FROM users WHERE user_id = $1`, [id]);
@@ -1408,7 +1408,7 @@ app.delete("/api/accounts/:id", async (req, res) => {
 });
 
 // Add new schedule
-app.post("/api/schedules", authenticateToken, async (req, res) => {
+app.post("/schedules", authenticateToken, async (req, res) => {
   const { date, start_time, end_time, is_theoretical, slots } = req.body;
 
   const created_by = req.user.userId;
@@ -1451,52 +1451,48 @@ app.post("/api/schedules", authenticateToken, async (req, res) => {
 });
 
 // Delete schedule endpoint
-app.delete(
-  "/api/schedules/:scheduleId",
-  authenticateToken,
-  async (req, res) => {
-    const { scheduleId } = req.params;
-    const userId = req.user.userId;
-    const userRole = req.user.role;
+app.delete("/schedules/:scheduleId", authenticateToken, async (req, res) => {
+  const { scheduleId } = req.params;
+  const userId = req.user.userId;
+  const userRole = req.user.role;
 
-    try {
-      // Only admins can delete schedules
-      if (userRole !== "administrative_staff") {
-        return res
-          .status(403)
-          .json({ error: " Only admins can delete schedules" });
-      }
-
-      // Check if schedule exists
-      const scheduleCheck = await pool.query(
-        "SELECT * FROM schedules WHERE schedule_id = $1",
-        [scheduleId]
-      );
-
-      if (scheduleCheck.rows.length === 0) {
-        return res.status(404).json({ error: "❌ Schedule not found" });
-      }
-
-      // Delete related bookings first (if you want to cascade)
-      await pool.query("DELETE FROM enrollments WHERE schedule_id = $1", [
-        scheduleId,
-      ]);
-
-      // Delete the schedule
-      await pool.query("DELETE FROM schedules WHERE schedule_id = $1", [
-        scheduleId,
-      ]);
-
-      res.status(200).json({ message: "✅ Schedule deleted successfully" });
-    } catch (error) {
-      console.error("Error deleting schedule:", error);
-      res.status(500).json({ error: "❌ Failed to delete schedule" });
+  try {
+    // Only admins can delete schedules
+    if (userRole !== "administrative_staff") {
+      return res
+        .status(403)
+        .json({ error: " Only admins can delete schedules" });
     }
+
+    // Check if schedule exists
+    const scheduleCheck = await pool.query(
+      "SELECT * FROM schedules WHERE schedule_id = $1",
+      [scheduleId]
+    );
+
+    if (scheduleCheck.rows.length === 0) {
+      return res.status(404).json({ error: "❌ Schedule not found" });
+    }
+
+    // Delete related bookings first (if you want to cascade)
+    await pool.query("DELETE FROM enrollments WHERE schedule_id = $1", [
+      scheduleId,
+    ]);
+
+    // Delete the schedule
+    await pool.query("DELETE FROM schedules WHERE schedule_id = $1", [
+      scheduleId,
+    ]);
+
+    res.status(200).json({ message: "✅ Schedule deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting schedule:", error);
+    res.status(500).json({ error: "❌ Failed to delete schedule" });
   }
-);
+});
 
 // Get all schedules
-app.get("/api/schedules", authenticateToken, async (req, res) => {
+app.get("/schedules", authenticateToken, async (req, res) => {
   const branch_id = req.user.branch_id;
   const { view } = req.query; // Add query param to choose view type
 
@@ -1629,7 +1625,7 @@ app.get("/courses/:course_id", authenticateToken, async (req, res) => {
   }
 });
 // Get all instructors for the authenticated user's branch
-app.get("/api/instructors", authenticateToken, async (req, res) => {
+app.get("/instructors", authenticateToken, async (req, res) => {
   const { branch_id } = req.user; // gets from decoded JWT
 
   try {
@@ -1646,7 +1642,7 @@ app.get("/api/instructors", authenticateToken, async (req, res) => {
 
 /// Assign instructor to enrollment (manual by admin)
 app.patch(
-  "/api/admin/enrollments/:id/assign-instructor",
+  "/admin/enrollments/:id/assign-instructor",
   authenticateToken,
   async (req, res) => {
     const enrollmentId = req.params.id;
@@ -1686,7 +1682,7 @@ app.patch(
   }
 );
 
-app.get("/api/instructor/enrollments", authenticateToken, async (req, res) => {
+app.get("/instructor/enrollments", authenticateToken, async (req, res) => {
   const instructorId = req.user.userId;
 
   try {
@@ -1783,7 +1779,7 @@ app.get("/api/instructor/enrollments", authenticateToken, async (req, res) => {
 
 // Route to update enrollment status
 app.put(
-  "/api/instructor/enrollments/:enrollmentId/status",
+  "/instructor/enrollments/:enrollmentId/status",
   authenticateToken,
   async (req, res) => {
     const { enrollmentId } = req.params;
@@ -1826,7 +1822,7 @@ app.put(
 
 // Add this endpoint for admin to update enrollment status (for online theoretical courses)
 app.put(
-  "/api/admin/enrollments/:enrollmentId/status",
+  "/admin/enrollments/:enrollmentId/status",
   authenticateToken,
   async (req, res) => {
     const { enrollmentId } = req.params;
@@ -1878,7 +1874,7 @@ app.put(
 /*
 // Route to generate certificate for completed enrollments
 app.post(
-  "/api/enrollments/:id/generate-certificate",
+  "/enrollments/:id/generate-certificate",
   authenticateToken,
   async (req, res) => {
     const enrollmentId = req.params.id;
@@ -2260,9 +2256,9 @@ app.post(
   }
 );
 */
-// PATCH /api/admin/enrollments/:id/amount-paid
+// PATCH /admin/enrollments/:id/amount-paid
 app.patch(
-  "/api/admin/enrollments/:id/amount-paid",
+  "/admin/enrollments/:id/amount-paid",
   authenticateToken,
   async (req, res) => {
     const enrollmentId = req.params.id;
@@ -2285,9 +2281,9 @@ app.patch(
   }
 );
 
-// PATCH /api/admin/enrollments/:id/payment-status
+// PATCH /admin/enrollments/:id/payment-status
 app.patch(
-  "/api/admin/enrollments/:id/payment-status",
+  "/admin/enrollments/:id/payment-status",
   authenticateToken,
   async (req, res) => {
     const enrollmentId = req.params.id;
@@ -2396,7 +2392,7 @@ app.put("/announcements/:id", async (req, res) => {
 });
 
 // Update the API endpoint to accept instructor_rating
-app.post("/api/feedback/:enrollmentId", async (req, res) => {
+app.post("/feedback/:enrollmentId", async (req, res) => {
   const { enrollmentId } = req.params;
 
   console.log("Received feedback submission:");
@@ -2551,7 +2547,7 @@ app.post("/api/feedback/:enrollmentId", async (req, res) => {
 });
 
 // Feature/Unfeature feedback route
-app.put("/api/feedback/:id/feature", async (req, res) => {
+app.put("/feedback/:id/feature", async (req, res) => {
   try {
     const { id } = req.params;
     const { featured } = req.body;
@@ -2569,7 +2565,7 @@ app.put("/api/feedback/:id/feature", async (req, res) => {
 });
 
 // Get featured testimonials route
-app.get("/api/testimonials", async (req, res) => {
+app.get("/testimonials", async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
@@ -2719,7 +2715,7 @@ app.post("/reset-password", async (req, res) => {
 });
 
 //manager route to get all feedbacks
-app.get("/api/feedback", async (req, res) => {
+app.get("/feedback", async (req, res) => {
   const { branch_id, month, year } = req.query;
 
   try {
@@ -2791,7 +2787,7 @@ app.get("/api/feedback", async (req, res) => {
 });
 
 //admin route to get feedback by branch
-app.get("/api/admin/feedback", authenticateToken, async (req, res) => {
+app.get("/admin/feedback", authenticateToken, async (req, res) => {
   const { branch_id } = req.user;
   const { month, year } = req.query;
 
@@ -2848,7 +2844,7 @@ app.get("/api/admin/feedback", authenticateToken, async (req, res) => {
 });
 
 //instructor route to get feedback of their students
-app.get("/api/instructor/feedback", authenticateToken, async (req, res) => {
+app.get("/instructor/feedback", authenticateToken, async (req, res) => {
   const instructorId = req.user.userId;
   const { month, year } = req.query;
 
@@ -2902,7 +2898,7 @@ app.get("/api/instructor/feedback", authenticateToken, async (req, res) => {
   }
 });
 //student route to get their own feedback
-app.get("/api/student/feedback", authenticateToken, async (req, res) => {
+app.get("/student/feedback", authenticateToken, async (req, res) => {
   const studentId = req.user.userId;
   try {
     const result = await pool.query(
@@ -2934,7 +2930,7 @@ app.get("/api/student/feedback", authenticateToken, async (req, res) => {
 });
 
 //instructor route to post maintenance request
-app.post("/api/instructor/maintenance", authenticateToken, async (req, res) => {
+app.post("/instructor/maintenance", authenticateToken, async (req, res) => {
   const instructorId = req.user.userId;
   const { vehicle_name, description } = req.body;
 
@@ -2953,7 +2949,7 @@ app.post("/api/instructor/maintenance", authenticateToken, async (req, res) => {
 });
 
 //instructor route to get maintenance reports
-app.get("/api/instructor/maintenance", authenticateToken, async (req, res) => {
+app.get("/instructor/maintenance", authenticateToken, async (req, res) => {
   const instructorId = req.user.userId;
 
   try {
@@ -2969,7 +2965,7 @@ app.get("/api/instructor/maintenance", authenticateToken, async (req, res) => {
 });
 
 //admin route to get all maintenance reports
-app.get("/api/admin/maintenance", authenticateToken, async (req, res) => {
+app.get("/admin/maintenance", authenticateToken, async (req, res) => {
   const branchId = req.user.branch_id; // nakuha sa token (from admin user)
 
   try {
@@ -2991,7 +2987,7 @@ app.get("/api/admin/maintenance", authenticateToken, async (req, res) => {
   }
 });
 
-app.put("/api/admin/maintenance/:id", authenticateToken, async (req, res) => {
+app.put("/admin/maintenance/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
   const { status, price } = req.body;
 
@@ -3031,15 +3027,12 @@ app.post("/check-user", async (req, res) => {
 });
 
 // GET summary counts for admin dashboard
-app.get(
-  "/api/admin/enrollments/summary",
-  authenticateToken,
-  async (req, res) => {
-    const adminBranchId = req.user.branch_id;
+app.get("/admin/enrollments/summary", authenticateToken, async (req, res) => {
+  const adminBranchId = req.user.branch_id;
 
-    try {
-      const result = await pool.query(
-        `
+  try {
+    const result = await pool.query(
+      `
   
     SELECT 
     COUNT(*) AS total_enrollments,
@@ -3069,19 +3062,18 @@ app.get(
 
 
       `,
-        [adminBranchId]
-      );
+      [adminBranchId]
+    );
 
-      res.json(result.rows[0]);
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: "Server error" });
-    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
   }
-);
+});
 
 // GET SUMMARY FOR MANAGER DASHBOARD (CURRENT MONTH + Online TDC + Maintenance Price)
-app.get("/api/dashboard-stats", async (req, res) => {
+app.get("/dashboard-stats", async (req, res) => {
   try {
     const query = `
       WITH enrollment_stats AS (
@@ -3123,7 +3115,7 @@ app.get("/api/dashboard-stats", async (req, res) => {
 });
 
 // Get student records per branch
-app.get("/api/admin/student-records", authenticateToken, async (req, res) => {
+app.get("/admin/student-records", authenticateToken, async (req, res) => {
   const adminBranchId = req.user.branch_id;
 
   try {
@@ -3164,7 +3156,7 @@ app.get("/api/admin/student-records", authenticateToken, async (req, res) => {
   }
 });
 
-app.get("/api/manager/student-records", async (req, res) => {
+app.get("/manager/student-records", async (req, res) => {
   try {
     const { branch_id, month, year } = req.query;
     let query = `
@@ -3217,7 +3209,7 @@ app.get("/api/manager/student-records", async (req, res) => {
 });
 
 // 📌 Fetch Branches
-app.get("/api/branches/records", async (req, res) => {
+app.get("/branches/records", async (req, res) => {
   try {
     const result = await pool.query(
       "SELECT branch_id, name FROM branches ORDER BY name ASC"
@@ -3230,7 +3222,7 @@ app.get("/api/branches/records", async (req, res) => {
 });
 
 //  Fetch Available Years
-app.get("/api/manager/years", async (req, res) => {
+app.get("/manager/years", async (req, res) => {
   try {
     const query = `
       SELECT DISTINCT EXTRACT(YEAR FROM enrollment_date)::INT AS year
@@ -3246,7 +3238,7 @@ app.get("/api/manager/years", async (req, res) => {
 });
 
 // get all branches (for dropdown filter)
-app.get("/api/branches/records", async (req, res) => {
+app.get("/branches/records", async (req, res) => {
   try {
     const result = await pool.query(
       "SELECT branch_id, name FROM branches ORDER BY name"
@@ -3260,7 +3252,7 @@ app.get("/api/branches/records", async (req, res) => {
 
 // GET analytics data for manager dashboard
 
-app.get("/api/analytics", async (req, res) => {
+app.get("/analytics", async (req, res) => {
   try {
     const { branch_id, year, month } = req.query;
 
@@ -3550,7 +3542,7 @@ function getMonthName(monthNumber) {
 }
 
 // Get instructors for this admin's branch
-app.get("/api/admin/instructors", authenticateToken, async (req, res) => {
+app.get("/admin/instructors", authenticateToken, async (req, res) => {
   try {
     const adminBranch = req.user.branch_id; // galing sa token/session
 
@@ -3601,7 +3593,7 @@ app.get("/api/admin/instructors", authenticateToken, async (req, res) => {
 
 // Mark attendance (restricted by branch)
 app.post(
-  "/api/admin/instructors/:id/attendance",
+  "/admin/instructors/:id/attendance",
   authenticateToken,
   async (req, res) => {
     const instructorId = req.params.id;
@@ -3665,7 +3657,7 @@ app.post(
 
 // Get attendance records (filtered by branch)
 app.get(
-  "/api/admin/instructors/attendance",
+  "/admin/instructors/attendance",
   authenticateToken,
   async (req, res) => {
     try {
@@ -3700,7 +3692,7 @@ app.get(
 );
 
 // Additional debug route
-app.get("/api/admin/debug/user-info", authenticateToken, async (req, res) => {
+app.get("/admin/debug/user-info", authenticateToken, async (req, res) => {
   try {
     console.log("Token user info:", req.user);
 
@@ -3723,7 +3715,7 @@ app.get("/api/admin/debug/user-info", authenticateToken, async (req, res) => {
 });
 
 // Get all branches
-app.get("/api/branches", authenticateToken, async (req, res) => {
+app.get("/branches", async (req, res) => {
   try {
     console.log("🔍 Fetching branches...");
 
@@ -3745,7 +3737,7 @@ app.get("/api/branches", authenticateToken, async (req, res) => {
 });
 
 // Get all attendance records across all branches
-app.get("/api/attendance/all", authenticateToken, async (req, res) => {
+app.get("/attendance/all", authenticateToken, async (req, res) => {
   try {
     console.log("🔍 Fetching all attendance records...");
 
@@ -3778,7 +3770,7 @@ app.get("/api/attendance/all", authenticateToken, async (req, res) => {
 });
 
 // Optional: Get today's attendance specifically
-app.get("/api/attendance/today", authenticateToken, async (req, res) => {
+app.get("/attendance/today", authenticateToken, async (req, res) => {
   try {
     const today = new Date().toISOString().split("T")[0];
     console.log("🔍 Fetching today's attendance for:", today);
@@ -3815,7 +3807,7 @@ app.get("/api/attendance/today", authenticateToken, async (req, res) => {
 });
 
 // Get user profile
-app.get("/api/profile", authenticateToken, async (req, res) => {
+app.get("/profile", authenticateToken, async (req, res) => {
   const userId = req.user.userId;
 
   try {
@@ -3836,7 +3828,7 @@ app.get("/api/profile", authenticateToken, async (req, res) => {
 });
 
 // Update user profile
-app.put("/api/profile", authenticateToken, async (req, res) => {
+app.put("/profile", authenticateToken, async (req, res) => {
   const { name, username } = req.body;
   const userId = req.user.userId;
 
@@ -3919,7 +3911,7 @@ app.put("/change-password", authenticateToken, async (req, res) => {
   }
 });
 
-app.get("/api/feedback/status", authenticateToken, async (req, res) => {
+app.get("/feedback/status", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
 
@@ -3942,7 +3934,7 @@ app.get("/api/feedback/status", authenticateToken, async (req, res) => {
 });
 
 // 📌 Export Student Records as CSV
-app.get("/api/manager/export-records", async (req, res) => {
+app.get("/manager/export-records", async (req, res) => {
   try {
     const { branch_id, month, year } = req.query;
     let query = `
@@ -4027,7 +4019,7 @@ app.get("/api/manager/export-records", async (req, res) => {
 });
 
 app.delete(
-  "/api/admin/enrollments/:enrollmentId",
+  "/admin/enrollments/:enrollmentId",
   authenticateToken,
   async (req, res) => {
     const { enrollmentId } = req.params;
@@ -4134,7 +4126,7 @@ app.delete(
 // Add this to your Express backend server
 // No additional packages needed - uses native fetch
 
-app.post("/api/generate-insights", async (req, res) => {
+app.post("/generate-insights", async (req, res) => {
   try {
     const { chartType, data, context } = req.body;
 
@@ -4274,7 +4266,7 @@ Give me 3-4 SHORT insights using simple words. Make each point 1 sentence only. 
 });
 
 // Health check endpoint to test API key
-app.get("/api/check-gemini", async (req, res) => {
+app.get("/check-gemini", async (req, res) => {
   try {
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash?key=${process.env.GEMINI_API_KEY}`
@@ -4301,7 +4293,7 @@ app.get("/api/check-gemini", async (req, res) => {
 });
 
 // GET all vehicles (filtered by admin's branch)
-app.get("/api/vehicles", async (req, res) => {
+app.get("/vehicles", async (req, res) => {
   try {
     const token = req.headers.authorization?.split(" ")[1];
 
@@ -4333,13 +4325,13 @@ app.get("/api/vehicles", async (req, res) => {
 
     res.json(result.rows);
   } catch (error) {
-    console.error("Error in /api/vehicles:", error);
+    console.error("Error in /vehicles:", error);
     res.status(500).json({ error: "❌ Database error" });
   }
 });
 
 // POST new vehicle (automatically use admin's branch)
-app.post("/api/vehicles", async (req, res) => {
+app.post("/vehicles", async (req, res) => {
   try {
     const token = req.headers.authorization?.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -4362,7 +4354,7 @@ app.post("/api/vehicles", async (req, res) => {
 });
 
 // PUT update vehicle
-app.put("/api/vehicles/:id", async (req, res) => {
+app.put("/vehicles/:id", async (req, res) => {
   try {
     const token = req.headers.authorization?.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -4400,7 +4392,7 @@ app.put("/api/vehicles/:id", async (req, res) => {
 });
 
 // DELETE vehicle
-app.delete("/api/vehicles/:id", async (req, res) => {
+app.delete("/vehicles/:id", async (req, res) => {
   try {
     const token = req.headers.authorization?.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -4433,7 +4425,7 @@ app.delete("/api/vehicles/:id", async (req, res) => {
   }
 });
 
-app.get("/api/schedules/with-availability", async (req, res) => {
+app.get("/schedules/with-availability", async (req, res) => {
   try {
     const token = req.headers.authorization?.split(" ")[1];
     if (!token) {
@@ -4570,7 +4562,7 @@ app.get("/api/schedules/with-availability", async (req, res) => {
 });
 
 // Check vehicle availability for specific schedules
-app.post("/api/vehicles/check-availability", async (req, res) => {
+app.post("/vehicles/check-availability", async (req, res) => {
   try {
     const token = req.headers.authorization?.split(" ")[1];
     if (!token) {
@@ -5002,12 +4994,12 @@ const updateCronJobs = () => {
 };
 
 // GET backup settings
-app.get("/api/backup/settings", authenticateToken, (req, res) => {
+app.get("/backup/settings", authenticateToken, (req, res) => {
   res.json(backupSettings);
 });
 
 // UPDATE backup settings
-app.put("/api/backup/settings", authenticateToken, (req, res) => {
+app.put("/backup/settings", authenticateToken, (req, res) => {
   try {
     const { enabled, frequency } = req.body;
 
@@ -5032,7 +5024,7 @@ app.put("/api/backup/settings", authenticateToken, (req, res) => {
 });
 
 // MANUAL backup
-app.post("/api/backup", authenticateToken, async (req, res) => {
+app.post("/backup", authenticateToken, async (req, res) => {
   try {
     console.log("\n🔄 Manual backup requested by user");
     const backupFile = await createBackup();

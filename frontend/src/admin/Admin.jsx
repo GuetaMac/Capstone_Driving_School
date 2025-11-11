@@ -158,7 +158,7 @@ const DashboardPage = () => {
       try {
         const token = localStorage.getItem("token");
         const res = await axios.get(
-          `${import.meta.env.VITE_API_URL}/api/admin/enrollments/summary`,
+          `${import.meta.env.VITE_API_URL}/admin/enrollments/summary`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -389,7 +389,7 @@ const EnrollmentsPage = () => {
       let data;
       if (token) {
         const response = await axios.get(
-          `${import.meta.env.VITE_API_URL}/api/admin/enrollments`,
+          `${import.meta.env.VITE_API_URL}/admin/enrollments`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -425,7 +425,7 @@ const EnrollmentsPage = () => {
 
       if (token) {
         const { data } = await axios.get(
-          `${import.meta.env.VITE_API_URL}/api/instructors`,
+          `${import.meta.env.VITE_API_URL}/instructors`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -483,7 +483,7 @@ const EnrollmentsPage = () => {
       await axios.patch(
         `${
           import.meta.env.VITE_API_URL
-        }/api/admin/enrollments/${enrollmentId}/assign-instructor`,
+        }/admin/enrollments/${enrollmentId}/assign-instructor`,
         { instructor_id: instructorId },
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -532,7 +532,7 @@ const EnrollmentsPage = () => {
         await axios.patch(
           `${
             import.meta.env.VITE_API_URL
-          }/api/admin/enrollments/${enrollmentId}/amount-paid`,
+          }/admin/enrollments/${enrollmentId}/amount-paid`,
           { amount_paid: value },
           {
             headers: { Authorization: `Bearer ${token}` },
@@ -573,7 +573,7 @@ const EnrollmentsPage = () => {
           await axios.patch(
             `${
               import.meta.env.VITE_API_URL
-            }/api/admin/enrollments/${enrollmentId}/payment-status`,
+            }/admin/enrollments/${enrollmentId}/payment-status`,
             { payment_status: status },
             {
               headers: { Authorization: `Bearer ${token}` },
@@ -633,7 +633,7 @@ const EnrollmentsPage = () => {
       await axios.put(
         `${
           import.meta.env.VITE_API_URL
-        }/api/admin/enrollments/${enrollmentId}/status`,
+        }/admin/enrollments/${enrollmentId}/status`,
         { status: newStatus },
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -701,7 +701,7 @@ const EnrollmentsPage = () => {
       console.log("📤 Sending DELETE request...");
 
       const response = await axios.delete(
-        `${import.meta.env.VITE_API_URL}/api/admin/enrollments/${enrollmentId}`,
+        `${import.meta.env.VITE_API_URL}/admin/enrollments/${enrollmentId}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -1836,7 +1836,7 @@ const Schedules = ({ currentUser }) => {
     const token = window.localStorage?.getItem("token");
     try {
       const { data } = await axios.get(
-        `${import.meta.env.VITE_API_URL}/api/schedules`,
+        `${import.meta.env.VITE_API_URL}/schedules`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setSchedules(data);
@@ -1980,7 +1980,7 @@ const Schedules = ({ currentUser }) => {
     try {
       const token = localStorage.getItem("token");
       await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/schedules`,
+        `${import.meta.env.VITE_API_URL}/schedules`,
         {
           branch_id: currentUser?.branch_id || 1,
           created_by: currentUser?.user_id || 1,
@@ -2097,7 +2097,7 @@ const Schedules = ({ currentUser }) => {
 
       const promises = dates.map((date) =>
         axios.post(
-          `${import.meta.env.VITE_API_URL}/api/schedules`,
+          `${import.meta.env.VITE_API_URL}/schedules`,
           {
             branch_id: currentUser?.branch_id || 1,
             created_by: currentUser?.user_id || 1,
@@ -2339,7 +2339,7 @@ const Schedules = ({ currentUser }) => {
       );
 
       await axios.delete(
-        `${import.meta.env.VITE_API_URL}/api/schedules/${scheduleId}`,
+        `${import.meta.env.VITE_API_URL}/schedules/${scheduleId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -3108,7 +3108,7 @@ const FeedbackPage = () => {
   };
 
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL}/api/admin/feedback`, {
+    fetch(`${import.meta.env.VITE_API_URL}/admin/feedback`, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
       },
@@ -3830,9 +3830,7 @@ const AttendancePage = () => {
     try {
       const token = localStorage.getItem("token");
       const response = await axios.post(
-        `${
-          import.meta.env.VITE_API_URL
-        }/api/admin/instructors/${id}/attendance`,
+        `${import.meta.env.VITE_API_URL}/admin/instructors/${id}/attendance`,
         { status },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -3874,7 +3872,7 @@ const AttendancePage = () => {
         }
 
         const res = await axios.get(
-          `${import.meta.env.VITE_API_URL}/api/admin/instructors`,
+          `${import.meta.env.VITE_API_URL}/admin/instructors`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -3901,7 +3899,7 @@ const AttendancePage = () => {
     try {
       const token = localStorage.getItem("token");
       const res = await axios.get(
-        `${import.meta.env.VITE_API_URL}/api/admin/instructors/attendance`,
+        `${import.meta.env.VITE_API_URL}/admin/instructors/attendance`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -4415,7 +4413,7 @@ const MaintenancePage = () => {
   const fetchReports = async () => {
     try {
       const response = await axios.get(
-        `${import.meta.env.VITE_API_URL}/api/admin/maintenance`,
+        `${import.meta.env.VITE_API_URL}/admin/maintenance`,
         {
           headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         }
@@ -4512,7 +4510,7 @@ const MaintenancePage = () => {
 
     try {
       const response = await axios.put(
-        `${import.meta.env.VITE_API_URL}/api/admin/maintenance/${reportId}`,
+        `${import.meta.env.VITE_API_URL}/admin/maintenance/${reportId}`,
         {
           status: editingData[reportId].status,
           price: editingData[reportId].price,
@@ -5248,7 +5246,7 @@ const Records = () => {
       try {
         const token = localStorage.getItem("token");
         const res = await axios.get(
-          `${import.meta.env.VITE_API_URL}/api/admin/student-records`,
+          `${import.meta.env.VITE_API_URL}/admin/student-records`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -5671,7 +5669,7 @@ const VehiclesPage = () => {
       const decoded = jwtDecode(token);
 
       const [vehicleRes, branchRes] = await Promise.all([
-        fetch(`${import.meta.env.VITE_API_URL}/api/vehicles`, {
+        fetch(`${import.meta.env.VITE_API_URL}/vehicles`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
         fetch(`${import.meta.env.VITE_API_URL}/branches`, {
@@ -5728,7 +5726,7 @@ const VehiclesPage = () => {
 
       console.log("Sending data:", dataToSend); // Debug
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/vehicles`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/vehicles`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -5781,7 +5779,7 @@ const VehiclesPage = () => {
     try {
       const token = window.localStorage?.getItem("token");
       const res = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/vehicles/${vehicleId}`,
+        `${import.meta.env.VITE_API_URL}/vehicles/${vehicleId}`,
         {
           method: "PUT",
           headers: {
@@ -5824,7 +5822,7 @@ const VehiclesPage = () => {
     try {
       const token = window.localStorage?.getItem("token");
       const res = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/vehicles/${vehicleId}`,
+        `${import.meta.env.VITE_API_URL}/vehicles/${vehicleId}`,
         {
           method: "DELETE",
           headers: { Authorization: `Bearer ${token}` },

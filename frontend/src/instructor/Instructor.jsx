@@ -141,7 +141,7 @@ const DashboardPage = () => {
       try {
         const token = localStorage.getItem("token");
         const res = await fetch(
-          `${import.meta.env.VITE_API_URL}/api/instructor/enrollments`,
+          `${import.meta.env.VITE_API_URL}/instructor/enrollments`,
           {
             method: "GET",
             mode: "cors",
@@ -378,7 +378,7 @@ const RecordsPage = () => {
       try {
         const token = localStorage.getItem("token");
         const res = await fetch(
-          `${import.meta.env.VITE_API_URL}/api/instructor/enrollments`,
+          `${import.meta.env.VITE_API_URL}/instructor/enrollments`,
           {
             method: "GET",
             mode: "cors",
@@ -426,7 +426,7 @@ const RecordsPage = () => {
       const res = await fetch(
         `${
           import.meta.env.VITE_API_URL
-        }/api/instructor/enrollments/${enrollmentId}/status`,
+        }/instructor/enrollments/${enrollmentId}/status`,
         {
           method: "PUT",
           headers: {
@@ -950,7 +950,7 @@ const MaintenancePage = () => {
     try {
       const token = localStorage.getItem("token");
       const res = await axios.get(
-        `${import.meta.env.VITE_API_URL}/api/instructor/maintenance`,
+        `${import.meta.env.VITE_API_URL}/instructor/maintenance`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -993,7 +993,7 @@ const MaintenancePage = () => {
     try {
       const token = localStorage.getItem("token");
       await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/instructor/maintenance`,
+        `${import.meta.env.VITE_API_URL}/instructor/maintenance`,
         { vehicle_name: vehicleName, description },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -1263,7 +1263,7 @@ const FeedbacksPage = () => {
       try {
         const token = localStorage.getItem("token");
         const res = await fetch(
-          `${import.meta.env.VITE_API_URL}/api/instructor/feedback`,
+          `${import.meta.env.VITE_API_URL}/instructor/feedback`,
           {
             headers: {
               Authorization: `Bearer ${token}`,

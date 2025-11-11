@@ -98,7 +98,7 @@ function LandingPage() {
       });
     // Fetch featured testimonials
     axios
-      .get(`${import.meta.env.VITE_API_URL}/api/testimonials`)
+      .get(`${import.meta.env.VITE_API_URL}/testimonials`)
       .then((res) => {
         if (res.data && res.data.length > 0) {
           setTestimonials(res.data);
