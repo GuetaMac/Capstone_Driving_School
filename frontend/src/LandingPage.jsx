@@ -890,7 +890,7 @@ function LandingPage() {
             {/* Right side - Contact Form */}
             <div className="w-full lg:w-1/2 flex flex-col items-center justify-center gap-6">
               <a
-                href="https://www.facebook.com/messages/t/111320033799629" // FB Page ng San Pablo branch
+                href="https://m.me/111320033799629" // FB Page ng San Pablo branch
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-3 bg-red-600 hover:bg-red-700 text-white font-semibold py-5 px-8 rounded-2xl shadow-md transition w-full"
@@ -907,7 +907,7 @@ function LandingPage() {
               </a>
 
               <a
-                href="https://www.facebook.com/messages/t/100798978911903" // FB Page ng Tanauan branch
+                href="https://m.me/100798978911903" // FB Page ng Tanauan branch
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-3 bg-red-600 hover:bg-red-700 text-white font-semibold py-5 px-8 rounded-2xl shadow-md transition w-full"

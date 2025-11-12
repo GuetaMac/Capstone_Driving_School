@@ -1549,7 +1549,7 @@ const EnrollmentPage = () => {
                                     <p>
                                       <strong>Tanuan Branch:</strong>{" "}
                                       <a
-                                        href="https://www.facebook.com/messages/t/100798978911903"
+                                        href="https://m.me/100798978911903"
                                         className="text-blue-600 hover:underline break-all"
                                         target="_blank"
                                         rel="noopener noreferrer"
@@ -1561,7 +1561,7 @@ const EnrollmentPage = () => {
                                     <p>
                                       <strong>San Pablo Branch:</strong>{" "}
                                       <a
-                                        href="https://www.facebook.com/messages/t/111320033799629"
+                                        href="https://m.me/111320033799629"
                                         className="text-blue-600 hover:underline break-all"
                                         target="_blank"
                                         rel="noopener noreferrer"
