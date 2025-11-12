@@ -4543,7 +4543,7 @@ const AttendancePage = () => {
     const branchStats = {};
     branches.forEach((branch) => {
       const branchRecords = todayAttendance.filter(
-        (record) => record.branch_id === branch.id
+        (record) => record.branch_id === branch.branch_id
       );
       branchStats[branch.name] = {
         present: branchRecords.filter((r) => r.status === "present").length,
@@ -4832,7 +4832,9 @@ const AttendancePage = () => {
             >
               <option value="">All Branches</option>
               {branches.map((branch) => (
-                <option key={branch.id} value={branch.id}>
+                <option key={branch.branch_id} value={branch.branch_id}>
+                  {" "}
+                  {/* ⬅️ PALITAN */}
                   {branch.name}
                 </option>
               ))}
@@ -4901,8 +4903,9 @@ const AttendancePage = () => {
                   <span className="ml-1">
                     from{" "}
                     {
-                      branches.find((b) => b.id.toString() === filterBranch)
-                        ?.name
+                      branches.find(
+                        (b) => b.branch_id.toString() === filterBranch
+                      )?.name
                     }
                   </span>
                 )}

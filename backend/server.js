@@ -494,7 +494,7 @@ app.post("/courses", upload.single("image"), async (req, res) => {
     await pool.query(
       `INSERT INTO courses (
         name, codename, type, mode, description, price, image, branch_id,
-        vehicle_category, required_schedules, schedule_config
+        vehicle_category, required_schedules, schedule_config, is_available
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
       [
