@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useTransition } from "react";
 import { useNavigate } from "react-router-dom";
 import logo from "./assets/logo.png";
 import axios from "axios";
@@ -265,22 +265,34 @@ const DashboardPage = () => {
       </div>
 
       {/* Desktop Header */}
-      <div className="hidden sm:flex items-center justify-between mb-6 lg:mb-8">
-        <div>
-          <h1 className="text-2xl lg:text-4xl font-bold mb-2">
-            Welcome {name}!
-          </h1>
-          <p className="text-gray-600 text-sm lg:text-lg">
-            Monitor your driving school operations and track key metrics
-          </p>
-        </div>
-        <div className="text-right">
-          <div className="text-sm text-gray-500">
-            {new Date().toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            })}
+      <div className="hidden sm:block mb-6 lg:mb-8">
+        <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-lg border border-gray-200 p-6 lg:p-8 hover:shadow-xl transition-shadow duration-300">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-5">
+              <div className="w-16 h-16 lg:w-20 lg:h-20 bg-gradient-to-br from-red-500 via-red-600 to-red-700 rounded-2xl flex items-center justify-center shadow-xl transform hover:scale-105 transition-transform duration-300">
+                <Shield className="w-9 h-9 lg:w-11 lg:h-11 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl lg:text-4xl font-extrabold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-2 tracking-tight">
+                  Welcome back, {name}!
+                </h1>
+                <p className="text-gray-600 text-base lg:text-lg font-medium tracking-wide">
+                  Monitor your driving school operations and track key metrics
+                </p>
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl px-5 py-3 border-2 border-gray-200 shadow-md">
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                Today
+              </div>
+              <div className="text-base lg:text-lg font-bold text-gray-900">
+                {new Date().toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1949,6 +1961,8 @@ const StudentsRecords = () => {
   const [selectedYear, setSelectedYear] = useState("");
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const searchInputRef = useRef(null);
+  const [isPending, startTransition] = useTransition();
 
   // export handler
   const handleExport = () => {
@@ -2009,20 +2023,35 @@ const StudentsRecords = () => {
   }, [selectedBranch, selectedMonth, selectedYear]);
 
   // Filter records based on search term
+  // Filter records based on search term
   const filteredRecords = records.filter(
     (rec) =>
+      !searchTerm ||
       rec.student_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       rec.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       rec.course_name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const clearFilters = () => {
-    setSelectedBranch("");
-    setSelectedMonth("");
-    setSelectedYear("");
-    setSearchTerm("");
+    startTransition(() => {
+      setSelectedBranch("");
+      setSelectedMonth("");
+      setSelectedYear("");
+      setSearchTerm("");
+      if (searchInputRef.current) {
+        searchInputRef.current.value = "";
+      }
+    });
   };
 
+  const handleSearch = () => {
+    setSearchTerm(searchInputRef.current.value);
+  };
+
+  const handleClearSearch = () => {
+    searchInputRef.current.value = "";
+    setSearchTerm("");
+  };
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
@@ -2063,16 +2092,27 @@ const StudentsRecords = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Search Bar */}
-            <div className="relative lg:col-span-2">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search by name, email, or course..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
+            <div className="lg:col-span-2 flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Search by name, email, or course..."
+                  defaultValue=""
+                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+                  className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
+                  disabled={loading}
+                />
+              </div>
+              <button
+                onClick={handleSearch}
                 disabled={loading}
-              />
+                className="px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                <Search className="w-4 h-4" />
+                <span className="hidden sm:inline">Search</span>
+              </button>
             </div>
 
             {/* Branch Dropdown */}
@@ -2138,9 +2178,10 @@ const StudentsRecords = () => {
               searchTerm) && (
               <button
                 onClick={clearFilters}
-                className="lg:col-span-4 text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                disabled={isPending}
+                className="lg:col-span-4 text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors disabled:opacity-50"
               >
-                Clear all filters
+                {isPending ? "Clearing..." : "Clear all filters"}
               </button>
             )}
           </div>

@@ -254,26 +254,34 @@ const DashboardPage = () => {
           </div>
         </div>
 
-        {/* Desktop Layout */}
-        <div className="hidden sm:block">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-6 lg:mb-8">
-            <div className="text-center lg:text-left">
-              <h1 className="text-2xl lg:text-4xl font-bold text-gray-900 mb-2">
-                Welcome {name}!
-              </h1>
-              <p className="text-gray-600 text-sm lg:text-lg">
-                Easily track your driving progress, schedules, and performance
-                through your student dashboard.
-              </p>
-            </div>
-            <div className="text-center lg:text-right">
-              <div className="text-sm text-gray-500">Today</div>
-              <div className="text-xl lg:text-2xl font-bold text-gray-900">
-                {new Date().toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
+        {/* Desktop Header */}
+        <div className="hidden sm:block mb-6 lg:mb-8">
+          <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-lg border border-gray-200 p-6 lg:p-8 hover:shadow-xl transition-shadow duration-300">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-5">
+                <div className="w-16 h-16 lg:w-20 lg:h-20 bg-gradient-to-br from-red-500 via-red-600 to-red-700 rounded-2xl flex items-center justify-center shadow-xl transform hover:scale-105 transition-transform duration-300">
+                  <Shield className="w-9 h-9 lg:w-11 lg:h-11 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-3xl lg:text-4xl font-extrabold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-2 tracking-tight">
+                    Welcome back, {name}!
+                  </h1>
+                  <p className="text-gray-600 text-base lg:text-lg font-medium tracking-wide">
+                    Monitor your driving school operations and track key metrics
+                  </p>
+                </div>
+              </div>
+              <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl px-5 py-3 border-2 border-gray-200 shadow-md">
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                  Today
+                </div>
+                <div className="text-base lg:text-lg font-bold text-gray-900">
+                  {new Date().toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </div>
               </div>
             </div>
           </div>
