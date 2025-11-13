@@ -459,6 +459,12 @@ const RecordsPage = () => {
       branch_id: acc.branch_id,
     });
     setEditingId(acc.id);
+
+    // Scroll to top smoothly
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   };
 
   const handleDelete = async (id) => {
@@ -523,30 +529,24 @@ const RecordsPage = () => {
           </div>
 
           {/* Mobile Card View */}
-          <div className="block sm:hidden p-4 space-y-4">
+          <div className="block sm:hidden p-4 space-y-3">
             {filteredAccounts.map((acc) => (
-              <div key={acc.id} className="bg-gray-50 rounded-lg p-4 border">
-                <div className="space-y-2">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-medium text-gray-900">{acc.name}</h3>
-                      <p className="text-sm text-gray-600">@{acc.username}</p>
-                    </div>
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => handleEdit(acc)}
-                        className="text-blue-600 hover:text-blue-800 font-medium text-sm"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(acc.id)}
-                        className="text-red-600 hover:text-red-800 font-medium text-sm"
-                      >
-                        Delete
-                      </button>
-                    </div>
+              <div
+                key={acc.id}
+                className="bg-gray-50 rounded-lg p-3 border border-gray-200"
+              >
+                <div className="space-y-3">
+                  {/* Name and Username */}
+                  <div>
+                    <h3 className="font-semibold text-gray-900 text-base">
+                      {acc.name}
+                    </h3>
+                    <p className="text-xs text-gray-600 mt-0.5">
+                      @{acc.username}
+                    </p>
                   </div>
+
+                  {/* Role and Branch */}
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div>
                       <span className="text-gray-500">Role:</span>
@@ -558,6 +558,22 @@ const RecordsPage = () => {
                       <span className="text-gray-500">Branch:</span>
                       <p className="font-medium">{acc.branch_name || "N/A"}</p>
                     </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-2 pt-2 border-t border-gray-200">
+                    <button
+                      onClick={() => handleEdit(acc)}
+                      className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-md hover:bg-blue-700 font-medium text-sm"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(acc.id)}
+                      className="flex-1 bg-red-600 text-white py-2 px-3 rounded-md hover:bg-red-700 font-medium text-sm"
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
               </div>

@@ -6025,16 +6025,25 @@ const VehiclesPage = () => {
               return (
                 <div
                   key={vehicle.vehicle_id}
-                  className="border border-gray-200 rounded-lg sm:rounded-xl p-3 sm:p-4 hover:shadow-md transition-all"
+                  className="border border-gray-200 rounded-lg sm:rounded-xl p-3 sm:p-4 hover:shadow-md transition-all bg-white"
                 >
-                  <div className="flex items-start gap-3 sm:gap-4">
-                    <div className="p-2 sm:p-3 bg-red-100 rounded-lg flex-shrink-0">
-                      <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
-                    </div>
+                  {isEditing ? (
+                    // EDITING MODE
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 sm:p-3 bg-red-100 rounded-lg flex-shrink-0">
+                          <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
+                        </div>
+                        <h3 className="text-base sm:text-lg font-bold text-gray-800">
+                          Edit Vehicle
+                        </h3>
+                      </div>
 
-                    <div className="flex-1 min-w-0">
-                      {isEditing ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                      <div className="space-y-2 sm:space-y-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-600 mb-1">
+                            Vehicle Name
+                          </label>
                           <input
                             type="text"
                             value={vehicle.car_name}
@@ -6047,8 +6056,14 @@ const VehiclesPage = () => {
                                 )
                               )
                             }
-                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm sm:text-base focus:ring-2 focus:ring-red-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm sm:text-base focus:ring-2 focus:ring-red-500"
                           />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-600 mb-1">
+                            Total Units
+                          </label>
                           <input
                             type="number"
                             value={vehicle.total_units}
@@ -6065,70 +6080,90 @@ const VehiclesPage = () => {
                               )
                             }
                             min="1"
-                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm sm:text-base focus:ring-2 focus:ring-red-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm sm:text-base focus:ring-2 focus:ring-red-500"
                           />
                         </div>
-                      ) : (
-                        <>
-                          <h3 className="text-base sm:text-lg font-bold text-gray-800 truncate">
-                            {vehicle.car_name}{" "}
-                            <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-orange-100 text-orange-800 rounded-full text-xs sm:text-sm font-semibold">
-                              {vehicle.total_units}{" "}
-                              {vehicle.total_units === 1 ? "Unit" : "Units"}
-                            </span>
+                      </div>
+
+                      <div className="flex gap-2 pt-2">
+                        <button
+                          onClick={() => handleUpdate(vehicle.vehicle_id)}
+                          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all font-semibold text-sm"
+                        >
+                          <Save className="w-4 h-4" />
+                          Save
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditingId(null);
+                            fetchData();
+                          }}
+                          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all font-semibold text-sm"
+                        >
+                          <X className="w-4 h-4" />
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    // VIEW MODE
+                    <div className="flex gap-3">
+                      <div className="p-2 sm:p-3 bg-red-100 rounded-lg flex-shrink-0">
+                        <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <h3 className="text-base sm:text-lg font-bold text-gray-800 flex-1">
+                            {vehicle.car_name}
                           </h3>
-                          <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-2">
-                            <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-red-100 text-red-800 rounded-full text-xs sm:text-sm font-semibold">
+                          <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-semibold whitespace-nowrap">
+                            {vehicle.total_units}{" "}
+                            {vehicle.total_units === 1 ? "Unit" : "Units"}
+                          </span>
+                        </div>
+
+                        <div className="space-y-1.5 text-sm mb-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-500 text-xs">
+                              Branch:
+                            </span>
+                            <span className="px-2 py-0.5 bg-red-100 text-red-800 rounded-full text-xs font-semibold">
                               {getBranchName(vehicle.branch_id)}
                             </span>
-                            <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs sm:text-sm font-semibold capitalize">
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-gray-500 text-xs">
+                              Details:
+                            </span>
+                            <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded-full text-xs font-semibold capitalize">
                               {vehicle.vehicle_category}
                             </span>
-                            <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-green-100 text-green-800 rounded-full text-xs sm:text-sm font-semibold capitalize">
+                            <span className="px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-xs font-semibold capitalize">
                               {vehicle.type}
                             </span>
                           </div>
-                        </>
-                      )}
-                    </div>
+                        </div>
 
-                    <div className="flex gap-1.5 sm:gap-2 flex-shrink-0">
-                      {isEditing ? (
-                        <>
-                          <button
-                            onClick={() => handleUpdate(vehicle.vehicle_id)}
-                            className="p-1.5 sm:p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-all"
-                          >
-                            <Save className="w-4 h-4 sm:w-5 sm:h-5" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setEditingId(null);
-                              fetchData();
-                            }}
-                            className="p-1.5 sm:p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-all"
-                          >
-                            <X className="w-4 h-4 sm:w-5 sm:h-5" />
-                          </button>
-                        </>
-                      ) : (
-                        <>
+                        <div className="flex gap-2">
                           <button
                             onClick={() => setEditingId(vehicle.vehicle_id)}
-                            className="p-1.5 sm:p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-all"
+                            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-medium text-sm"
                           >
-                            <Edit2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                            <Edit2 className="w-3.5 h-3.5" />
+                            Edit
                           </button>
                           <button
                             onClick={() => handleDelete(vehicle.vehicle_id)}
-                            className="p-1.5 sm:p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-all"
+                            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all font-medium text-sm"
                           >
-                            <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Delete
                           </button>
-                        </>
-                      )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               );
             })}
