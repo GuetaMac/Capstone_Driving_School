@@ -88,17 +88,26 @@ const EnrollmentPage = () => {
   const isScheduleDateValid = (newSchedule) => {
     if (selectedSchedules.length === 0) return true;
 
-    const lastSelectedDate = new Date(
-      selectedSchedules[selectedSchedules.length - 1].start_date
-    );
-    const newScheduleDate = new Date(newSchedule.start_date);
+    // Extract date strings properly
+    const lastSelectedDateStr =
+      selectedSchedules[selectedSchedules.length - 1].start_date.split("T")[0];
+    const newScheduleDateStr = newSchedule.start_date.split("T")[0];
+
+    const [lastYear, lastMonth, lastDay] = lastSelectedDateStr
+      .split("-")
+      .map(Number);
+    const [newYear, newMonth, newDay] = newScheduleDateStr
+      .split("-")
+      .map(Number);
+
+    const lastSelectedDate = new Date(lastYear, lastMonth - 1, lastDay);
+    const newScheduleDate = new Date(newYear, newMonth - 1, newDay);
 
     lastSelectedDate.setHours(0, 0, 0, 0);
     newScheduleDate.setHours(0, 0, 0, 0);
 
     return newScheduleDate > lastSelectedDate;
   };
-
   useEffect(() => {
     checkActiveEnrollment();
     fetchFullCourseDetails();
@@ -185,7 +194,6 @@ const EnrollmentPage = () => {
     setLoading(true);
     try {
       const token = window.localStorage?.getItem("token");
-      // Use latest with-availability endpoint
       const res = await fetch(
         `${
           import.meta.env.VITE_API_URL
@@ -201,11 +209,17 @@ const EnrollmentPage = () => {
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
+
       filtered = filtered.filter((s) => {
-        const schedDate = new Date(s.start_date);
+        // Extract date string from DB and parse properly
+        const scheduleDateStr = s.start_date.split("T")[0];
+        const [year, month, day] = scheduleDateStr.split("-").map(Number);
+        const schedDate = new Date(year, month - 1, day);
         schedDate.setHours(0, 0, 0, 0);
+
         return schedDate >= today && s.slots > 0;
       });
+
       setSchedules(filtered);
     } catch (error) {
       console.error("Error fetching schedules:", error);
@@ -248,15 +262,30 @@ const EnrollmentPage = () => {
   };
 
   const formatDate = (dateStr) => {
-    // Parse date without timezone conversion
-    const [year, month, day] = dateStr.split("T")[0].split("-");
-    const date = new Date(year, parseInt(month) - 1, day);
+    console.log("=== FORMAT DATE DEBUG ===");
+    console.log("Input dateStr:", dateStr);
 
-    return date.toLocaleDateString("en-US", {
+    // Extract YYYY-MM-DD from database string (ignore timezone)
+    const scheduleDateStr = dateStr.split("T")[0];
+    console.log("After split:", scheduleDateStr);
+
+    const [year, month, day] = scheduleDateStr.split("-").map(Number);
+    console.log("Parsed values:", { year, month, day });
+
+    // Create date in LOCAL timezone
+    const date = new Date(year, month - 1, day);
+    console.log("Created date object:", date);
+    console.log("Date string:", date.toDateString());
+
+    const result = date.toLocaleDateString("en-US", {
       month: "long",
       day: "numeric",
       year: "numeric",
     });
+    console.log("Final result:", result);
+    console.log("========================");
+
+    return result;
   };
 
   const getDaysInMonth = (date) => {

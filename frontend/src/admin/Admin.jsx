@@ -787,30 +787,54 @@ const EnrollmentsPage = () => {
     }
 
     if (e.multiple_schedules && e.multiple_schedules.length > 0) {
-      const dates = e.multiple_schedules
-        .map((s) => fmtDate(new Date(s.start_date)))
+      // Format each schedule with compact date and time
+      const scheduleDetails = e.multiple_schedules
+        .map((s) => {
+          const dateStr = s.start_date.split("T")[0]; // Extract YYYY-MM-DD
+          const [year, month, day] = dateStr.split("-").map(Number);
+          const date = new Date(year, month - 1, day);
+
+          // Short month format with year (Nov 17, 2025)
+          const formattedDate = date.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          });
+
+          // Compact time format (8am-5pm)
+          const startTime = fmtTime(s.start_time)
+            .replace(":00", "")
+            .replace(" ", "");
+          const endTime = fmtTime(s.end_time)
+            .replace(":00", "")
+            .replace(" ", "");
+
+          return `${formattedDate} (${startTime}-${endTime})`;
+        })
         .join(" | ");
 
-      const firstSchedule = e.multiple_schedules[0];
-      const timeRange = `${fmtTime(firstSchedule.start_time)} to ${fmtTime(
-        firstSchedule.end_time
-      )}`;
-
-      return `${dates} — ${timeRange}`;
+      return scheduleDetails;
     }
 
     if (!e.start_date || !e.start_time || !e.end_time) {
       return e.schedule || "Schedule TBD";
     }
 
-    const start = new Date(e.start_date);
-    const startDate = fmtDate(start);
-    const endDate = fmtDate(new Date(start.getTime() + 86400000));
-    const timeRange = `${fmtTime(e.start_time)} to ${fmtTime(e.end_time)}`;
+    // For single schedule
+    const dateStr = e.start_date.split("T")[0];
+    const [year, month, day] = dateStr.split("-").map(Number);
+    const start = new Date(year, month - 1, day);
 
-    return e.is_theoretical
-      ? `${startDate} to ${endDate} — ${timeRange}`
-      : `${startDate} — ${timeRange}`;
+    const startDate = start.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+
+    const startTime = fmtTime(e.start_time).replace(":00", "").replace(" ", "");
+    const endTime = fmtTime(e.end_time).replace(":00", "").replace(" ", "");
+
+    return `${startDate} (${startTime}-${endTime})`;
   };
 
   const getAvailableYears = () => {
@@ -1784,6 +1808,91 @@ const Schedules = ({ currentUser }) => {
     slots: "",
   });
 
+  const [filters, setFilters] = useState({
+    selectedMonth: new Date().getMonth(), // 0-11
+    selectedYear: new Date().getFullYear(),
+    scheduleType: "all", // "all", "practical", "theoretical"
+    specificDate: "", // for exact date search
+  });
+
+  const getAvailableMonthsYears = () => {
+    const monthsYears = new Set();
+    schedules.forEach((schedule) => {
+      const date = new Date(schedule.start_date);
+      monthsYears.add(`${date.getFullYear()}-${date.getMonth()}`);
+    });
+    return Array.from(monthsYears).sort();
+  };
+
+  const monthNames = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+  const getFilteredSchedules = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return schedules
+      .filter((schedule) => {
+        // Convert DB date to local date
+        const scheduleDate = new Date(schedule.start_date);
+        const localYear = scheduleDate.getFullYear();
+        const localMonth = scheduleDate.getMonth();
+        const localDay = scheduleDate.getDate();
+
+        // Create clean local date for comparison
+        const cleanScheduleDate = new Date(localYear, localMonth, localDay);
+
+        // Get local date string for specific date filter
+        const localDateStr = `${localYear}-${String(localMonth + 1).padStart(
+          2,
+          "0"
+        )}-${String(localDay).padStart(2, "0")}`;
+
+        // DEBUG - tanggalin mo after
+        if (filters.specificDate) {
+          console.log("DB date:", schedule.start_date);
+          console.log("Local date string:", localDateStr);
+          console.log("Filter date:", filters.specificDate);
+          console.log("Match?", localDateStr === filters.specificDate);
+          console.log("---");
+        }
+
+        // Check if schedule is in the future or today
+        if (cleanScheduleDate < today) return false;
+
+        // Check if has available slots
+        if (schedule.slots <= 0) return false;
+
+        // Filter by selected month and year (use local date)
+        const matchesMonthYear =
+          localYear === filters.selectedYear &&
+          localMonth === filters.selectedMonth;
+
+        // Filter by specific date if set (use local date string)
+        const matchesSpecificDate =
+          !filters.specificDate || localDateStr === filters.specificDate;
+
+        // Filter by type
+        const matchesType =
+          filters.scheduleType === "all" ||
+          (filters.scheduleType === "practical" && !schedule.is_theoretical) ||
+          (filters.scheduleType === "theoretical" && schedule.is_theoretical);
+
+        return matchesMonthYear && matchesSpecificDate && matchesType;
+      })
+      .sort((a, b) => new Date(a.start_date) - new Date(b.start_date));
+  };
   const [bulkForm, setBulkForm] = useState({
     start_date: "",
     end_date: "",
@@ -2289,18 +2398,28 @@ const Schedules = ({ currentUser }) => {
     }
     return days;
   };
-
   const getSchedulesForDate = (date) => {
     if (!date) return [];
-    const dateStr = date.toISOString().split("T")[0];
+
+    // Get local date string
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const dateStr = `${year}-${month}-${day}`;
+
     return schedules.filter((schedule) => {
-      const schedStartDate = new Date(schedule.start_date)
-        .toISOString()
-        .split("T")[0];
-      return schedStartDate === dateStr;
+      // Get date from DB and extract date part only
+      const schedDateStr = schedule.start_date.split("T")[0];
+
+      const schedDate = new Date(schedule.start_date);
+      const localYear = schedDate.getFullYear();
+      const localMonth = String(schedDate.getMonth() + 1).padStart(2, "0");
+      const localDay = String(schedDate.getDate()).padStart(2, "0");
+      const localDateStr = `${localYear}-${localMonth}-${localDay}`;
+
+      return localDateStr === dateStr;
     });
   };
-
   const isToday = (date) => {
     if (!date) return false;
     const today = new Date();
@@ -2538,7 +2657,7 @@ const Schedules = ({ currentUser }) => {
     </div>
   );
 
-  const currentMonthSchedules = getSchedulesForCurrentMonth();
+  const currentMonthSchedules = getFilteredSchedules();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-2 sm:p-4 md:p-6">
@@ -2946,16 +3065,189 @@ const Schedules = ({ currentUser }) => {
                 <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
               </div>
               <h2 className="text-base sm:text-lg md:text-xl font-semibold text-gray-800">
-                {currentCalendarDate.toLocaleDateString("en-US", {
-                  month: "long",
-                  year: "numeric",
-                })}{" "}
+                {filters.specificDate ? (
+                  <>
+                    {(() => {
+                      const [year, month, day] = filters.specificDate
+                        .split("-")
+                        .map(Number);
+                      const date = new Date(year, month - 1, day);
+                      return date.toLocaleDateString("en-US", {
+                        month: "long",
+                        day: "numeric",
+                        year: "numeric",
+                      });
+                    })()}
+                  </>
+                ) : (
+                  <>
+                    {monthNames[filters.selectedMonth]} {filters.selectedYear}
+                  </>
+                )}{" "}
                 Schedules
               </h2>
             </div>
             <span className="px-2 sm:px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-[10px] sm:text-xs font-medium self-start sm:ml-auto">
-              {currentMonthSchedules.length} schedules
+              {getFilteredSchedules().length} schedules
             </span>
+          </div>
+
+          {/* Enhanced Filter Section */}
+          <div className="mb-4 p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl border-2 border-gray-200">
+            <div className="flex items-center gap-2 mb-3">
+              <Filter className="w-4 h-4 text-blue-600" />
+              <h3 className="text-sm font-semibold text-gray-800">
+                Filter Schedules
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Month Selector */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Month
+                </label>
+                <select
+                  value={filters.selectedMonth}
+                  onChange={(e) =>
+                    setFilters({
+                      ...filters,
+                      selectedMonth: parseInt(e.target.value),
+                      specificDate: "", // clear specific date when changing month
+                    })
+                  }
+                  className="w-full border-2 border-gray-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {monthNames.map((month, index) => (
+                    <option key={index} value={index}>
+                      {month}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Year Selector */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Year
+                </label>
+                <select
+                  value={filters.selectedYear}
+                  onChange={(e) =>
+                    setFilters({
+                      ...filters,
+                      selectedYear: parseInt(e.target.value),
+                      specificDate: "", // clear specific date when changing year
+                    })
+                  }
+                  className="w-full border-2 border-gray-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {Array.from(
+                    { length: 5 },
+                    (_, i) => new Date().getFullYear() + i
+                  ).map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Specific Date */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Specific Date (Optional)
+                </label>
+                <input
+                  type="date"
+                  value={filters.specificDate}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      // Fix: Use the date string directly without timezone conversion
+                      const [year, month, day] = e.target.value.split("-");
+                      setFilters({
+                        ...filters,
+                        specificDate: e.target.value,
+                        selectedMonth: parseInt(month) - 1, // month is 0-indexed
+                        selectedYear: parseInt(year),
+                      });
+                    } else {
+                      setFilters({
+                        ...filters,
+                        specificDate: "",
+                      });
+                    }
+                  }}
+                  className="w-full border-2 border-gray-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              {/* Type Filter */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Course Type
+                </label>
+                <select
+                  value={filters.scheduleType}
+                  onChange={(e) =>
+                    setFilters({ ...filters, scheduleType: e.target.value })
+                  }
+                  className="w-full border-2 border-gray-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">All Courses</option>
+                  <option value="practical">🚗 Practical (PDC)</option>
+                  <option value="theoretical">📚 Theoretical (TDC)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Stats and Clear Button */}
+            <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-gray-200">
+              <div className="flex gap-2 flex-1">
+                <div className="px-3 py-1.5 bg-green-100 rounded-lg">
+                  <span className="text-xs text-gray-600">PDC: </span>
+                  <span className="text-sm font-bold text-green-700">
+                    {
+                      getFilteredSchedules().filter((s) => !s.is_theoretical)
+                        .length
+                    }
+                  </span>
+                </div>
+                <div className="px-3 py-1.5 bg-purple-100 rounded-lg">
+                  <span className="text-xs text-gray-600">TDC: </span>
+                  <span className="text-sm font-bold text-purple-700">
+                    {
+                      getFilteredSchedules().filter((s) => s.is_theoretical)
+                        .length
+                    }
+                  </span>
+                </div>
+                <div className="px-3 py-1.5 bg-blue-100 rounded-lg">
+                  <span className="text-xs text-gray-600">Total: </span>
+                  <span className="text-sm font-bold text-blue-700">
+                    {getFilteredSchedules().length}
+                  </span>
+                </div>
+              </div>
+
+              {/* Clear Filters Button */}
+              {(filters.specificDate || filters.scheduleType !== "all") && (
+                <button
+                  onClick={() =>
+                    setFilters({
+                      selectedMonth: new Date().getMonth(),
+                      selectedYear: new Date().getFullYear(),
+                      scheduleType: "all",
+                      specificDate: "",
+                    })
+                  }
+                  className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs font-medium hover:bg-red-200 transition-all flex items-center gap-1"
+                >
+                  <X className="w-3 h-3" />
+                  Clear Filters
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="space-y-4">

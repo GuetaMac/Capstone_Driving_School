@@ -4457,16 +4457,21 @@ app.get("/schedules/with-availability", async (req, res) => {
     if (isTheoreticalCourse) {
       // For theoretical courses, return theoretical schedules without vehicle info
       const schedules = await pool.query(
-        `SELECT schedule_id, date as start_date, start_time, end_time, slots, is_theoretical, branch_id
-         FROM schedules 
-         WHERE branch_id = $1 
-         AND is_theoretical = true
-         AND date >= CURRENT_DATE
-         AND slots > 0
-         ORDER BY date, start_time`,
+        `SELECT schedule_id, 
+          TO_CHAR(date, 'YYYY-MM-DD') as start_date, 
+          start_time, 
+          end_time, 
+          slots, 
+          is_theoretical, 
+          branch_id
+          FROM schedules 
+          WHERE branch_id = $1 
+          AND is_theoretical = true
+          AND date >= CURRENT_DATE
+          AND slots > 0
+          ORDER BY date, start_time`,
         [branch_id]
       );
-
       // Return as-is, no vehicle availability needed for theoretical
       return res.json(schedules.rows);
     }
@@ -4494,16 +4499,21 @@ app.get("/schedules/with-availability", async (req, res) => {
 
     // Get all future practical schedules for this branch
     const schedulesRes = await pool.query(
-      `SELECT schedule_id, date as start_date, start_time, end_time, slots, is_theoretical, branch_id
-       FROM schedules 
-       WHERE branch_id = $1 
-       AND is_theoretical = false
-       AND date >= CURRENT_DATE
-       AND slots > 0
-       ORDER BY date, start_time`,
+      `SELECT schedule_id, 
+          TO_CHAR(date, 'YYYY-MM-DD') as start_date, 
+          start_time, 
+          end_time, 
+          slots, 
+          is_theoretical, 
+          branch_id
+          FROM schedules 
+          WHERE branch_id = $1 
+          AND is_theoretical = false
+          AND date >= CURRENT_DATE
+          AND slots > 0
+          ORDER BY date, start_time`,
       [branch_id]
     );
-
     const schedules = schedulesRes.rows;
 
     // For each schedule, check how many vehicles are already booked
@@ -4512,24 +4522,23 @@ app.get("/schedules/with-availability", async (req, res) => {
         // Count enrollments that conflict with this schedule's time
         const conflictQuery = await pool.query(
           `SELECT COUNT(DISTINCT e.enrollment_id) as booked_count
-           FROM enrollments e
-           JOIN enrollment_schedules es ON e.enrollment_id = es.enrollment_id
-           JOIN schedules s ON es.schedule_id = s.schedule_id
-           WHERE e.vehicle_category = $1
-           AND e.vehicle_type = $2
-           AND s.branch_id = $3
-           AND e.status IN ('pending', 'active', 'ongoing')
-           AND s.date = $4
-           AND (
-             -- Time overlap check: schedules overlap if one starts before the other ends
-             (s.start_time < $6::time AND s.end_time > $5::time) OR
-             (s.start_time >= $5::time AND s.start_time < $6::time)
-           )`,
+   FROM enrollments e
+   JOIN enrollment_schedules es ON e.enrollment_id = es.enrollment_id
+   JOIN schedules s ON es.schedule_id = s.schedule_id
+   WHERE e.vehicle_category = $1
+   AND e.vehicle_type = $2
+   AND s.branch_id = $3
+   AND e.status IN ('pending', 'active', 'ongoing')
+   AND TO_CHAR(s.date, 'YYYY-MM-DD') = TO_CHAR($4::date, 'YYYY-MM-DD')
+   AND (
+     (s.start_time < $6::time AND s.end_time > $5::time) OR
+     (s.start_time >= $5::time AND s.start_time < $6::time)
+   )`,
           [
             vehicle_category,
             type,
             branch_id,
-            schedule.start_date,
+            schedule.start_date, // This is now a string 'YYYY-MM-DD'
             schedule.start_time,
             schedule.end_time,
           ]
