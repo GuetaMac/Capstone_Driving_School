@@ -382,6 +382,7 @@ const DashboardPage = () => {
 const RecordsPage = () => {
   const [accounts, setAccounts] = useState([]);
   const [branches, setBranches] = useState([]);
+  const [passwordError, setPasswordError] = useState("");
   const [form, setForm] = useState({
     name: "",
     username: "",
@@ -408,6 +409,36 @@ const RecordsPage = () => {
     }
   };
 
+  const validatePassword = (password) => {
+    const minLength = 8;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+    const errors = [];
+    if (password.length < minLength) {
+      errors.push(`At least ${minLength} characters`);
+    }
+    if (!hasUpperCase) {
+      errors.push("One uppercase letter");
+    }
+    if (!hasLowerCase) {
+      errors.push("One lowercase letter");
+    }
+    if (!hasNumber) {
+      errors.push("One number");
+    }
+    if (!hasSpecialChar) {
+      errors.push("One special character (!@#$%^&*...)");
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors: errors,
+    };
+  };
+
   const fetchBranches = async () => {
     try {
       const { data } = await axios.get(
@@ -422,6 +453,37 @@ const RecordsPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Validate password if it's being changed or it's a new account
+    if (form.password) {
+      const validation = validatePassword(form.password);
+      if (!validation.isValid) {
+        Swal.fire({
+          icon: "error",
+          title: "Weak Password",
+          html: `<div style="text-align: left;">
+          <p>Password must contain:</p>
+          <ul style="margin-left: 20px;">
+            ${validation.errors.map((err) => `<li>${err}</li>`).join("")}
+          </ul>
+        </div>`,
+          confirmButtonColor: "#dc2626",
+          confirmButtonText: "OK",
+        });
+        return;
+      }
+    } else if (!editingId) {
+      // If creating new account, password is required
+      Swal.fire({
+        icon: "error",
+        title: "Password Required",
+        text: "Please enter a password for the new account.",
+        confirmButtonColor: "#dc2626",
+        confirmButtonText: "OK",
+      });
+      return;
+    }
+
+    // Confirmation dialog
     const result = await Swal.fire({
       title: editingId ? "Update Account?" : "Add New Account?",
       text: editingId
@@ -435,6 +497,7 @@ const RecordsPage = () => {
 
     if (!result.isConfirmed) return;
 
+    // Submit to API
     try {
       if (editingId) {
         await axios.put(
@@ -455,13 +518,13 @@ const RecordsPage = () => {
         branch_id: "",
       });
       setEditingId(null);
+      setPasswordError(""); // Clear password error
       fetchAccounts();
     } catch (error) {
       console.error(error);
       Swal.fire("Error", "Something went wrong. Please try again.", "error");
     }
   };
-
   const handleEdit = (acc) => {
     setForm({
       name: acc.name,
@@ -711,9 +774,25 @@ const RecordsPage = () => {
             <input
               type={showPassword ? "text" : "password"}
               value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              onChange={(e) => {
+                const newPassword = e.target.value;
+                setForm({ ...form, password: newPassword });
+
+                // Real-time validation feedback
+                if (newPassword) {
+                  const validation = validatePassword(newPassword);
+                  if (!validation.isValid) {
+                    setPasswordError(validation.errors.join(", "));
+                  } else {
+                    setPasswordError("");
+                  }
+                } else {
+                  setPasswordError("");
+                }
+              }}
               className="border border-gray-300 rounded-md p-2 pr-10 text-sm sm:text-base"
               placeholder="Enter password"
+              required={!editingId}
             />
             <button
               type="button"
@@ -722,6 +801,27 @@ const RecordsPage = () => {
             >
               {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
             </button>
+
+            {/* Password strength feedback */}
+            {form.password && (
+              <div className="mt-1">
+                {passwordError ? (
+                  <p className="text-xs text-red-600">
+                    ❌ Missing: {passwordError}
+                  </p>
+                ) : (
+                  <p className="text-xs text-green-600">✓ Strong password</p>
+                )}
+              </div>
+            )}
+
+            {/* Password requirements hint */}
+            {!editingId && (
+              <p className="text-xs text-gray-500 mt-1">
+                Must be 8+ characters with uppercase, lowercase, number, and
+                special character
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col">
