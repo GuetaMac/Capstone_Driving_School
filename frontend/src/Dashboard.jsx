@@ -2126,22 +2126,31 @@ const StudentsRecords = () => {
   // Filter records based on search term
   // Filter records based on search term
   const filteredRecords = records.filter((rec) => {
-    const nameMatch =
-      searchTerm === "" ||
-      (rec.student_name &&
-        rec.student_name.toLowerCase().includes(searchTerm.toLowerCase()));
+    if (searchTerm === "") return true;
 
-    const emailMatch =
-      searchTerm === "" ||
-      (rec.email && rec.email.toLowerCase().includes(searchTerm.toLowerCase()));
+    console.log("🎯 Filtering with searchTerm:", searchTerm);
+    console.log("  Checking record:", rec.student_name);
 
-    const courseMatch =
-      searchTerm === "" ||
-      (rec.course_name &&
-        rec.course_name.toLowerCase().includes(searchTerm.toLowerCase()));
+    const nameMatch = rec.student_name
+      ?.toLowerCase()
+      .includes(searchTerm.toLowerCase());
+    const emailMatch = rec.email
+      ?.toLowerCase()
+      .includes(searchTerm.toLowerCase());
+    const courseMatch = rec.course_name
+      ?.toLowerCase()
+      .includes(searchTerm.toLowerCase());
+
+    console.log("  Name match:", nameMatch);
+    console.log("  Email match:", emailMatch);
+    console.log("  Course match:", courseMatch);
+    console.log("  Final result:", nameMatch || emailMatch || courseMatch);
 
     return nameMatch || emailMatch || courseMatch;
   });
+
+  console.log("📊 Total filtered records:", filteredRecords.length);
+  console.log("📊 Total all records:", records.length);
 
   const clearFilters = () => {
     startTransition(() => {
@@ -2158,9 +2167,11 @@ const StudentsRecords = () => {
 
   const handleSearch = () => {
     const trimmedValue = searchInputRef.current.value.trim();
+    console.log("🔍 Search clicked:");
+    console.log("  Input value:", searchInputRef.current.value);
+    console.log("  Trimmed value:", trimmedValue);
     setSearchTerm(trimmedValue);
   };
-
   const handleClearSearch = () => {
     searchInputRef.current.value = "";
     setSearchInput("");
