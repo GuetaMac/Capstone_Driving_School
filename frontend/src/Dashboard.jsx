@@ -2124,13 +2124,23 @@ const StudentsRecords = () => {
 
   // Filter records based on search term
   // Filter records based on search term
-  const filteredRecords = records.filter(
-    (rec) =>
-      !searchTerm ||
-      rec.student_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      rec.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      rec.course_name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredRecords = records.filter((rec) => {
+    const nameMatch =
+      searchTerm === "" ||
+      (rec.student_name &&
+        rec.student_name.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    const emailMatch =
+      searchTerm === "" ||
+      (rec.email && rec.email.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    const courseMatch =
+      searchTerm === "" ||
+      (rec.course_name &&
+        rec.course_name.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    return nameMatch || emailMatch || courseMatch;
+  });
 
   const clearFilters = () => {
     startTransition(() => {
