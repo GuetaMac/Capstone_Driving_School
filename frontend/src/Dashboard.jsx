@@ -2063,6 +2063,7 @@ const StudentsRecords = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const searchInputRef = useRef(null);
   const [isPending, startTransition] = useTransition();
+  const [searchInput, setSearchInput] = useState("");
 
   // export handler
   const handleExport = () => {
@@ -2147,6 +2148,7 @@ const StudentsRecords = () => {
       setSelectedBranch("");
       setSelectedMonth("");
       setSelectedYear("");
+      setSearchInput("");
       setSearchTerm("");
       if (searchInputRef.current) {
         searchInputRef.current.value = "";
@@ -2155,11 +2157,13 @@ const StudentsRecords = () => {
   };
 
   const handleSearch = () => {
-    setSearchTerm(searchInputRef.current.value);
+    const trimmedValue = searchInputRef.current.value.trim();
+    setSearchTerm(trimmedValue);
   };
 
   const handleClearSearch = () => {
     searchInputRef.current.value = "";
+    setSearchInput("");
     setSearchTerm("");
   };
   return (
@@ -2209,7 +2213,8 @@ const StudentsRecords = () => {
                   ref={searchInputRef}
                   type="text"
                   placeholder="Search by name, email, or course..."
-                  defaultValue=""
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
                   onKeyPress={(e) => e.key === "Enter" && handleSearch()}
                   className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
                   disabled={loading}
