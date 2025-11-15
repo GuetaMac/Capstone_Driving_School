@@ -1658,12 +1658,42 @@ const EnrollmentPage = () => {
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={(e) =>
-                        setPaymentInfo({
-                          ...paymentInfo,
-                          proof_image: e.target.files[0],
-                        })
-                      }
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          // Check if file is an image
+                          if (!file.type.startsWith("image/")) {
+                            Swal.fire({
+                              icon: "error",
+                              title: "Invalid File Type",
+                              text: "Please upload an image file only (JPG, PNG, etc.)",
+                              confirmButtonColor: "#dc2626",
+                              confirmButtonText: "OK",
+                            });
+                            e.target.value = ""; // Clear the input
+                            return;
+                          }
+
+                          // Optional: Check file size (e.g., max 5MB)
+                          const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+                          if (file.size > maxSize) {
+                            Swal.fire({
+                              icon: "error",
+                              title: "File Too Large",
+                              text: "Please upload an image smaller than 5MB",
+                              confirmButtonColor: "#dc2626",
+                              confirmButtonText: "OK",
+                            });
+                            e.target.value = ""; // Clear the input
+                            return;
+                          }
+
+                          setPaymentInfo({
+                            ...paymentInfo,
+                            proof_image: file,
+                          });
+                        }
+                      }}
                       className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base"
                       required
                     />
