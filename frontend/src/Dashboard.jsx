@@ -2394,9 +2394,9 @@ const StudentsRecords = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
-                    {filteredRecords.map((rec) => (
+                    {filteredRecords.map((rec, index) => (
                       <tr
-                        key={`${rec.user_id}-${rec.course_name}`}
+                        key={`${rec.user_id}-${rec.course_name}-${rec.enrollment_date}-${index}`}
                         className="hover:bg-slate-50 transition-colors"
                       >
                         <td className="px-6 py-4 text-sm font-medium text-slate-900">
