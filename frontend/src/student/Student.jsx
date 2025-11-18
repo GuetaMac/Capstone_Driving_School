@@ -991,9 +991,14 @@ const EnrollmentPage = () => {
                       </h2>
                       <span
                         className={`inline-block px-4 py-2 rounded-full font-semibold text-sm whitespace-nowrap ${
-                          (e.payment_status ?? "").toLowerCase() === "paid"
+                          (e.payment_status ?? "").toLowerCase() === "paid" ||
+                          (e.payment_status ?? "").toLowerCase() ===
+                            "fully paid"
                             ? "bg-green-100 text-green-800"
-                            : "bg-yellow-100 text-yellow-800"
+                            : (e.payment_status ?? "").toLowerCase() ===
+                              "partially paid"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : "bg-red-100 text-red-800"
                         }`}
                       >
                         {(e.payment_status ?? "unpaid").replace(/_/g, " ")}
