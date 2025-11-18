@@ -939,14 +939,29 @@ const EnrollmentPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-gray-50 p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
-            My Enrollments
-          </h1>
-          <p className="text-gray-600">
-            {enrollments.length} course{enrollments.length !== 1 ? "s" : ""}{" "}
-            enrolled
-          </p>
+        <div className="mb-8 bg-gradient-to-r from-red-600 to-red-500 rounded-2xl p-8 shadow-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-3xl sm:text-4xl font-bold text-white mb-3 flex items-center gap-3">
+                <BookOpen className="w-10 h-10" />
+                My Enrollments
+              </h1>
+              <p className="text-red-100 text-sm sm:text-base">
+                Track your learning progress and course schedules
+              </p>
+            </div>
+
+            <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl px-6 py-4 border-2 border-white border-opacity-30">
+              <div className="text-center">
+                <div className="text-4xl sm:text-5xl font-bold text-white mb-1">
+                  {enrollments.length}
+                </div>
+                <div className="text-red-100 text-sm font-semibold uppercase tracking-wide">
+                  Course{enrollments.length !== 1 ? "s" : ""} Enrolled
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="space-y-6">
