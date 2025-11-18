@@ -79,6 +79,7 @@ import {
 
 import Swal from "sweetalert2";
 import { GiChecklist } from "react-icons/gi";
+import { FaPesoSign } from "react-icons/fa6";
 
 const COLORS = [
   "#3B82F6",
@@ -363,7 +364,7 @@ const DashboardPage = () => {
             minimumFractionDigits: 2,
           })}`}
           title="Total Earnings"
-          icon={<DollarSign className="w-5 h-5 lg:w-6 lg:h-6" />}
+          icon={<FaPesoSign className="w-5 h-5 lg:w-6 lg:h-6" />}
           color="purple"
         />
         <StatCard
@@ -4242,7 +4243,7 @@ const AnalyticsPage = () => {
           <StatCard
             title="Total Revenue"
             value={`₱${parseInt(data.totalRevenue || 0).toLocaleString()}`}
-            icon={DollarSign}
+            icon={FaPesoSign}
             color="border-l-green-500 from-green-500"
           />
           <StatCard

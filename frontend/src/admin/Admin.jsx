@@ -54,6 +54,7 @@ import { PiStudentFill } from "react-icons/pi";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import { jwtDecode } from "jwt-decode";
+import { FaPesoSign } from "react-icons/fa6";
 
 // Helper function for Tailwind color classes for StatCard and QuickAction
 const colorClasses = {
@@ -321,7 +322,7 @@ const DashboardPage = () => {
           <StatCard
             number={`₱${(summary?.total_earnings || 0).toLocaleString()}`}
             title="Total Earnings"
-            icon={<DollarSign className="w-5 h-5 lg:w-6 lg:h-6" />}
+            icon={<FaPesoSign className="w-5 h-5 lg:w-6 lg:h-6" />}
             color="purple"
           />
           <StatCard
