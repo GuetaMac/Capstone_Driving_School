@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png";
 import axios from "axios";
@@ -380,6 +380,7 @@ const RecordsPage = () => {
   const [filterStatus, setFilterStatus] = useState("");
   const [filterMonth, setFilterMonth] = useState("");
   const [filterYear, setFilterYear] = useState("");
+  const selectRefs = useRef({});
 
   useEffect(() => {
     const fetchEnrollments = async () => {
@@ -471,7 +472,6 @@ const RecordsPage = () => {
       });
     }
   };
-
   // ✅ Convert 24h to 12h format
   const formatTime = (time) => {
     if (!time) return "";
@@ -523,8 +523,8 @@ const RecordsPage = () => {
         return "bg-blue-100 text-blue-800 border-blue-300";
       case "pending":
         return "bg-yellow-100 text-yellow-800 border-yellow-300";
-      case "absent":
-        return "bg-red-100 text-red-800 border-red-300";
+      case "absent": // ← ADD THIS
+        return "bg-orange-100 text-orange-800 border-orange-300"; // ← ADD THIS
       case "passed/completed":
         return "bg-purple-100 text-purple-800 border-purple-300";
       case "failed":
@@ -777,29 +777,107 @@ const RecordsPage = () => {
                       <td className="px-6 py-4">
                         <select
                           value={enrollment.status || ""}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const newStatus = e.target.value;
+
+                            // Don't allow selecting the same status
+                            if (newStatus === enrollment.status) {
+                              return;
+                            }
+
                             handleStatusUpdate(
                               enrollment.enrollment_id,
-                              e.target.value,
+                              newStatus,
                               enrollment.student_name
-                            )
-                          }
+                            );
+                          }}
                           className="border border-gray-300 rounded px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-500"
+                          disabled={
+                            enrollment.status?.toLowerCase() ===
+                              "passed/completed" ||
+                            enrollment.status?.toLowerCase() === "failed" ||
+                            enrollment.status?.toLowerCase() === "absent"
+                          }
                         >
-                          <option value="">Select Status</option>
-                          <option value="pending">Pending</option>
-                          <option value="in progress">In Progress</option>
-                          <option value="day 1 - completed">
-                            Day 1 - Completed
-                          </option>
-                          <option value="day 2 - completed">
-                            Day 2 - Completed
-                          </option>
+                          {/* 👇 ALWAYS SHOW CURRENT STATUS */}
+                          {enrollment.status && (
+                            <option value={enrollment.status}>
+                              {enrollment.status}
+                            </option>
+                          )}
 
-                          <option value="passed/completed">
-                            Passed/Completed
-                          </option>
-                          <option value="failed">Failed</option>
+                          {!enrollment.status && (
+                            <option value="">Select Status</option>
+                          )}
+
+                          {/* Show only NEXT possible statuses (if not final) */}
+                          {(() => {
+                            const currentStatus =
+                              enrollment.status?.toLowerCase() || "";
+
+                            // ✅ If already passed/completed or failed, show ONLY that (disabled dropdown)
+                            if (
+                              currentStatus === "passed/completed" ||
+                              currentStatus === "failed" ||
+                              currentStatus === "absent"
+                            ) {
+                              return null;
+                            }
+
+                            const statusOrder = [
+                              "pending",
+                              "in progress",
+                              "day 1 - completed",
+                              "day 2 - completed",
+                            ];
+                            const currentIndex =
+                              statusOrder.indexOf(currentStatus);
+
+                            return (
+                              <>
+                                {/* Pending - only if no status yet */}
+                                {!currentStatus && (
+                                  <option value="pending">Pending</option>
+                                )}
+
+                                {/* In Progress - only if pending or no status */}
+                                {(currentStatus === "" ||
+                                  currentStatus === "pending") && (
+                                  <option value="in progress">
+                                    In Progress
+                                  </option>
+                                )}
+
+                                {/* Day 1 - only if not reached yet */}
+                                {currentIndex < 2 &&
+                                  currentStatus !== "day 1 - completed" && (
+                                    <option value="day 1 - completed">
+                                      Day 1 - Completed
+                                    </option>
+                                  )}
+
+                                {/* Day 2 - only if not reached yet */}
+                                {currentIndex < 3 &&
+                                  currentStatus !== "day 2 - completed" && (
+                                    <option value="day 2 - completed">
+                                      Day 2 - Completed
+                                    </option>
+                                  )}
+
+                                {/* ↓↓↓ ADD ABSENT OPTION ↓↓↓ */}
+                                <option value="absent">Absent</option>
+                                {/* ↑↑↑ END ↑↑↑ */}
+
+                                {/* Passed/Completed - always available until selected */}
+                                <option value="passed/completed">
+                                  Passed/Completed
+                                </option>
+
+                                {/* Failed - always available until selected */}
+                                <option value="failed">Failed</option>
+                              </>
+                            );
+                          })()}
                         </select>
                       </td>
                     </tr>
@@ -923,22 +1001,103 @@ const RecordsPage = () => {
                   </label>
                   <select
                     value={enrollment.status || ""}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const newStatus = e.target.value;
+
+                      // Don't allow selecting the same status
+                      if (newStatus === enrollment.status) {
+                        return;
+                      }
+
                       handleStatusUpdate(
                         enrollment.enrollment_id,
-                        e.target.value,
+                        newStatus,
                         enrollment.student_name
-                      )
-                    }
+                      );
+                    }}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    disabled={
+                      enrollment.status?.toLowerCase() === "passed/completed" ||
+                      enrollment.status?.toLowerCase() === "failed" ||
+                      enrollment.status?.toLowerCase() === "absent"
+                    }
                   >
-                    <option value="">Select Status</option>
-                    <option value="pending">Pending</option>
-                    <option value="in progress">In Progress</option>
-                    <option value="day 1 - completed">Day 1 - Completed</option>
-                    <option value="day 2 - completed">Day 2 - Completed</option>
-                    <option value="passed/completed">Passed/Completed</option>
-                    <option value="failed">Failed</option>
+                    {/* 👇 ALWAYS SHOW CURRENT STATUS */}
+                    {enrollment.status && (
+                      <option value={enrollment.status}>
+                        {enrollment.status}
+                      </option>
+                    )}
+
+                    {!enrollment.status && (
+                      <option value="">Select Status</option>
+                    )}
+
+                    {/* Show only NEXT possible statuses (if not final) */}
+                    {(() => {
+                      const currentStatus =
+                        enrollment.status?.toLowerCase() || "";
+
+                      // ✅ If already passed/completed or failed, show ONLY that (disabled dropdown)
+                      if (
+                        currentStatus === "passed/completed" ||
+                        currentStatus === "failed" ||
+                        currentStatus === "absent"
+                      ) {
+                        return null;
+                      }
+
+                      const statusOrder = [
+                        "pending",
+                        "in progress",
+                        "day 1 - completed",
+                        "day 2 - completed",
+                      ];
+                      const currentIndex = statusOrder.indexOf(currentStatus);
+
+                      return (
+                        <>
+                          {/* Pending - only if no status yet */}
+                          {!currentStatus && (
+                            <option value="pending">Pending</option>
+                          )}
+
+                          {/* In Progress - only if pending or no status */}
+                          {(currentStatus === "" ||
+                            currentStatus === "pending") && (
+                            <option value="in progress">In Progress</option>
+                          )}
+
+                          {/* Day 1 - only if not reached yet */}
+                          {currentIndex < 2 &&
+                            currentStatus !== "day 1 - completed" && (
+                              <option value="day 1 - completed">
+                                Day 1 - Completed
+                              </option>
+                            )}
+
+                          {/* Day 2 - only if not reached yet */}
+                          {currentIndex < 3 &&
+                            currentStatus !== "day 2 - completed" && (
+                              <option value="day 2 - completed">
+                                Day 2 - Completed
+                              </option>
+                            )}
+
+                          {/* ↓↓↓ ADD ABSENT OPTION ↓↓↓ */}
+                          <option value="absent">Absent</option>
+                          {/* ↑↑↑ END ↑↑↑ */}
+
+                          {/* Passed/Completed - always available until selected */}
+                          <option value="passed/completed">
+                            Passed/Completed
+                          </option>
+
+                          {/* Failed - always available until selected */}
+                          <option value="failed">Failed</option>
+                        </>
+                      );
+                    })()}
                   </select>
                 </div>
               </div>

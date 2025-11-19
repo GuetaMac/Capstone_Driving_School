@@ -112,6 +112,7 @@ const EnrollmentPage = () => {
     checkActiveEnrollment();
     fetchFullCourseDetails();
     fetchStudentBranch();
+    fetchPreviousEnrollmentInfo();
   }, []);
 
   useEffect(() => {
@@ -119,6 +120,36 @@ const EnrollmentPage = () => {
       fetchSchedules();
     }
   }, [currentMonth, course]);
+
+  useEffect(() => {
+    if (!isOnlineTheoretical && course) {
+      fetchSchedules();
+    }
+  }, [currentMonth, course]);
+
+  // 👇 ILAGAY MO TO DITO - AUTO CALCULATE AGE
+  useEffect(() => {
+    if (personalInfo.birthday) {
+      const today = new Date();
+      const birthDate = new Date(personalInfo.birthday);
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+
+      if (
+        monthDiff < 0 ||
+        (monthDiff === 0 && today.getDate() < birthDate.getDate())
+      ) {
+        age--;
+      }
+
+      if (personalInfo.age !== age.toString()) {
+        setPersonalInfo((prev) => ({
+          ...prev,
+          age: age.toString(),
+        }));
+      }
+    }
+  }, [personalInfo.birthday]);
 
   const fetchFullCourseDetails = async () => {
     setLoadingCourse(true);
@@ -160,6 +191,52 @@ const EnrollmentPage = () => {
     }
   };
 
+  const fetchPreviousEnrollmentInfo = async () => {
+    try {
+      const token = window.localStorage?.getItem("token");
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/student-enrollment-info`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      const data = await res.json();
+
+      if (data.hasData && data.data) {
+        // 👇 CONVERT BIRTHDAY TO YYYY-MM-DD FORMAT
+        let formattedBirthday = "";
+        if (data.data.birthday) {
+          const date = new Date(data.data.birthday);
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, "0");
+          const day = String(date.getDate()).padStart(2, "0");
+          formattedBirthday = `${year}-${month}-${day}`;
+        }
+
+        // Auto-fill personal info with previous enrollment data
+        setPersonalInfo({
+          address: data.data.address || "",
+          contact_number: data.data.contact_number || "",
+          birthday: formattedBirthday, // 👈 GUMAMIT NG FORMATTED BIRTHDAY
+          age: data.data.age || "",
+          nationality: data.data.nationality || "",
+          civil_status: data.data.civil_status || "",
+          gender: data.data.gender || "",
+          is_pregnant: data.data.is_pregnant ? "true" : "false",
+        });
+
+        // Auto-fill PWD status
+        if (data.data.is_pwd !== null && data.data.is_pwd !== undefined) {
+          setIsPWD(data.data.is_pwd);
+        }
+
+        console.log("✅ Auto-filled personal info from previous enrollment");
+      }
+    } catch (error) {
+      console.error("Error fetching previous enrollment info:", error);
+      // Don't show error to user, just skip auto-fill
+    }
+  };
   const checkActiveEnrollment = async () => {
     setCheckingEnrollment(true);
     try {

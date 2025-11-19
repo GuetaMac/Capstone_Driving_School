@@ -503,9 +503,70 @@ const CoursesPage = () => {
   }, []);
 
   const handleEnrollClick = (course) => {
-    // Navigate to enrollment page with course data
     navigate("/enroll", { state: { course } });
   };
+
+  // ✅ SEPARATE COURSES BY TYPE
+  const tdcCourses = courses.filter(
+    (course) =>
+      course.mode === "ftof" ||
+      course.mode === "online" ||
+      course.name?.toLowerCase().includes("theoretical")
+  );
+
+  const pdcCourses = courses.filter(
+    (course) =>
+      course.mode !== "ftof" &&
+      course.mode !== "online" &&
+      !course.name?.toLowerCase().includes("theoretical")
+  );
+
+  const CourseCard = ({ course }) => (
+    <div className="flex flex-col bg-white border border-gray-200 rounded-xl shadow-md hover:shadow-xl transition-shadow overflow-hidden">
+      {course.image ? (
+        <img
+          src={`${import.meta.env.VITE_API_URL}${course.image}`}
+          alt={course.name}
+          className="w-full h-40 sm:h-48 object-cover"
+        />
+      ) : (
+        <div className="w-full h-40 sm:h-48 bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
+          <span className="text-gray-400 text-base sm:text-lg">No Image</span>
+        </div>
+      )}
+
+      <div className="p-4 sm:p-6 flex flex-col flex-1">
+        <h3 className="text-lg sm:text-xl font-bold mb-2 text-red-600">
+          {course.name}
+        </h3>
+        <p className="text-xs sm:text-sm text-gray-500 mb-3">
+          ({course.codename})
+        </p>
+        <p className="text-sm sm:text-base text-gray-700 mb-4 flex-1">
+          {course.description}
+        </p>
+
+        {(course.type || course.mode) && (
+          <p className="text-xs sm:text-sm text-gray-500 mb-4">
+            {course.type && `Type: ${course.type}`}
+            {course.type && course.mode && " | "}
+            {course.mode && `Mode: ${course.mode}`}
+          </p>
+        )}
+
+        <p className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">
+          ₱{course.price}
+        </p>
+
+        <button
+          onClick={() => handleEnrollClick(course)}
+          className="w-full px-4 py-2.5 sm:py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all font-semibold text-sm sm:text-base"
+        >
+          Enroll Now
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-3 sm:p-6">
@@ -514,75 +575,69 @@ const CoursesPage = () => {
           Available Courses
         </h1>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {loading ? (
-            <div className="col-span-full text-center py-12">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mb-4"></div>
-              <p className="text-gray-500 text-lg">Loading courses...</p>
-            </div>
-          ) : courses.length === 0 ? (
-            <div className="col-span-full text-center py-12">
-              <p className="text-gray-500 text-lg mb-2">
-                No courses available for your branch.
-              </p>
-              <p className="text-gray-400 text-sm">
-                Please contact the school for more information.
-              </p>
-            </div>
-          ) : (
-            courses.map((course) => (
-              <div
-                key={course.course_id}
-                className="flex flex-col bg-white border border-gray-200 rounded-xl shadow-md hover:shadow-xl transition-shadow overflow-hidden"
-              >
-                {course.image ? (
-                  <img
-                    src={`${import.meta.env.VITE_API_URL}${course.image}`}
-                    alt={course.name}
-                    className="w-full h-40 sm:h-48 object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-40 sm:h-48 bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
-                    <span className="text-gray-400 text-base sm:text-lg">
-                      No Image
-                    </span>
-                  </div>
-                )}
-
-                <div className="p-4 sm:p-6 flex flex-col flex-1">
-                  <h3 className="text-lg sm:text-xl font-bold mb-2 text-red-600">
-                    {course.name}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-gray-500 mb-3">
-                    ({course.codename})
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mb-4"></div>
+            <p className="text-gray-500 text-lg">Loading courses...</p>
+          </div>
+        ) : courses.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500 text-lg mb-2">
+              No courses available for your branch.
+            </p>
+            <p className="text-gray-400 text-sm">
+              Please contact the school for more information.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* ✅ THEORETICAL DRIVING COURSES (TDC) SECTION */}
+            {tdcCourses.length > 0 && (
+              <div className="mb-12">
+                <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded-lg">
+                  <h2 className="text-xl sm:text-2xl font-bold text-blue-900 mb-2">
+                    📚 Theoretical Driving Courses (TDC)
+                  </h2>
+                  <p className="text-sm sm:text-base text-blue-800">
+                    <strong>No Student Permit Required</strong> - Perfect for
+                    beginners! Learn traffic rules, road signs, and safe driving
+                    practices.
                   </p>
-                  <p className="text-sm sm:text-base text-gray-700 mb-4 flex-1">
-                    {course.description}
-                  </p>
-
-                  {(course.type || course.mode) && (
-                    <p className="text-xs sm:text-sm text-gray-500 mb-4">
-                      {course.type && `Type: ${course.type}`}
-                      {course.type && course.mode && " | "}
-                      {course.mode && `Mode: ${course.mode}`}
-                    </p>
-                  )}
-
-                  <p className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">
-                    ₱{course.price}
-                  </p>
-
-                  <button
-                    onClick={() => handleEnrollClick(course)}
-                    className="w-full px-4 py-2.5 sm:py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all font-semibold text-sm sm:text-base"
-                  >
-                    Enroll Now
-                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                  {tdcCourses.map((course) => (
+                    <CourseCard key={course.course_id} course={course} />
+                  ))}
                 </div>
               </div>
-            ))
-          )}
-        </div>
+            )}
+
+            {/* ✅ PRACTICAL DRIVING COURSES (PDC) SECTION */}
+            {pdcCourses.length > 0 && (
+              <div>
+                <div className="bg-orange-50 border-l-4 border-orange-500 p-4 mb-6 rounded-lg">
+                  <h2 className="text-xl sm:text-2xl font-bold text-orange-900 mb-2">
+                    🚗 Practical Driving Courses (PDC)
+                  </h2>
+                  <p className="text-sm sm:text-base text-orange-800">
+                    <strong>Student Permit Required</strong> - Hands-on driving
+                    lessons with professional instructors. Get behind the wheel
+                    and master driving skills!
+                  </p>
+                  <p className="text-xs sm:text-sm text-orange-700 mt-2">
+                    ⚠️ You must have a valid Student Permit from LTO before
+                    enrolling in these courses.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                  {pdcCourses.map((course) => (
+                    <CourseCard key={course.course_id} course={course} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
@@ -966,6 +1021,11 @@ const EnrollmentPage = () => {
 
         <div className="space-y-6">
           {enrollments.map((e) => {
+            console.log("🔍 STUDENT - Enrollment data:", {
+              name: e.student_name,
+              raw_start_date: e.start_date,
+              multiple_schedules: e.multiple_schedules,
+            });
             const isOnlineTheoretical =
               (e.course_name ?? "").toLowerCase() ===
               "online theoretical driving course";
@@ -1000,24 +1060,10 @@ const EnrollmentPage = () => {
                   )}
 
                   <div className="flex-grow p-6">
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+                    <div className="mb-4">
                       <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
                         {e.course_name ?? "Unnamed Course"}
                       </h2>
-                      <span
-                        className={`inline-block px-4 py-2 rounded-full font-semibold text-sm whitespace-nowrap ${
-                          (e.payment_status ?? "").toLowerCase() === "paid" ||
-                          (e.payment_status ?? "").toLowerCase() ===
-                            "fully paid"
-                            ? "bg-green-100 text-green-800"
-                            : (e.payment_status ?? "").toLowerCase() ===
-                              "partially paid"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-red-100 text-red-800"
-                        }`}
-                      >
-                        {(e.payment_status ?? "unpaid").replace(/_/g, " ")}
-                      </span>
                     </div>
 
                     <div className="space-y-3 mb-6">
@@ -1092,23 +1138,439 @@ const EnrollmentPage = () => {
                         </>
                       )}
 
-                      <div className="flex items-center gap-3 bg-gray-50 rounded-lg p-4 border border-gray-200">
-                        <div className="flex-shrink-0">
+                      {/* Progress Tracker - RESPONSIVE */}
+                      <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-4 sm:p-6 border-2 border-gray-200">
+                        <div className="flex items-center gap-2 mb-4 sm:mb-6">
+                          <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-lg p-2 text-white shadow-md">
+                            <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />
+                          </div>
+                          <h3 className="text-xs sm:text-sm font-bold text-gray-700 uppercase tracking-wide">
+                            Course Progress
+                          </h3>
+                        </div>
+
+                        {/* Progress Stepper */}
+                        <div className="relative">
+                          {/* Progress Line - Hidden on mobile, visible on larger screens */}
+                          <div className="hidden sm:block absolute top-5 left-0 w-full h-1 bg-gray-200">
+                            <div
+                              className="h-full bg-gradient-to-r from-red-500 to-red-600 transition-all duration-500"
+                              style={{
+                                width: (() => {
+                                  const status = (e.status ?? "").toLowerCase();
+                                  if (
+                                    status === "passed/completed" ||
+                                    status === "failed"
+                                  )
+                                    return "100%";
+                                  if (status === "absent") return "50%"; // ← ADD THIS LINE
+                                  if (
+                                    status.includes("day 2") ||
+                                    status === "in progress"
+                                  )
+                                    return "66%";
+                                  if (status.includes("day 1")) return "33%";
+                                  return "0%";
+                                })(),
+                              }}
+                            ></div>
+                          </div>
+
+                          {/* DESKTOP/TABLET VIEW - Horizontal Stepper */}
+                          <div className="hidden sm:flex relative justify-between items-center">
+                            {/* Step 1: Enrolled */}
+                            <div className="flex flex-col items-center z-10 flex-1">
+                              <div
+                                className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shadow-lg transition-all ${
+                                  true
+                                    ? "bg-gradient-to-r from-red-500 to-red-600 text-white"
+                                    : "bg-gray-300 text-gray-500"
+                                }`}
+                              >
+                                ✓
+                              </div>
+                              <span className="text-[10px] sm:text-xs font-semibold mt-2 text-gray-700 text-center">
+                                Enrolled
+                              </span>
+                            </div>
+
+                            {/* Step 2: In Progress */}
+                            <div className="flex flex-col items-center z-10 flex-1">
+                              <div
+                                className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shadow-lg transition-all ${
+                                  [
+                                    "in progress",
+                                    "day 1 - completed",
+                                    "day 2 - completed",
+                                    "passed/completed",
+                                    "failed",
+                                  ].some((s) =>
+                                    (e.status ?? "").toLowerCase().includes(s)
+                                  )
+                                    ? "bg-gradient-to-r from-red-500 to-red-600 text-white"
+                                    : "bg-gray-300 text-gray-500"
+                                }`}
+                              >
+                                {[
+                                  "in progress",
+                                  "day 1 - completed",
+                                  "day 2 - completed",
+                                  "passed/completed",
+                                  "failed",
+                                ].some((s) =>
+                                  (e.status ?? "").toLowerCase().includes(s)
+                                )
+                                  ? "✓"
+                                  : "2"}
+                              </div>
+                              <span className="text-[10px] sm:text-xs font-semibold mt-2 text-gray-700 text-center">
+                                {(e.status ?? "")
+                                  .toLowerCase()
+                                  .includes("day 1")
+                                  ? "Day 1"
+                                  : "In Progress"}
+                              </span>
+                            </div>
+
+                            {/* Step 3: Day 2 */}
+                            <div className="flex flex-col items-center z-10 flex-1">
+                              <div
+                                className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shadow-lg transition-all ${
+                                  [
+                                    "day 2 - completed",
+                                    "passed/completed",
+                                    "failed",
+                                  ].some((s) =>
+                                    (e.status ?? "").toLowerCase().includes(s)
+                                  )
+                                    ? "bg-gradient-to-r from-red-500 to-red-600 text-white"
+                                    : "bg-gray-300 text-gray-500"
+                                }`}
+                              >
+                                {[
+                                  "day 2 - completed",
+                                  "passed/completed",
+                                  "failed",
+                                ].some((s) =>
+                                  (e.status ?? "").toLowerCase().includes(s)
+                                )
+                                  ? "✓"
+                                  : "3"}
+                              </div>
+                              <span className="text-[10px] sm:text-xs font-semibold mt-2 text-gray-700 text-center">
+                                {(e.status ?? "")
+                                  .toLowerCase()
+                                  .includes("day 2")
+                                  ? "Day 2"
+                                  : "Almost Done"}
+                              </span>
+                            </div>
+
+                            {/* Step 4: Completed/Failed/Absent */}
+                            <div className="flex flex-col items-center z-10 flex-1">
+                              <div
+                                className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shadow-lg transition-all ${
+                                  (e.status ?? "").toLowerCase() ===
+                                  "passed/completed"
+                                    ? "bg-gradient-to-r from-green-500 to-green-600 text-white"
+                                    : (e.status ?? "").toLowerCase() ===
+                                      "failed"
+                                    ? "bg-gradient-to-r from-red-700 to-red-800 text-white"
+                                    : (e.status ?? "").toLowerCase() ===
+                                      "absent" // ← ADD THIS
+                                    ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white" // ← ADD THIS
+                                    : "bg-gray-300 text-gray-500"
+                                }`}
+                              >
+                                {(e.status ?? "").toLowerCase() ===
+                                "passed/completed"
+                                  ? "✓"
+                                  : (e.status ?? "").toLowerCase() === "failed"
+                                  ? "✗"
+                                  : (e.status ?? "").toLowerCase() === "absent" // ← ADD THIS
+                                  ? "⚠" // ← ADD WARNING ICON
+                                  : "4"}
+                              </div>
+                              <span className="text-[10px] sm:text-xs font-semibold mt-2 text-center">
+                                {(e.status ?? "").toLowerCase() ===
+                                "passed/completed" ? (
+                                  <span className="text-green-600">
+                                    Completed
+                                  </span>
+                                ) : (e.status ?? "").toLowerCase() ===
+                                  "failed" ? (
+                                  <span className="text-red-600">Failed</span>
+                                ) : (e.status ?? "").toLowerCase() ===
+                                  "absent" ? ( // ← ADD THIS
+                                  <span className="text-orange-600">
+                                    Absent
+                                  </span> // ← ADD THIS
+                                ) : (
+                                  <span className="text-gray-700">Pending</span>
+                                )}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* MOBILE VIEW - Vertical Stepper */}
+                          <div className="sm:hidden space-y-4">
+                            {/* Step 1: Enrolled */}
+                            <div className="flex items-center gap-4">
+                              <div
+                                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-lg flex-shrink-0 ${
+                                  true
+                                    ? "bg-gradient-to-r from-red-500 to-red-600 text-white"
+                                    : "bg-gray-300 text-gray-500"
+                                }`}
+                              >
+                                ✓
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="font-bold text-sm text-gray-800">
+                                  Enrolled
+                                </h4>
+                                <p className="text-xs text-gray-500">
+                                  Course enrollment confirmed
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Vertical Line */}
+                            <div className="ml-5 h-6 w-0.5 bg-gradient-to-b from-red-500 to-gray-300"></div>
+
+                            {/* Step 2: In Progress */}
+                            <div className="flex items-center gap-4">
+                              <div
+                                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-lg flex-shrink-0 ${
+                                  [
+                                    "in progress",
+                                    "day 1 - completed",
+                                    "day 2 - completed",
+                                    "passed/completed",
+                                    "failed",
+                                  ].some((s) =>
+                                    (e.status ?? "").toLowerCase().includes(s)
+                                  )
+                                    ? "bg-gradient-to-r from-red-500 to-red-600 text-white"
+                                    : "bg-gray-300 text-gray-500"
+                                }`}
+                              >
+                                {[
+                                  "in progress",
+                                  "day 1 - completed",
+                                  "day 2 - completed",
+                                  "passed/completed",
+                                  "failed",
+                                ].some((s) =>
+                                  (e.status ?? "").toLowerCase().includes(s)
+                                )
+                                  ? "✓"
+                                  : "2"}
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="font-bold text-sm text-gray-800">
+                                  {(e.status ?? "")
+                                    .toLowerCase()
+                                    .includes("day 1")
+                                    ? "Day 1 Completed"
+                                    : "In Progress"}
+                                </h4>
+                                <p className="text-xs text-gray-500">
+                                  Training in progress
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Vertical Line */}
+                            <div
+                              className={`ml-5 h-6 w-0.5 ${
+                                [
+                                  "day 2 - completed",
+                                  "passed/completed",
+                                  "failed",
+                                ].some((s) =>
+                                  (e.status ?? "").toLowerCase().includes(s)
+                                )
+                                  ? "bg-gradient-to-b from-red-500 to-red-600"
+                                  : "bg-gray-300"
+                              }`}
+                            ></div>
+
+                            {/* Step 3: Day 2 */}
+                            <div className="flex items-center gap-4">
+                              <div
+                                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-lg flex-shrink-0 ${
+                                  [
+                                    "day 2 - completed",
+                                    "passed/completed",
+                                    "failed",
+                                  ].some((s) =>
+                                    (e.status ?? "").toLowerCase().includes(s)
+                                  )
+                                    ? "bg-gradient-to-r from-red-500 to-red-600 text-white"
+                                    : "bg-gray-300 text-gray-500"
+                                }`}
+                              >
+                                {[
+                                  "day 2 - completed",
+                                  "passed/completed",
+                                  "failed",
+                                ].some((s) =>
+                                  (e.status ?? "").toLowerCase().includes(s)
+                                )
+                                  ? "✓"
+                                  : "3"}
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="font-bold text-sm text-gray-800">
+                                  {(e.status ?? "")
+                                    .toLowerCase()
+                                    .includes("day 2")
+                                    ? "Day 2 Completed"
+                                    : "Almost Done"}
+                                </h4>
+                                <p className="text-xs text-gray-500">
+                                  Nearing completion
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Vertical Line */}
+                            <div
+                              className={`ml-5 h-6 w-0.5 ${
+                                (e.status ?? "").toLowerCase() ===
+                                  "passed/completed" ||
+                                (e.status ?? "").toLowerCase() === "failed"
+                                  ? (e.status ?? "").toLowerCase() ===
+                                    "passed/completed"
+                                    ? "bg-gradient-to-b from-red-600 to-green-500"
+                                    : "bg-gradient-to-b from-red-600 to-red-800"
+                                  : "bg-gray-300"
+                              }`}
+                            ></div>
+
+                            {/* Step 4: Completed/Failed */}
+                            <div className="flex items-center gap-4">
+                              <div
+                                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-lg flex-shrink-0 ${
+                                  (e.status ?? "").toLowerCase() ===
+                                  "passed/completed"
+                                    ? "bg-gradient-to-r from-green-500 to-green-600 text-white"
+                                    : (e.status ?? "").toLowerCase() ===
+                                      "failed"
+                                    ? "bg-gradient-to-r from-red-700 to-red-800 text-white"
+                                    : "bg-gray-300 text-gray-500"
+                                }`}
+                              >
+                                {(e.status ?? "").toLowerCase() ===
+                                "passed/completed"
+                                  ? "✓"
+                                  : (e.status ?? "").toLowerCase() === "failed"
+                                  ? "✗"
+                                  : "4"}
+                              </div>
+                              <div className="flex-1">
+                                <h4
+                                  className={`font-bold text-sm ${
+                                    (e.status ?? "").toLowerCase() ===
+                                    "passed/completed"
+                                      ? "text-green-600"
+                                      : (e.status ?? "").toLowerCase() ===
+                                        "failed"
+                                      ? "text-red-600"
+                                      : "text-gray-800"
+                                  }`}
+                                >
+                                  {(e.status ?? "").toLowerCase() ===
+                                  "passed/completed"
+                                    ? "Completed!"
+                                    : (e.status ?? "").toLowerCase() ===
+                                      "failed"
+                                    ? "Failed"
+                                    : "Pending"}
+                                </h4>
+                                <p className="text-xs text-gray-500">
+                                  {(e.status ?? "").toLowerCase() ===
+                                  "passed/completed"
+                                    ? "Training successfully completed"
+                                    : (e.status ?? "").toLowerCase() ===
+                                      "failed"
+                                    ? "Did not pass the training"
+                                    : "Awaiting completion"}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Current Status Badge */}
+                        <div className="mt-4 sm:mt-6 pt-4 border-t border-gray-200">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
+                            <span className="text-xs sm:text-sm font-semibold text-gray-600">
+                              Current Status:
+                            </span>
+                            <span
+                              className={`inline-flex px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-bold capitalize shadow-sm ${
+                                (e.status ?? "").toLowerCase() ===
+                                "passed/completed"
+                                  ? "bg-green-100 text-green-800 border-2 border-green-300"
+                                  : (e.status ?? "").toLowerCase() === "failed"
+                                  ? "bg-red-100 text-red-800 border-2 border-red-300"
+                                  : (e.status ?? "").toLowerCase() === "absent" // ← ADD THIS
+                                  ? "bg-orange-100 text-orange-800 border-2 border-orange-300" // ← ADD THIS
+                                  : (e.status ?? "")
+                                      .toLowerCase()
+                                      .includes("day")
+                                  ? "bg-blue-100 text-blue-800 border-2 border-blue-300"
+                                  : "bg-yellow-100 text-yellow-800 border-2 border-yellow-300"
+                              }`}
+                            >
+                              {e.status ?? "enrolled"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Payment Status - NEW LOCATION */}
+                      <div className="mt-4 sm:mt-6 pt-4 border-t border-gray-200">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+                          <div className="flex items-center gap-2">
+                            <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+                            <span className="text-xs sm:text-sm font-semibold text-gray-600">
+                              Payment Status:
+                            </span>
+                          </div>
                           <span
-                            className={`inline-flex px-3 py-1 rounded-full text-sm font-semibold capitalize ${
-                              (e.status ?? "").toLowerCase() ===
-                              "passed/completed"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-blue-100 text-blue-800"
+                            className={`inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-bold capitalize shadow-sm ${
+                              (e.payment_status ?? "").toLowerCase() ===
+                                "paid" ||
+                              (e.payment_status ?? "").toLowerCase() ===
+                                "fully paid"
+                                ? "bg-green-100 text-green-800 border-2 border-green-300"
+                                : (e.payment_status ?? "").toLowerCase() ===
+                                  "partially paid"
+                                ? "bg-yellow-100 text-yellow-800 border-2 border-yellow-300"
+                                : "bg-red-100 text-red-800 border-2 border-red-300"
                             }`}
                           >
-                            {e.status ?? "pending"}
+                            {(e.payment_status ?? "").toLowerCase() ===
+                              "paid" ||
+                            (e.payment_status ?? "").toLowerCase() ===
+                              "fully paid" ? (
+                              <CheckCircle className="w-4 h-4" />
+                            ) : (e.payment_status ?? "").toLowerCase() ===
+                              "partially paid" ? (
+                              <Clock className="w-4 h-4" />
+                            ) : (
+                              <AlertCircle className="w-4 h-4" />
+                            )}
+                            {(e.payment_status ?? "unpaid").replace(/_/g, " ")}
                           </span>
                         </div>
                       </div>
                     </div>
 
-                    {(e.status ?? "").toLowerCase() === "passed/completed" &&
+                    {((e.status ?? "").toLowerCase() === "passed/completed" ||
+                      (e.status ?? "").toLowerCase() === "failed") &&
                       !isOnlineTheoretical && (
                         <button
                           className={`w-full sm:w-auto px-6 py-3 rounded-xl font-semibold transition-all duration-200 shadow-md flex items-center justify-center gap-2 ${
@@ -1320,6 +1782,7 @@ const EnrollmentPage = () => {
     </div>
   );
 };
+
 const FeedbacksPage = () => {
   const [feedbacks, setFeedbacks] = useState([]);
   const [loading, setLoading] = useState(true);

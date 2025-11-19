@@ -47,6 +47,8 @@ import {
   BellRing,
   Volume2,
   VolumeX,
+  Archive,
+  RotateCcw,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import { BsRecord } from "react-icons/bs";
@@ -388,12 +390,17 @@ const EnrollmentsPage = () => {
   const [selectedMonth, setSelectedMonth] = useState("all");
   const [selectedYear, setSelectedYear] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [showArchived, setShowArchived] = useState(false);
+  const [rescheduleCurrentMonth, setRescheduleCurrentMonth] = useState(
+    new Date()
+  );
+  const [loadingRescheduleSchedules, setLoadingRescheduleSchedules] =
+    useState(false);
 
   useEffect(() => {
     fetchEnrollments();
     fetchInstructors();
-  }, []);
-
+  }, [showArchived]);
   const fetchEnrollments = async () => {
     try {
       setLoading(true);
@@ -402,7 +409,9 @@ const EnrollmentsPage = () => {
       let data;
       if (token) {
         const response = await axios.get(
-          `${import.meta.env.VITE_API_URL}/admin/enrollments`,
+          `${
+            import.meta.env.VITE_API_URL
+          }/admin/enrollments?show_archived=${showArchived}`, // ✅ ADD QUERY PARAM
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -524,6 +533,69 @@ const EnrollmentsPage = () => {
     }
   };
 
+  // ✅ Calendar helper functions for reschedule
+  const getDaysInMonth = (date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay();
+
+    const days = [];
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      days.push(null);
+    }
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push(new Date(year, month, i));
+    }
+    return days;
+  };
+
+  const getSchedulesForDate = (date, schedules) => {
+    if (!date) return [];
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const dateStr = `${year}-${month}-${day}`;
+
+    return schedules.filter((s) => {
+      const schedDate = s.start_date.split("T")[0];
+      return schedDate === dateStr;
+    });
+  };
+
+  const isDateSelected = (date, selectedSchedules) => {
+    if (!date) return false;
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const dateStr = `${year}-${month}-${day}`;
+
+    return selectedSchedules.some((s) => {
+      const schedDate = s.start_date.split("T")[0];
+      return schedDate === dateStr;
+    });
+  };
+
+  const previousRescheduleMonth = () => {
+    setRescheduleCurrentMonth(
+      new Date(
+        rescheduleCurrentMonth.getFullYear(),
+        rescheduleCurrentMonth.getMonth() - 1
+      )
+    );
+  };
+
+  const nextRescheduleMonth = () => {
+    setRescheduleCurrentMonth(
+      new Date(
+        rescheduleCurrentMonth.getFullYear(),
+        rescheduleCurrentMonth.getMonth() + 1
+      )
+    );
+  };
+
   const updateAmountPaid = async (enrollmentId, value, resetValue) => {
     try {
       const token = localStorage.getItem("token");
@@ -573,32 +645,51 @@ const EnrollmentsPage = () => {
         return;
       }
 
-      if (status === "Fully Paid") {
-        const result = await Swal.fire({
-          title: 'Are you sure you want to mark as "Fully Paid"?',
-          icon: "warning",
-          showCancelButton: true,
-          confirmButtonText: "Yes",
-          cancelButtonText: "No",
+      const currentEnrollment = enrollments.find(
+        (e) => e.enrollment_id === enrollmentId
+      );
+
+      // Prevent changing from "Fully Paid" back to "Not Fully Paid"
+      if (
+        currentEnrollment?.payment_status?.toLowerCase() === "fully paid" &&
+        status === "Not Fully Paid"
+      ) {
+        await Swal.fire({
+          title: "Cannot Change Status",
+          text: "Payment status cannot be changed from 'Fully Paid' to 'Not Fully Paid'.",
+          icon: "error",
         });
-
-        if (result.isConfirmed) {
-          await axios.patch(
-            `${
-              import.meta.env.VITE_API_URL
-            }/admin/enrollments/${enrollmentId}/payment-status`,
-            { payment_status: status },
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            }
-          );
-
-          await Swal.fire("Success", "Payment status updated.", "success");
-          fetchEnrollments();
-        } else {
-          if (resetStatus) resetStatus();
-        }
+        if (resetStatus) resetStatus();
+        return;
       }
+
+      // ✅ DAGDAG CONFIRMATION DIALOG
+      const result = await Swal.fire({
+        title: `Update payment status to "${status}"?`,
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: "Yes, Update",
+        cancelButtonText: "No",
+      });
+
+      if (!result.isConfirmed) {
+        if (resetStatus) resetStatus();
+        return;
+      }
+
+      // ✅ ACTUAL UPDATE REQUEST (TO NAWALA MO!)
+      await axios.patch(
+        `${
+          import.meta.env.VITE_API_URL
+        }/admin/enrollments/${enrollmentId}/payment-status`,
+        { payment_status: status },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      await Swal.fire("✅ Success", "Payment status updated.", "success");
+      fetchEnrollments();
     } catch (error) {
       console.error("Error updating payment status:", error);
       await Swal.fire("❌ Error", "Error updating payment status.", "error");
@@ -675,56 +766,40 @@ const EnrollmentsPage = () => {
     }
   };
 
-  const deleteEnrollment = async (enrollmentId, studentName) => {
+  const archiveEnrollment = async (enrollmentId, studentName) => {
     try {
       const token = localStorage.getItem("token");
-
       if (!token) {
-        console.error("❌ No authentication token found");
         await Swal.fire({
           title: "Authentication Error",
-          text: "You need to be logged in to delete enrollments. Please log in again.",
+          text: "You need to be logged in.",
           icon: "error",
         });
         return;
       }
 
-      console.log("🔍 Attempting to delete enrollment:", {
-        enrollmentId,
-        studentName,
-        token: token.substring(0, 20) + "...",
-      });
-
       const result = await Swal.fire({
-        title: "Delete Enrollment?",
-        text: `Are you sure you want to delete the enrollment for ${studentName}? This action cannot be undone.`,
+        title: "Archive Enrollment?",
+        text: `Archive the enrollment for ${studentName}? This will hide it from the list.`,
         icon: "warning",
         showCancelButton: true,
         confirmButtonColor: "#dc2626",
-        cancelButtonColor: "#6b7280",
-        confirmButtonText: "Yes, delete",
-        cancelButtonText: "Cancel",
+        confirmButtonText: "Yes, archive",
       });
 
-      if (!result.isConfirmed) {
-        console.log("❌ Delete cancelled by user");
-        return;
-      }
+      if (!result.isConfirmed) return;
 
-      console.log("📤 Sending DELETE request...");
-
-      const response = await axios.delete(
-        `${import.meta.env.VITE_API_URL}/admin/enrollments/${enrollmentId}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+      await axios.patch(
+        `${
+          import.meta.env.VITE_API_URL
+        }/admin/enrollments/${enrollmentId}/archive`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      console.log("✅ Delete successful:", response.data);
-
       await Swal.fire({
-        title: "Deleted!",
-        text: "Enrollment has been deleted successfully.",
+        title: "Archived!",
+        text: "Enrollment has been archived.",
         icon: "success",
         timer: 2000,
         showConfirmButton: false,
@@ -732,36 +807,439 @@ const EnrollmentsPage = () => {
 
       fetchEnrollments();
     } catch (error) {
-      console.error("❌ Error deleting enrollment:", error);
+      console.error("Error archiving:", error);
+      await Swal.fire({
+        title: "Error",
+        text: error.response?.data?.error || "Failed to archive.",
+        icon: "error",
+      });
+    }
+  };
 
-      if (error.response) {
-        console.error("Response data:", error.response.data);
-        console.error("Response status:", error.response.status);
-        console.error("Response headers:", error.response.headers);
-
+  const unarchiveEnrollment = async (enrollmentId, studentName) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
         await Swal.fire({
-          title: "Error",
-          text:
-            error.response.data?.error ||
-            `Failed to delete enrollment. Status: ${error.response.status}`,
+          title: "Authentication Error",
+          text: "You need to be logged in.",
           icon: "error",
         });
-      } else if (error.request) {
-        console.error("No response received:", error.request);
-        await Swal.fire({
-          title: "Network Error",
-          text: "No response from server. Please check your connection.",
-          icon: "error",
-        });
-      } else {
-        console.error("Error:", error.message);
-        await Swal.fire({
-          title: "Error",
-          text:
-            error.message || "Failed to delete enrollment. Please try again.",
-          icon: "error",
-        });
+        return;
       }
+
+      const result = await Swal.fire({
+        title: "Restore Enrollment?",
+        text: `Restore the enrollment for ${studentName}?`,
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonColor: "#10b981",
+        confirmButtonText: "Yes, restore",
+      });
+
+      if (!result.isConfirmed) return;
+
+      await axios.patch(
+        `${
+          import.meta.env.VITE_API_URL
+        }/admin/enrollments/${enrollmentId}/unarchive`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      await Swal.fire({
+        title: "Restored!",
+        text: "Enrollment has been restored.",
+        icon: "success",
+        timer: 2000,
+        showConfirmButton: false,
+      });
+
+      fetchEnrollments();
+    } catch (error) {
+      console.error("Error unarchiving:", error);
+      await Swal.fire({
+        title: "Error",
+        text: error.response?.data?.error || "Failed to restore.",
+        icon: "error",
+      });
+    }
+  };
+
+  const handleReschedule = async (enrollment) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        await Swal.fire({
+          title: "Error",
+          text: "You need to be logged in to reschedule.",
+          icon: "error",
+        });
+        return;
+      }
+
+      // Reset month to current when starting reschedule
+      setRescheduleCurrentMonth(new Date());
+
+      // Get course details
+      const courseRes = await axios.get(
+        `${import.meta.env.VITE_API_URL}/courses/${enrollment.course_id}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const course = courseRes.data;
+      const scheduleConfig = course.schedule_config
+        ? typeof course.schedule_config === "string"
+          ? JSON.parse(course.schedule_config)
+          : course.schedule_config
+        : [{ day: 1, hours: 4, time: "flexible" }];
+
+      const requiredSchedules =
+        course.required_schedules || scheduleConfig.length;
+
+      // Get all available schedules
+      setLoadingRescheduleSchedules(true);
+      const schedRes = await axios.get(
+        `${
+          import.meta.env.VITE_API_URL
+        }/schedules/with-availability?course_id=${enrollment.course_id}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      let allSchedules = schedRes.data;
+      setLoadingRescheduleSchedules(false);
+
+      if (allSchedules.length === 0) {
+        await Swal.fire({
+          title: "No Schedules Available",
+          text: "There are no available schedules for this course at the moment.",
+          icon: "info",
+        });
+        return;
+      }
+
+      // Filter out past schedules
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      allSchedules = allSchedules.filter((s) => {
+        const scheduleDateStr = s.start_date.split("T")[0];
+        const [year, month, day] = scheduleDateStr.split("-").map(Number);
+        const schedDate = new Date(year, month - 1, day);
+        schedDate.setHours(0, 0, 0, 0);
+        return schedDate >= today && s.slots > 0;
+      });
+
+      // Helper functions
+      const getScheduleDuration = (startTime, endTime) => {
+        const [startHour, startMin] = startTime.split(":").map(Number);
+        const [endHour, endMin] = endTime.split(":").map(Number);
+        const durationInMinutes =
+          endHour * 60 + endMin - (startHour * 60 + startMin);
+        const clockHours = durationInMinutes / 60;
+        return clockHours >= 8 ? clockHours - 1 : clockHours;
+      };
+
+      const filterSchedulesForDay = (
+        schedules,
+        dayConfig,
+        selectedSchedules = []
+      ) => {
+        return schedules.filter((s) => {
+          const duration = getScheduleDuration(s.start_time, s.end_time);
+
+          if (
+            selectedSchedules.some((sel) => sel.schedule_id === s.schedule_id)
+          )
+            return false;
+
+          if (selectedSchedules.length > 0) {
+            const lastDate = new Date(
+              selectedSchedules[selectedSchedules.length - 1].start_date
+            );
+            const currentDate = new Date(s.start_date);
+            if (currentDate <= lastDate) return false;
+          }
+
+          if (Math.abs(dayConfig.hours - duration) > 0.05) return false;
+
+          if (dayConfig.time && dayConfig.time !== "flexible") {
+            const startHour = parseInt(s.start_time.split(":")[0]);
+            if (dayConfig.time === "morning" && startHour !== 8) return false;
+            if (dayConfig.time === "afternoon" && startHour !== 13)
+              return false;
+          }
+
+          return true;
+        });
+      };
+
+      // ✅ SELECT SCHEDULES WITH CALENDAR VIEW
+      const selectedSchedules = [];
+
+      for (let dayIndex = 0; dayIndex < requiredSchedules; dayIndex++) {
+        const currentConfig = scheduleConfig[dayIndex];
+
+        let selectedScheduleId = null;
+        let userCancelled = false;
+
+        // Keep showing calendar until user selects a schedule or cancels
+        while (!selectedScheduleId && !userCancelled) {
+          const availableForDay = filterSchedulesForDay(
+            allSchedules,
+            currentConfig,
+            selectedSchedules
+          );
+
+          if (availableForDay.length === 0) {
+            await Swal.fire({
+              title: "No Schedules Available",
+              text: `No available schedules found for Day ${dayIndex + 1}.`,
+              icon: "error",
+            });
+            return;
+          }
+
+          // ✅ CALENDAR VIEW HTML
+          const calendarHTML = `
+          <div class="text-left">
+            <!-- Month Navigation -->
+            <div class="flex items-center justify-between mb-4 px-2">
+              <button type="button" id="prevMonth" class="p-2 hover:bg-gray-100 rounded-lg transition-all">
+                <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+              </button>
+              <h4 id="monthYear" class="text-xl font-bold text-gray-800"></h4>
+              <button type="button" id="nextMonth" class="p-2 hover:bg-gray-100 rounded-lg transition-all">
+                <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+              </button>
+            </div>
+
+            <!-- Calendar Grid -->
+            <div class="border border-gray-300 rounded-lg overflow-hidden">
+              <!-- Day Headers -->
+              <div class="grid grid-cols-7 bg-gray-100">
+                ${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+                  .map(
+                    (day) =>
+                      `<div class="p-3 text-center font-semibold text-gray-700 text-sm border-r border-gray-300 last:border-r-0">${day}</div>`
+                  )
+                  .join("")}
+              </div>
+              <!-- Calendar Days -->
+              <div id="calendarDays" class="grid grid-cols-7"></div>
+            </div>
+          </div>
+        `;
+
+          const result = await Swal.fire({
+            title: `Select Schedule for Day ${dayIndex + 1}`,
+            html: calendarHTML,
+            showCancelButton: dayIndex > 0,
+            showConfirmButton: false,
+            cancelButtonText: "Back",
+            width: "700px",
+            didOpen: () => {
+              let currentMonth = new Date(rescheduleCurrentMonth);
+
+              const updateCalendar = () => {
+                const monthYearEl = document.getElementById("monthYear");
+                monthYearEl.textContent = currentMonth.toLocaleDateString(
+                  "en-US",
+                  {
+                    month: "long",
+                    year: "numeric",
+                  }
+                );
+
+                const daysEl = document.getElementById("calendarDays");
+                const days = getDaysInMonth(currentMonth);
+
+                daysEl.innerHTML = days
+                  .map((date, index) => {
+                    if (!date) {
+                      return '<div class="min-h-24 p-2 border-r border-b border-gray-300 bg-gray-50"></div>';
+                    }
+
+                    const daySchedules = getSchedulesForDate(
+                      date,
+                      availableForDay
+                    );
+                    const isPast = date < new Date().setHours(0, 0, 0, 0);
+                    const isSelected = isDateSelected(date, selectedSchedules);
+
+                    let dayHTML = `<div class="min-h-24 p-2 border-r border-b border-gray-300 ${
+                      isPast ? "bg-gray-100 opacity-50" : ""
+                    } ${
+                      isSelected ? "bg-red-100 border-2 border-red-500" : ""
+                    }">`;
+                    dayHTML += `<div class="text-sm font-semibold mb-1 ${
+                      isPast ? "text-gray-400" : "text-gray-700"
+                    }">${date.getDate()}</div>`;
+
+                    if (daySchedules.length > 0 && !isPast) {
+                      dayHTML += '<div class="space-y-1">';
+                      daySchedules.forEach((schedule) => {
+                        const isAlreadySelected = selectedSchedules.some(
+                          (s) => s.schedule_id === schedule.schedule_id
+                        );
+                        dayHTML += `
+                      <button 
+                        type="button"
+                        data-schedule='${JSON.stringify(schedule)}'
+                        class="schedule-btn w-full text-left p-1.5 rounded text-xs transition-all ${
+                          schedule.available_vehicles === 0
+                            ? "bg-red-300 cursor-not-allowed opacity-50"
+                            : isAlreadySelected
+                            ? "bg-green-500 text-white"
+                            : "bg-blue-500 hover:bg-blue-600 text-white"
+                        }"
+                        ${schedule.available_vehicles === 0 ? "disabled" : ""}
+                      >
+                        <div class="font-semibold">${fmtTime(
+                          schedule.start_time
+                        )} - ${fmtTime(schedule.end_time)}</div>
+                        <div class="text-xs opacity-90 flex items-center justify-between">
+                          <span>${schedule.slots} slots</span>
+                          <span class="font-semibold">🚗 ${
+                            schedule.available_vehicles
+                          }</span>
+                        </div>
+                      </button>
+                    `;
+                      });
+                      dayHTML += "</div>";
+                    }
+
+                    dayHTML += "</div>";
+                    return dayHTML;
+                  })
+                  .join("");
+
+                // Add click handlers for schedule buttons
+                document.querySelectorAll(".schedule-btn").forEach((btn) => {
+                  btn.addEventListener("click", () => {
+                    const schedule = JSON.parse(btn.dataset.schedule);
+                    selectedScheduleId = schedule.schedule_id;
+                    Swal.clickConfirm();
+                  });
+                });
+              };
+
+              // Initial render
+              updateCalendar();
+
+              // Month navigation
+              document
+                .getElementById("prevMonth")
+                .addEventListener("click", () => {
+                  currentMonth = new Date(
+                    currentMonth.getFullYear(),
+                    currentMonth.getMonth() - 1
+                  );
+                  updateCalendar();
+                });
+
+              document
+                .getElementById("nextMonth")
+                .addEventListener("click", () => {
+                  currentMonth = new Date(
+                    currentMonth.getFullYear(),
+                    currentMonth.getMonth() + 1
+                  );
+                  updateCalendar();
+                });
+            },
+            preConfirm: () => {
+              return selectedScheduleId;
+            },
+          });
+
+          if (!result.isConfirmed) {
+            if (selectedSchedules.length > 0) {
+              selectedSchedules.pop();
+              dayIndex -= 2;
+              userCancelled = false;
+              break;
+            } else {
+              return;
+            }
+          } else {
+            // User selected a schedule
+            selectedSchedules.push(
+              availableForDay.find((s) => s.schedule_id === selectedScheduleId)
+            );
+          }
+        }
+
+        if (userCancelled) {
+          return;
+        }
+      }
+
+      // ✅ CONFIRMATION
+      const summaryHtml = selectedSchedules
+        .map((sched, index) => {
+          const date = new Date(sched.start_date).toLocaleDateString("en-US", {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          });
+          return `
+          <div class="p-3 mb-2 border rounded-lg bg-gray-50">
+            <div class="font-semibold">Day ${index + 1}: ${date}</div>
+            <div class="text-sm text-gray-600">${fmtTime(
+              sched.start_time
+            )} - ${fmtTime(sched.end_time)}</div>
+          </div>
+        `;
+        })
+        .join("");
+
+      const confirmResult = await Swal.fire({
+        title: "Confirm Reschedule",
+        html: `
+        <div class="text-left">
+          <p class="mb-3 text-gray-700">Reschedule <strong>${enrollment.student_name}</strong> to:</p>
+          ${summaryHtml}
+        </div>
+      `,
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: "Yes, reschedule",
+        cancelButtonText: "Cancel",
+      });
+
+      if (!confirmResult.isConfirmed) return;
+
+      // Send reschedule request
+      await axios.patch(
+        `${import.meta.env.VITE_API_URL}/admin/enrollments/${
+          enrollment.enrollment_id
+        }/reschedule`,
+        { new_schedule_ids: selectedSchedules.map((s) => s.schedule_id) },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      await Swal.fire({
+        title: "Success!",
+        text: "Student has been rescheduled successfully.",
+        icon: "success",
+        timer: 2000,
+        showConfirmButton: false,
+      });
+
+      fetchEnrollments();
+    } catch (error) {
+      console.error("Error rescheduling:", error);
+      await Swal.fire({
+        title: "Error",
+        text: error.response?.data?.error || "Failed to reschedule.",
+        icon: "error",
+      });
     }
   };
 
@@ -785,28 +1263,26 @@ const EnrollmentsPage = () => {
       })
       .toLowerCase();
   };
-
   const formatSchedule = (e) => {
+    console.log("🔍 Formatting schedule for:", e.student_name);
+    console.log("📅 Raw start_date:", e.start_date);
     if (e.course_name === "ONLINE THEORETICAL DRIVING COURSE") {
       return "Online Course - Self-paced";
     }
 
     if (e.multiple_schedules && e.multiple_schedules.length > 0) {
-      // Format each schedule with compact date and time
       const scheduleDetails = e.multiple_schedules
         .map((s) => {
-          const dateStr = s.start_date.split("T")[0]; // Extract YYYY-MM-DD
-          const [year, month, day] = dateStr.split("-").map(Number);
-          const date = new Date(year, month - 1, day);
+          // ✅ USE SAME AS STUDENT
+          const formattedDate = new Date(s.start_date).toLocaleDateString(
+            "en-US",
+            {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            }
+          );
 
-          // Short month format with year (Nov 17, 2025)
-          const formattedDate = date.toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          });
-
-          // Compact time format (8am-5pm)
           const startTime = fmtTime(s.start_time)
             .replace(":00", "")
             .replace(" ", "");
@@ -825,12 +1301,13 @@ const EnrollmentsPage = () => {
       return e.schedule || "Schedule TBD";
     }
 
-    // For single schedule
     const dateStr = e.start_date.split("T")[0];
-    const [year, month, day] = dateStr.split("-").map(Number);
-    const start = new Date(year, month - 1, day);
+    const dateParts = dateStr.split("-");
+    const year = parseInt(dateParts[0]);
+    const month = parseInt(dateParts[1]) - 1;
+    const day = parseInt(dateParts[2]);
 
-    const startDate = start.toLocaleDateString("en-US", {
+    const startDate = new Date(year, month, day).toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
@@ -841,7 +1318,6 @@ const EnrollmentsPage = () => {
 
     return `${startDate} (${startTime}-${endTime})`;
   };
-
   const getAvailableYears = () => {
     const years = new Set();
     enrollments.forEach((enrollment) => {
@@ -885,11 +1361,21 @@ const EnrollmentsPage = () => {
             }`;
 
       if (!acc[scheduleKey]) {
+        // ✅ FIXED: Parse date correctly without timezone shift
+        let sortDate = new Date();
+        if (enrollment.start_date) {
+          const dateStr = enrollment.start_date.split("T")[0];
+          const [year, month, day] = dateStr.split("-");
+          sortDate = new Date(
+            parseInt(year),
+            parseInt(month) - 1,
+            parseInt(day)
+          );
+        }
+
         acc[scheduleKey] = {
           schedule: formatSchedule(enrollment),
-          sortDate: enrollment.start_date
-            ? new Date(enrollment.start_date)
-            : new Date(),
+          sortDate: sortDate,
           enrollments: [],
         };
       }
@@ -1108,8 +1594,14 @@ const EnrollmentsPage = () => {
               className={`text-sm border rounded-full px-3 py-1 font-medium ${getStatusColor(
                 e.payment_status
               )}`}
+              disabled={e.payment_status?.toLowerCase() === "fully paid"}
             >
-              <option value="Not Fully Paid">Not Fully Paid</option>
+              <option
+                value="Not Fully Paid"
+                disabled={e.payment_status?.toLowerCase() === "fully paid"}
+              >
+                Not Fully Paid
+              </option>
               <option value="Fully Paid">Fully Paid</option>
             </select>
           </td>
@@ -1144,14 +1636,42 @@ const EnrollmentsPage = () => {
       </td>
       {hasAdminFeatures && (
         <td className="px-6 py-4">
-          <button
-            onClick={() => deleteEnrollment(e.enrollment_id, e.student_name)}
-            className="inline-flex items-center px-3 py-1.5 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 hover:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors duration-200"
-            title="Delete enrollment"
-          >
-            <Trash2 className="h-4 w-4 mr-1" />
-            Delete
-          </button>
+          <div className="flex items-center gap-2">
+            {/* ✅ DAGDAG TO - Reschedule Button */}
+            {!isOnlineTheoretical(e.course_name) && (
+              <button
+                onClick={() => handleReschedule(e)}
+                className="inline-flex items-center px-3 py-1.5 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200"
+                title="Reschedule student"
+              >
+                <Calendar className="h-4 w-4 mr-1" />
+                Reschedule
+              </button>
+            )}
+            {showArchived ? (
+              <button
+                onClick={() =>
+                  unarchiveEnrollment(e.enrollment_id, e.student_name)
+                }
+                className="inline-flex items-center justify-center px-3 py-1.5 border border-green-300 text-xs sm:text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 hover:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors duration-200 flex-1 sm:flex-initial"
+                title="Restore enrollment"
+              >
+                <RotateCcw className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                Restore
+              </button>
+            ) : (
+              <button
+                onClick={() =>
+                  archiveEnrollment(e.enrollment_id, e.student_name)
+                }
+                className="inline-flex items-center justify-center px-3 py-1.5 border border-orange-300 text-xs sm:text-sm font-medium rounded-md text-orange-700 bg-orange-50 hover:bg-orange-100 hover:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors duration-200 flex-1 sm:flex-initial"
+                title="Archive enrollment"
+              >
+                <Archive className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                Archive
+              </button>
+            )}
+          </div>
         </td>
       )}
     </tr>
@@ -1321,14 +1841,28 @@ const EnrollmentsPage = () => {
             <span className="text-xs sm:text-sm text-gray-600 font-medium">
               Actions:
             </span>
-            <button
-              onClick={() => deleteEnrollment(e.enrollment_id, e.student_name)}
-              className="inline-flex items-center justify-center px-3 py-1.5 border border-red-300 text-xs sm:text-sm font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 hover:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors duration-200 w-full sm:w-auto"
-              title="Delete enrollment"
-            >
-              <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-              Delete
-            </button>
+            <div className="flex gap-2">
+              {!isOnlineTheoretical(e.course_name) && (
+                <button
+                  onClick={() => handleReschedule(e)}
+                  className="inline-flex items-center justify-center px-3 py-1.5 border border-blue-300 text-xs sm:text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200 flex-1 sm:flex-initial"
+                  title="Reschedule student"
+                >
+                  <Calendar className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                  Reschedule
+                </button>
+              )}
+              <button
+                onClick={() =>
+                  archiveEnrollment(e.enrollment_id, e.student_name)
+                }
+                className="inline-flex items-center justify-center px-3 py-1.5 border border-orange-300 text-xs sm:text-sm font-medium rounded-md text-orange-700 bg-orange-50 hover:bg-orange-100 hover:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors duration-200 flex-1 sm:flex-initial"
+                title="Archive enrollment"
+              >
+                <Archive className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                Archive
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -1350,18 +1884,38 @@ const EnrollmentsPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
+        {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-red-600 rounded-lg">
-              <Users className="h-6 w-6 text-white" />
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-red-600 rounded-lg">
+                <Users className="h-6 w-6 text-white" />
+              </div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Enrollment Management
+              </h1>
             </div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              Enrollment Management
-            </h1>
+
+            {/* ✅ ADD THIS TOGGLE BUTTON */}
+            {hasAdminFeatures && (
+              <button
+                onClick={() => setShowArchived(!showArchived)}
+                className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                  showArchived
+                    ? "bg-green-100 text-green-700 hover:bg-green-200"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                <Archive className="h-4 w-4" />
+                {showArchived ? "Show Active" : "Show Archived"}
+              </button>
+            )}
           </div>
           <p className="text-gray-600">
             {hasAdminFeatures
-              ? "Manage student enrollments, instructor assignments, and payment tracking"
+              ? showArchived
+                ? "View archived enrollments"
+                : "Manage student enrollments, instructor assignments, and payment tracking"
               : "View student enrollments and their details"}
           </p>
         </div>
@@ -1372,7 +1926,7 @@ const EnrollmentsPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">
-                  Active Enrollments
+                  New Enrollees
                 </p>
                 <p className="text-2xl font-bold text-gray-900">
                   {
@@ -1632,7 +2186,7 @@ const EnrollmentsPage = () => {
                         </>
                       )}
                       <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
+                        Progress{" "}
                       </th>
                       {hasAdminFeatures && (
                         <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -4408,7 +4962,7 @@ const AttendancePage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs sm:text-sm font-medium text-gray-600">
-                  Pending
+                  Missing
                 </p>
                 <p className="text-xl sm:text-3xl font-bold text-yellow-600">
                   {stats.pending}
@@ -5569,6 +6123,7 @@ const Records = () => {
   const [selectedYear, setSelectedYear] = useState("all");
   const [availableYears, setAvailableYears] = useState([]);
   const [searchName, setSearchName] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("all");
   const searchInputRef = useRef(null);
   const [isPending, startTransition] = useTransition();
 
@@ -5625,6 +6180,7 @@ const Records = () => {
       setSelectedYear("all");
       searchInputRef.current.value = "";
       setSearchName("");
+      setSelectedStatus("all"); // 👈 DAGDAG TO
     });
   };
   //  Proper filtering with date normalization
@@ -5653,7 +6209,12 @@ const Records = () => {
       (rec.student_name &&
         rec.student_name.toLowerCase().includes(searchName.toLowerCase()));
 
-    return monthMatch && yearMatch && nameMatch;
+    // 👇 DAGDAG STATUS FILTER
+    const statusMatch =
+      selectedStatus === "all" ||
+      (rec.status && rec.status.toLowerCase() === selectedStatus.toLowerCase());
+
+    return monthMatch && yearMatch && nameMatch && statusMatch; // 👈 DAGDAG statusMatch
   });
 
   if (loading) {
@@ -5709,7 +6270,8 @@ const Records = () => {
               </h3>
               {(selectedMonth !== "all" ||
                 selectedYear !== "all" ||
-                searchName !== "") && (
+                searchName !== "" ||
+                selectedStatus !== "all") && (
                 <button
                   onClick={handleResetFilters}
                   disabled={isPending}
@@ -5721,8 +6283,10 @@ const Records = () => {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* Search Box with Button */}
-              <div className="mb-4">
+              {" "}
+              {/* 👈 3 TO 4 */}
+              {/* Search Box with Button - FULL WIDTH */}
+              <div className="col-span-full">
                 <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                   Search by Name
                 </label>
@@ -5764,7 +6328,9 @@ const Records = () => {
                 </label>
                 <select
                   value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  onChange={(e) =>
+                    startTransition(() => setSelectedMonth(e.target.value))
+                  }
                   className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all text-sm sm:text-base"
                 >
                   {months.map((month) => (
@@ -5774,7 +6340,6 @@ const Records = () => {
                   ))}
                 </select>
               </div>
-
               {/* Year Filter */}
               <div>
                 <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
@@ -5782,7 +6347,9 @@ const Records = () => {
                 </label>
                 <select
                   value={selectedYear}
-                  onChange={(e) => setSelectedYear(e.target.value)}
+                  onChange={(e) =>
+                    startTransition(() => setSelectedYear(e.target.value))
+                  }
                   className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all text-sm sm:text-base"
                 >
                   <option value="all">All Years</option>
@@ -5793,20 +6360,43 @@ const Records = () => {
                   ))}
                 </select>
               </div>
+              {/* Status Filter */}
+              <div>
+                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
+                  Status
+                </label>
+                <select
+                  value={selectedStatus}
+                  onChange={(e) =>
+                    startTransition(() => setSelectedStatus(e.target.value))
+                  }
+                  className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all text-sm sm:text-base"
+                >
+                  <option value="all">All Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="passed/completed">Passed/Completed</option>
+                  <option value="failed">Failed</option>
+                </select>
+              </div>
+            </div>
 
-              {/* Results Count */}
-              <div className="flex items-end">
-                <div className="w-full p-3 sm:p-4 bg-gradient-to-r from-red-50 to-orange-50 rounded-lg border-2 border-red-200">
-                  <p className="text-xs sm:text-sm text-gray-600">
-                    Showing Results
-                  </p>
-                  <p className="text-lg sm:text-2xl font-bold text-red-600">
-                    {filteredRecords.length}{" "}
-                    <span className="text-sm sm:text-base text-gray-500">
-                      of {records.length}
-                    </span>
-                  </p>
-                </div>
+            {/* Results Count */}
+            <div className="mt-4">
+              <div className="w-full p-3 sm:p-4 bg-gradient-to-r from-red-50 to-orange-50 rounded-lg border-2 border-red-200">
+                <p className="text-xs sm:text-sm text-gray-600">
+                  {selectedStatus === "all"
+                    ? "Showing Results of Student Information"
+                    : `Showing Results of ${
+                        selectedStatus.charAt(0).toUpperCase() +
+                        selectedStatus.slice(1)
+                      } Status`}
+                </p>
+                <p className="text-lg sm:text-2xl font-bold text-red-600">
+                  {filteredRecords.length}{" "}
+                  <span className="text-sm sm:text-base text-gray-500">
+                    of {records.length}
+                  </span>
+                </p>
               </div>
             </div>
           </div>
@@ -5818,6 +6408,9 @@ const Records = () => {
             <table className="w-full">
               <thead className="bg-gradient-to-r from-red-600 to-red-700 text-white">
                 <tr>
+                  <th className="px-3 sm:px-4 py-3 sm:py-4 text-left text-xs sm:text-sm font-bold whitespace-nowrap">
+                    Student No.
+                  </th>
                   <th className="px-3 sm:px-4 py-3 sm:py-4 text-left text-xs sm:text-sm font-bold whitespace-nowrap">
                     Name
                   </th>
@@ -5863,6 +6456,9 @@ const Records = () => {
                   <th className="px-3 sm:px-4 py-3 sm:py-4 text-left text-xs sm:text-sm font-bold whitespace-nowrap">
                     Amount Paid
                   </th>
+                  <th className="px-3 sm:px-4 py-3 sm:py-4 text-center text-xs sm:text-sm font-bold whitespace-nowrap">
+                    Status
+                  </th>
                   <th className="px-3 sm:px-4 py-3 sm:py-4 text-left text-xs sm:text-sm font-bold whitespace-nowrap">
                     Branch
                   </th>
@@ -5881,6 +6477,11 @@ const Records = () => {
                           index % 2 === 0 ? "bg-white" : "bg-gray-50"
                         }`}
                       >
+                        <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-bold text-red-600 whitespace-nowrap">
+                          {rec.student_number || (
+                            <span className="text-gray-400 italic">—</span>
+                          )}
+                        </td>
                         <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-gray-800 whitespace-nowrap">
                           {rec.student_name || "N/A"}
                         </td>
@@ -5984,6 +6585,31 @@ const Records = () => {
                         <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-bold text-green-600 whitespace-nowrap">
                           ₱{parseFloat(rec.amount_paid || 0).toFixed(2)}
                         </td>
+                        <td className="px-3 sm:px-4 py-3 sm:py-4 text-center whitespace-nowrap">
+                          {rec.status ? (
+                            <span
+                              className={`inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs font-bold shadow-sm ${
+                                rec.status.toLowerCase() ===
+                                  "passed/completed" ||
+                                rec.status.toLowerCase() === "completed"
+                                  ? "bg-green-100 text-green-800"
+                                  : rec.status.toLowerCase() === "failed"
+                                  ? "bg-red-100 text-red-800"
+                                  : rec.status.toLowerCase() === "approved"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : rec.status.toLowerCase() === "pending"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : "bg-gray-100 text-gray-600"
+                              }`}
+                            >
+                              {rec.status}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 text-xs italic">
+                              —
+                            </span>
+                          )}
+                        </td>
                         <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-600 whitespace-nowrap">
                           {rec.branch_name || "N/A"}
                         </td>
@@ -5992,7 +6618,7 @@ const Records = () => {
                   })
                 ) : (
                   <tr>
-                    <td colSpan="16" className="px-4 py-12 text-center">
+                    <td colSpan="18" className="px-4 py-12 text-center">
                       <div className="flex flex-col items-center justify-center">
                         <div className="text-6xl mb-4">🔍</div>
                         <p className="text-lg font-semibold text-gray-700 mb-2">
@@ -6539,28 +7165,27 @@ const VehiclesPage = () => {
     </div>
   );
 };
-
 const Admin_Staff = () => {
   const [activePage, setActivePage] = useState("Dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [vehiclesOpen, setVehiclesOpen] = useState(false); // ← NEW: For dropdown
 
   const navigationItems = [
     { name: "Dashboard", icon: <BarChart3 className="w-5 h-5" /> },
     { name: "Enrollments", icon: <User className="w-5 h-5" /> },
-    { name: "Records", icon: <List className="w-5 h-5" /> },
+    { name: "Student Records", icon: <List className="w-5 h-5" /> },
     { name: "Schedules", icon: <Users className="w-5 h-5" /> },
     { name: "FeedbackPage", icon: <BarChart3 className="w-5 h-5" /> },
     {
       name: "Attendance",
       icon: <ListCheck className="w-5 h-5" />,
     },
-    { name: "Maintenance", icon: <Settings className="w-5 h-5" /> },
-    { name: "Vehicles", icon: <Car className="w-5 h-5" /> },
+    // ← REMOVED: Maintenance at Vehicles dito
   ];
 
   const handleNavClick = (pageName) => {
     setActivePage(pageName);
-    setSidebarOpen(false); // Close sidebar on mobile after navigation
+    setSidebarOpen(false);
   };
 
   const handleSignOut = async () => {
@@ -6670,6 +7295,7 @@ const Admin_Staff = () => {
 
         {/* Navigation */}
         <nav className="p-4 space-y-2">
+          {/* Regular Navigation Items */}
           {navigationItems.map(({ name, icon }) => (
             <button
               key={name}
@@ -6685,6 +7311,62 @@ const Admin_Staff = () => {
               <span className="truncate">{name}</span>
             </button>
           ))}
+
+          {/* ↓↓↓ NEW: Vehicles Dropdown ↓↓↓ */}
+          <div>
+            {/* Vehicles Parent Button */}
+            <button
+              onClick={() => setVehiclesOpen(!vehiclesOpen)}
+              className={`flex items-center justify-between w-full px-4 py-3 rounded-lg font-medium text-sm cursor-pointer transition-colors
+                ${
+                  activePage === "Vehicles" || activePage === "Maintenance"
+                    ? "bg-red-600 text-white"
+                    : "text-gray-700 hover:bg-gray-100"
+                }`}
+            >
+              <div className="flex items-center">
+                <Car className="w-5 h-5 mr-3" />
+                <span className="truncate">Vehicles</span>
+              </div>
+              <ChevronDown
+                className={`w-4 h-4 transition-transform ${
+                  vehiclesOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            {/* Dropdown Submenu */}
+            {vehiclesOpen && (
+              <div className="ml-4 mt-1 space-y-1">
+                <button
+                  onClick={() => handleNavClick("Vehicles")}
+                  className={`flex items-center w-full px-4 py-2 rounded-lg font-medium text-sm cursor-pointer transition-colors
+                    ${
+                      activePage === "Vehicles"
+                        ? "bg-red-500 text-white"
+                        : "text-gray-600 hover:bg-gray-100"
+                    }`}
+                >
+                  <Car className="w-4 h-4 mr-3" />
+                  <span className="truncate">Vehicle List</span>
+                </button>
+                <button
+                  onClick={() => handleNavClick("Maintenance")}
+                  className={`flex items-center w-full px-4 py-2 rounded-lg font-medium text-sm cursor-pointer transition-colors
+                    ${
+                      activePage === "Maintenance"
+                        ? "bg-red-500 text-white"
+                        : "text-gray-600 hover:bg-gray-100"
+                    }`}
+                >
+                  <Settings className="w-4 h-4 mr-3" />
+                  <span className="truncate">Maintenance</span>
+                </button>
+              </div>
+            )}
+          </div>
+          {/* ↑↑↑ END: Vehicles Dropdown ↑↑↑ */}
+
           {/* Sign Out Button */}
           <div className="pt-4 border-t border-gray-200">
             <button
@@ -6705,7 +7387,7 @@ const Admin_Staff = () => {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 min-h-[calc(100vh-120px)] lg:min-h-[calc(100vh-64px)]">
             {activePage === "Dashboard" && <DashboardPage />}
             {activePage === "Enrollments" && <EnrollmentsPage />}
-            {activePage === "Records" && <Records />}
+            {activePage === "Student Records" && <Records />}
             {activePage === "Schedules" && <Schedules />}
             {activePage === "FeedbackPage" && <FeedbackPage />}
             {activePage === "Attendance" && <AttendancePage />}
