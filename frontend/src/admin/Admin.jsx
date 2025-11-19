@@ -1472,19 +1472,51 @@ const EnrollmentsPage = () => {
 
   const groupEnrollmentsBySchedule = (enrollments) => {
     const groups = enrollments.reduce((acc, enrollment) => {
-      const scheduleKey =
+      // ✅ Handle online courses separately
+      if (
         enrollment.course_name?.toLowerCase().includes("online") &&
         enrollment.course_name?.toLowerCase().includes("theoretical")
-          ? "online_course"
-          : `${enrollment.start_date || "tbd"}_${
-              enrollment.start_time || "tbd"
-            }_${enrollment.end_time || "tbd"}_${
-              enrollment.is_theoretical || false
-            }`;
+      ) {
+        const onlineKey = "online_course";
+        if (!acc[onlineKey]) {
+          acc[onlineKey] = {
+            schedule: "Online Course - Self-paced",
+            sortDate: new Date(0), // Put online courses first
+            enrollments: [],
+          };
+        }
+        acc[onlineKey].enrollments.push(enrollment);
+        return acc;
+      }
 
-      if (!acc[scheduleKey]) {
-        // ✅ FIXED: Parse date correctly without timezone shift
-        let sortDate = new Date();
+      // ✅ NEW: Use multiple_schedules to create unique group key
+      let scheduleKey;
+      let sortDate = new Date();
+
+      if (
+        enrollment.multiple_schedules &&
+        enrollment.multiple_schedules.length > 0
+      ) {
+        // Create key based on ALL schedule dates for this enrollment
+        const scheduleDates = enrollment.multiple_schedules
+          .map((s) => s.start_date.split("T")[0])
+          .sort()
+          .join("_");
+        scheduleKey = `multi_${scheduleDates}_${enrollment.course_id}`;
+
+        // Use first schedule date for sorting
+        const firstDateStr =
+          enrollment.multiple_schedules[0].start_date.split("T")[0];
+        const [year, month, day] = firstDateStr.split("-");
+        sortDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      } else {
+        // Fallback to old method for single schedules
+        scheduleKey = `${enrollment.start_date || "tbd"}_${
+          enrollment.start_time || "tbd"
+        }_${enrollment.end_time || "tbd"}_${
+          enrollment.is_theoretical || false
+        }`;
+
         if (enrollment.start_date) {
           const dateStr = enrollment.start_date.split("T")[0];
           const [year, month, day] = dateStr.split("-");
@@ -1494,7 +1526,9 @@ const EnrollmentsPage = () => {
             parseInt(day)
           );
         }
+      }
 
+      if (!acc[scheduleKey]) {
         acc[scheduleKey] = {
           schedule: formatSchedule(enrollment),
           sortDate: sortDate,
