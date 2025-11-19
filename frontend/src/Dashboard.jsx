@@ -2061,7 +2061,6 @@ const StudentsRecords = () => {
   const [selectedMonth, setSelectedMonth] = useState("");
   const [selectedYear, setSelectedYear] = useState("");
   const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
   const searchInputRef = useRef(null);
   const [isPending, startTransition] = useTransition();
   const [searchInput, setSearchInput] = useState("");
@@ -2114,6 +2113,8 @@ const StudentsRecords = () => {
         return res.json();
       })
       .then((data) => {
+        console.log("🔍 API Response - First record:", data[0]); // ← ADD THIS
+        console.log("🔍 Has student_number?", data[0]?.student_number); // ← ADD THIS
         setRecords(Array.isArray(data) ? data : []);
         setLoading(false);
       })
@@ -2124,30 +2125,23 @@ const StudentsRecords = () => {
       });
   }, [selectedBranch, selectedMonth, selectedYear]);
 
-  // Filter records based on search term
-  // Filter records based on search term
   const filteredRecords = records.filter((rec) => {
-    if (searchTerm === "") return true;
-
-    console.log("🎯 Filtering with searchTerm:", searchTerm);
-    console.log("  Checking record:", rec.student_name);
+    if (searchInput === "") return true; // ← Changed from searchTerm to searchInput
 
     const nameMatch = rec.student_name
       ?.toLowerCase()
-      .includes(searchTerm.toLowerCase());
+      .includes(searchInput.toLowerCase());
     const emailMatch = rec.email
       ?.toLowerCase()
-      .includes(searchTerm.toLowerCase());
+      .includes(searchInput.toLowerCase());
     const courseMatch = rec.course_name
       ?.toLowerCase()
-      .includes(searchTerm.toLowerCase());
+      .includes(searchInput.toLowerCase());
+    const studentNumMatch = rec.student_number
+      ?.toLowerCase()
+      .includes(searchInput.toLowerCase());
 
-    console.log("  Name match:", nameMatch);
-    console.log("  Email match:", emailMatch);
-    console.log("  Course match:", courseMatch);
-    console.log("  Final result:", nameMatch || emailMatch || courseMatch);
-
-    return nameMatch || emailMatch || courseMatch;
+    return nameMatch || emailMatch || courseMatch || studentNumMatch;
   });
 
   console.log("📊 Total filtered records:", filteredRecords.length);
@@ -2158,8 +2152,7 @@ const StudentsRecords = () => {
       setSelectedBranch("");
       setSelectedMonth("");
       setSelectedYear("");
-      setSearchInput("");
-      setSearchTerm("");
+      setSearchInput(""); // ← Changed from setSearchTerm
       if (searchInputRef.current) {
         searchInputRef.current.value = "";
       }
@@ -2168,15 +2161,13 @@ const StudentsRecords = () => {
 
   const handleSearch = () => {
     const trimmedValue = searchInputRef.current.value.trim();
-    console.log("🔍 Search clicked:");
-    console.log("  Input value:", searchInputRef.current.value);
-    console.log("  Trimmed value:", trimmedValue);
-    setSearchTerm(trimmedValue);
+    setSearchInput(trimmedValue); // ← Direct set lang
   };
   const handleClearSearch = () => {
-    searchInputRef.current.value = "";
+    if (searchInputRef.current) {
+      searchInputRef.current.value = "";
+    }
     setSearchInput("");
-    setSearchTerm("");
   };
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-6 lg:p-8">
@@ -2225,8 +2216,6 @@ const StudentsRecords = () => {
                   ref={searchInputRef}
                   type="text"
                   placeholder="Search by name, email, or course..."
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
                   onKeyPress={(e) => e.key === "Enter" && handleSearch()}
                   className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
                   disabled={loading}
@@ -2302,7 +2291,7 @@ const StudentsRecords = () => {
             {(selectedBranch ||
               selectedMonth ||
               selectedYear ||
-              searchTerm) && (
+              searchInput) && ( // ← Changed from searchTerm
               <button
                 onClick={clearFilters}
                 disabled={isPending}
@@ -2332,7 +2321,7 @@ const StudentsRecords = () => {
                 {(selectedBranch ||
                   selectedMonth ||
                   selectedYear ||
-                  searchTerm) && (
+                  searchInput) && (
                   <span className="text-blue-600 ml-1">(filtered)</span>
                 )}
               </p>
@@ -2369,6 +2358,9 @@ const StudentsRecords = () => {
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200">
                       <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                        Student #
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                         Name
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
@@ -2400,6 +2392,9 @@ const StudentsRecords = () => {
                         key={`${rec.user_id}-${rec.course_name}-${rec.enrollment_date}-${index}`}
                         className="hover:bg-slate-50 transition-colors"
                       >
+                        <td className="px-6 py-4 text-sm font-medium text-slate-900">
+                          {rec.student_number}
+                        </td>
                         <td className="px-6 py-4 text-sm font-medium text-slate-900">
                           {rec.student_name}
                         </td>
@@ -2452,6 +2447,9 @@ const StudentsRecords = () => {
                     <div className="space-y-3">
                       <div className="flex items-start justify-between">
                         <div>
+                          <p className="text-xs text-slate-500 mb-1">
+                            {rec.student_number}
+                          </p>
                           <h3 className="font-semibold text-slate-900">
                             {rec.student_name}
                           </h3>

@@ -49,6 +49,7 @@ import {
   VolumeX,
   Archive,
   RotateCcw,
+  MapPin,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import { BsRecord } from "react-icons/bs";
@@ -7168,7 +7169,38 @@ const VehiclesPage = () => {
 const Admin_Staff = () => {
   const [activePage, setActivePage] = useState("Dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [vehiclesOpen, setVehiclesOpen] = useState(false); // ← NEW: For dropdown
+  const [vehiclesOpen, setVehiclesOpen] = useState(false);
+  const [branchName, setBranchName] = useState(""); // ← NEW: Store branch name
+
+  // ← NEW: Get user info and branch name
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("user"));
+    if (user && user.branch_id) {
+      fetchBranchName(user.branch_id);
+    }
+  }, []);
+
+  // ← NEW: Fetch branch name from API
+  const fetchBranchName = async (branchId) => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/branches/${branchId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      const data = await response.json();
+      // ✅ Use 'name' instead of 'branch_name' to match backend
+      if (data.name) {
+        setBranchName(data.name);
+      }
+    } catch (error) {
+      console.error("Error fetching branch:", error);
+    }
+  };
 
   const navigationItems = [
     { name: "Dashboard", icon: <BarChart3 className="w-5 h-5" /> },
@@ -7180,7 +7212,6 @@ const Admin_Staff = () => {
       name: "Attendance",
       icon: <ListCheck className="w-5 h-5" />,
     },
-    // ← REMOVED: Maintenance at Vehicles dito
   ];
 
   const handleNavClick = (pageName) => {
@@ -7215,7 +7246,7 @@ const Admin_Staff = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Mobile Header - Static (Not Fixed) */}
+      {/* Mobile Header */}
       <div className="lg:hidden bg-white shadow-lg border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -7251,7 +7282,7 @@ const Admin_Staff = () => {
         />
       )}
 
-      {/* Sidebar - Fixed on Desktop, Overlay on Mobile */}
+      {/* Sidebar */}
       <div
         className={`
           fixed top-0 bottom-0 left-0 z-50
@@ -7280,15 +7311,28 @@ const Admin_Staff = () => {
         </div>
 
         {/* User Profile */}
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-red-500 to-red-600 rounded-full flex items-center justify-center shadow-lg">
+            <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-red-600 rounded-lg flex items-center justify-center shadow-sm">
               <User className="w-5 h-5 text-white" />
             </div>
-            <div>
-              <div className="font-semibold text-gray-900">
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-gray-900 text-sm">
                 Administrative Staff
               </div>
+              {branchName ? (
+                <div className="flex items-center mt-0.5">
+                  <MapPin className="w-3 h-3 mr-1 text-red-500 flex-shrink-0" />
+                  <span className="text-xs text-gray-600 truncate">
+                    {branchName}
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center mt-0.5">
+                  <div className="w-2.5 h-2.5 border-2 border-gray-300 border-t-red-500 rounded-full animate-spin mr-1.5"></div>
+                  <span className="text-xs text-gray-400">Loading...</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -7312,9 +7356,8 @@ const Admin_Staff = () => {
             </button>
           ))}
 
-          {/* ↓↓↓ NEW: Vehicles Dropdown ↓↓↓ */}
+          {/* Vehicles Dropdown */}
           <div>
-            {/* Vehicles Parent Button */}
             <button
               onClick={() => setVehiclesOpen(!vehiclesOpen)}
               className={`flex items-center justify-between w-full px-4 py-3 rounded-lg font-medium text-sm cursor-pointer transition-colors
@@ -7335,7 +7378,6 @@ const Admin_Staff = () => {
               />
             </button>
 
-            {/* Dropdown Submenu */}
             {vehiclesOpen && (
               <div className="ml-4 mt-1 space-y-1">
                 <button
@@ -7365,7 +7407,6 @@ const Admin_Staff = () => {
               </div>
             )}
           </div>
-          {/* ↑↑↑ END: Vehicles Dropdown ↑↑↑ */}
 
           {/* Sign Out Button */}
           <div className="pt-4 border-t border-gray-200">
@@ -7383,7 +7424,6 @@ const Admin_Staff = () => {
       {/* Main Content */}
       <div className="lg:ml-64">
         <main className="p-4 lg:p-8 max-w-7xl mx-auto">
-          {/* Page Content */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 min-h-[calc(100vh-120px)] lg:min-h-[calc(100vh-64px)]">
             {activePage === "Dashboard" && <DashboardPage />}
             {activePage === "Enrollments" && <EnrollmentsPage />}

@@ -3194,6 +3194,7 @@ app.get("/manager/student-records", async (req, res) => {
     let query = `
       SELECT
         u.user_id,
+        u.student_number,
         u.name AS student_name,
         u.email,
         e.contact_number,
@@ -3209,8 +3210,8 @@ app.get("/manager/student-records", async (req, res) => {
         e.nationality
       FROM enrollments e
       JOIN users u ON e.user_id = u.user_id
-      JOIN branches b ON u.branch_id = b.branch_id
       JOIN courses c ON e.course_id = c.course_id
+      JOIN branches b ON u.branch_id = b.branch_id
       WHERE 1=1
     `;
 
@@ -5368,6 +5369,27 @@ app.patch(
     }
   }
 );
+
+// ✅ GET Branch by ID
+app.get("/branches/:id", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      "SELECT branch_id, name, location FROM branches WHERE branch_id = $1",
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Branch not found" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Error fetching branch:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
 
 app.listen(port, "0.0.0.0", () => {
   console.log(`Server running on http://0.0.0.0:${port}`);
