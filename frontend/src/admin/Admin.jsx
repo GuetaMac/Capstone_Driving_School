@@ -898,12 +898,107 @@ const EnrollmentsPage = () => {
       const requiredSchedules =
         course.required_schedules || scheduleConfig.length;
 
+      // ✅ GET CURRENT SCHEDULES OF STUDENT
+      const currentSchedulesRes = await axios.get(
+        `${import.meta.env.VITE_API_URL}/enrollments/${
+          enrollment.enrollment_id
+        }/schedules`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const currentSchedules = currentSchedulesRes.data;
+
+      if (currentSchedules.length === 0) {
+        await Swal.fire({
+          title: "No Schedules Found",
+          text: "This student has no existing schedules to reschedule.",
+          icon: "info",
+        });
+        return;
+      }
+
+      // ✅ ASK ADMIN WHICH DAYS TO RESCHEDULE
+      const daySelectionHtml = `
+  <div class="text-left">
+    <p class="mb-4 text-gray-700">Select which day(s) to reschedule:</p>
+    <div class="space-y-3">
+      ${currentSchedules
+        .map((sched, index) => {
+          const date = new Date(sched.start_date).toLocaleDateString("en-US", {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          });
+          return `
+          <label class="flex items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+            <input 
+              type="checkbox" 
+              value="${index}" 
+              class="day-checkbox w-4 h-4 text-blue-600 rounded mr-3"
+              checked
+            />
+            <div class="flex-1">
+              <div class="font-semibold text-gray-900">Day ${index + 1}</div>
+              <div class="text-sm text-gray-600">${date}</div>
+              <div class="text-xs text-gray-500">${fmtTime(
+                sched.start_time
+              )} - ${fmtTime(sched.end_time)}</div>
+            </div>
+          </label>
+        `;
+        })
+        .join("")}
+    </div>
+  </div>
+`;
+
+      const daySelectionResult = await Swal.fire({
+        title: "Select Days to Reschedule",
+        html: daySelectionHtml,
+        showCancelButton: true,
+        confirmButtonText: "Continue",
+        cancelButtonText: "Cancel",
+        width: "600px",
+        preConfirm: () => {
+          const checkboxes = document.querySelectorAll(".day-checkbox:checked");
+          const selectedIndices = Array.from(checkboxes).map((cb) =>
+            parseInt(cb.value)
+          );
+
+          if (selectedIndices.length === 0) {
+            Swal.showValidationMessage(
+              "Please select at least one day to reschedule"
+            );
+            return false;
+          }
+
+          return selectedIndices;
+        },
+      });
+
+      if (!daySelectionResult.isConfirmed) return;
+
+      const daysToReschedule = daySelectionResult.value;
+
+      // ✅ BUILD NEW SCHEDULES ARRAY (KEEP UNCHANGED, REPLACE SELECTED)
+      const newScheduleIds = [...currentSchedules.map((s) => s.schedule_id)];
+
       // Get all available schedules
       setLoadingRescheduleSchedules(true);
+
+      // ✅ Check if theoretical course BEFORE the calendar loop
+      const isTheoreticalCourse =
+        course.is_theoretical === 1 ||
+        course.mode === "ftof" ||
+        course.course_name?.toLowerCase().includes("theoretical");
+
       const schedRes = await axios.get(
         `${
           import.meta.env.VITE_API_URL
-        }/schedules/with-availability?course_id=${enrollment.course_id}`,
+        }/schedules/with-availability?course_id=${enrollment.course_id}${
+          isTheoreticalCourse ? "&is_theoretical=true" : ""
+        }`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -975,9 +1070,12 @@ const EnrollmentsPage = () => {
       };
 
       // ✅ SELECT SCHEDULES WITH CALENDAR VIEW
+      // ✅ SELECT SCHEDULES WITH CALENDAR VIEW
       const selectedSchedules = [];
 
-      for (let dayIndex = 0; dayIndex < requiredSchedules; dayIndex++) {
+      // ✅ ONLY LOOP THROUGH SELECTED DAYS
+      for (let i = 0; i < daysToReschedule.length; i++) {
+        const dayIndex = daysToReschedule[i];
         const currentConfig = scheduleConfig[dayIndex];
 
         let selectedScheduleId = null;
@@ -1086,30 +1184,39 @@ const EnrollmentsPage = () => {
                         const isAlreadySelected = selectedSchedules.some(
                           (s) => s.schedule_id === schedule.schedule_id
                         );
+
+                        // ✅ Check availability based on course type
+                        const isUnavailable = isTheoreticalCourse
+                          ? schedule.slots === 0
+                          : schedule.available_vehicles === 0 ||
+                            schedule.available_vehicles === undefined;
+
                         dayHTML += `
-                      <button 
-                        type="button"
-                        data-schedule='${JSON.stringify(schedule)}'
-                        class="schedule-btn w-full text-left p-1.5 rounded text-xs transition-all ${
-                          schedule.available_vehicles === 0
-                            ? "bg-red-300 cursor-not-allowed opacity-50"
-                            : isAlreadySelected
-                            ? "bg-green-500 text-white"
-                            : "bg-blue-500 hover:bg-blue-600 text-white"
-                        }"
-                        ${schedule.available_vehicles === 0 ? "disabled" : ""}
-                      >
-                        <div class="font-semibold">${fmtTime(
-                          schedule.start_time
-                        )} - ${fmtTime(schedule.end_time)}</div>
-                        <div class="text-xs opacity-90 flex items-center justify-between">
-                          <span>${schedule.slots} slots</span>
-                          <span class="font-semibold">🚗 ${
-                            schedule.available_vehicles
-                          }</span>
-                        </div>
-                      </button>
-                    `;
+    <button 
+      type="button"
+      data-schedule='${JSON.stringify(schedule)}'
+      class="schedule-btn w-full text-left p-1.5 rounded text-xs transition-all ${
+        isUnavailable
+          ? "bg-red-300 cursor-not-allowed opacity-50"
+          : isAlreadySelected
+          ? "bg-green-500 text-white"
+          : "bg-blue-500 hover:bg-blue-600 text-white"
+      }"
+      ${isUnavailable ? "disabled" : ""}
+    >
+      <div class="font-semibold">${fmtTime(schedule.start_time)} - ${fmtTime(
+                          schedule.end_time
+                        )}</div>
+      <div class="text-xs opacity-90">
+        <span>${schedule.slots} slot${schedule.slots !== 1 ? "s" : ""}</span>
+        ${
+          !isTheoreticalCourse && schedule.available_vehicles !== undefined
+            ? ` | <span class="font-semibold">🚗 ${schedule.available_vehicles}</span>`
+            : ""
+        }
+      </div>
+    </button>
+  `;
                       });
                       dayHTML += "</div>";
                     }
@@ -1180,9 +1287,15 @@ const EnrollmentsPage = () => {
         }
       }
 
+      // ✅ UPDATE THE NEW SCHEDULE IDS ARRAY
+      daysToReschedule.forEach((dayIndex, i) => {
+        newScheduleIds[dayIndex] = selectedSchedules[i].schedule_id;
+      });
+
       // ✅ CONFIRMATION
-      const summaryHtml = selectedSchedules
-        .map((sched, index) => {
+      const summaryHtml = daysToReschedule
+        .map((dayIndex, i) => {
+          const sched = selectedSchedules[i];
           const date = new Date(sched.start_date).toLocaleDateString("en-US", {
             weekday: "short",
             month: "short",
@@ -1190,13 +1303,20 @@ const EnrollmentsPage = () => {
             year: "numeric",
           });
           return `
-          <div class="p-3 mb-2 border rounded-lg bg-gray-50">
-            <div class="font-semibold">Day ${index + 1}: ${date}</div>
-            <div class="text-sm text-gray-600">${fmtTime(
-              sched.start_time
-            )} - ${fmtTime(sched.end_time)}</div>
-          </div>
-        `;
+      <div class="p-3 mb-2 border rounded-lg ${
+        currentSchedules[dayIndex].schedule_id === sched.schedule_id
+          ? "bg-gray-50"
+          : "bg-blue-50"
+      }">
+        <div class="font-semibold text-sm text-gray-500 mb-1">Day ${
+          dayIndex + 1
+        }</div>
+        <div class="font-semibold">${date}</div>
+        <div class="text-sm text-gray-600">${fmtTime(
+          sched.start_time
+        )} - ${fmtTime(sched.end_time)}</div>
+      </div>
+    `;
         })
         .join("");
 
@@ -1217,11 +1337,12 @@ const EnrollmentsPage = () => {
       if (!confirmResult.isConfirmed) return;
 
       // Send reschedule request
+      // Send reschedule request
       await axios.patch(
         `${import.meta.env.VITE_API_URL}/admin/enrollments/${
           enrollment.enrollment_id
         }/reschedule`,
-        { new_schedule_ids: selectedSchedules.map((s) => s.schedule_id) },
+        { new_schedule_ids: newScheduleIds },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 

@@ -795,8 +795,7 @@ const RecordsPage = () => {
                           disabled={
                             enrollment.status?.toLowerCase() ===
                               "passed/completed" ||
-                            enrollment.status?.toLowerCase() === "failed" ||
-                            enrollment.status?.toLowerCase() === "absent"
+                            enrollment.status?.toLowerCase() === "failed"
                           }
                         >
                           {/* 👇 ALWAYS SHOW CURRENT STATUS */}
@@ -818,8 +817,7 @@ const RecordsPage = () => {
                             // ✅ If already passed/completed or failed, show ONLY that (disabled dropdown)
                             if (
                               currentStatus === "passed/completed" ||
-                              currentStatus === "failed" ||
-                              currentStatus === "absent"
+                              currentStatus === "failed"
                             ) {
                               return null;
                             }
@@ -864,8 +862,16 @@ const RecordsPage = () => {
                                     </option>
                                   )}
 
-                                {/* ↓↓↓ ADD ABSENT OPTION ↓↓↓ */}
-                                <option value="absent">Absent</option>
+                                {/* ↓↓↓ ADD ABSENT OPTIONS ↓↓↓ */}
+                                <option value="day 1 - absent">
+                                  Day 1 - Absent
+                                </option>
+                                <option value="day 2 - absent">
+                                  Day 2 - Absent
+                                </option>
+                                <option value="day 3 - absent">
+                                  Day 3 - Absent
+                                </option>
                                 {/* ↑↑↑ END ↑↑↑ */}
 
                                 {/* Passed/Completed - always available until selected */}
@@ -1018,8 +1024,7 @@ const RecordsPage = () => {
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                     disabled={
                       enrollment.status?.toLowerCase() === "passed/completed" ||
-                      enrollment.status?.toLowerCase() === "failed" ||
-                      enrollment.status?.toLowerCase() === "absent"
+                      enrollment.status?.toLowerCase() === "failed"
                     }
                   >
                     {/* 👇 ALWAYS SHOW CURRENT STATUS */}
@@ -1041,8 +1046,7 @@ const RecordsPage = () => {
                       // ✅ If already passed/completed or failed, show ONLY that (disabled dropdown)
                       if (
                         currentStatus === "passed/completed" ||
-                        currentStatus === "failed" ||
-                        currentStatus === "absent"
+                        currentStatus === "failed"
                       ) {
                         return null;
                       }
@@ -1084,8 +1088,10 @@ const RecordsPage = () => {
                               </option>
                             )}
 
-                          {/* ↓↓↓ ADD ABSENT OPTION ↓↓↓ */}
-                          <option value="absent">Absent</option>
+                          {/* ↓↓↓ ADD ABSENT OPTIONS ↓↓↓ */}
+                          <option value="day 1 - absent">Day 1 - Absent</option>
+                          <option value="day 2 - absent">Day 2 - Absent</option>
+                          <option value="day 3 - absent">Day 3 - Absent</option>
                           {/* ↑↑↑ END ↑↑↑ */}
 
                           {/* Passed/Completed - always available until selected */}
@@ -1095,6 +1101,9 @@ const RecordsPage = () => {
 
                           {/* Failed - always available until selected */}
                           <option value="failed">Failed</option>
+                          <option value="day 1 - absent">Day 1 - Absent</option>
+                          <option value="day 2 - absent">Day 2 - Absent</option>
+                          <option value="day 3 - absent">Day 3 - Absent</option>
                         </>
                       );
                     })()}

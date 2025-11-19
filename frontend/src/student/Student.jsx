@@ -1163,7 +1163,12 @@ const EnrollmentPage = () => {
                                     status === "failed"
                                   )
                                     return "100%";
-                                  if (status === "absent") return "50%"; // ← ADD THIS LINE
+                                  if (status.includes("day 3 - absent"))
+                                    return "100%";
+                                  if (status.includes("day 2 - absent"))
+                                    return "66%";
+                                  if (status.includes("day 1 - absent"))
+                                    return "33%";
                                   if (
                                     status.includes("day 2") ||
                                     status === "in progress"
@@ -1276,9 +1281,10 @@ const EnrollmentPage = () => {
                                     : (e.status ?? "").toLowerCase() ===
                                       "failed"
                                     ? "bg-gradient-to-r from-red-700 to-red-800 text-white"
-                                    : (e.status ?? "").toLowerCase() ===
-                                      "absent" // ← ADD THIS
-                                    ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white" // ← ADD THIS
+                                    : (e.status ?? "")
+                                        .toLowerCase()
+                                        .includes("absent")
+                                    ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white"
                                     : "bg-gray-300 text-gray-500"
                                 }`}
                               >
@@ -1287,8 +1293,10 @@ const EnrollmentPage = () => {
                                   ? "✓"
                                   : (e.status ?? "").toLowerCase() === "failed"
                                   ? "✗"
-                                  : (e.status ?? "").toLowerCase() === "absent" // ← ADD THIS
-                                  ? "⚠" // ← ADD WARNING ICON
+                                  : (e.status ?? "")
+                                      .toLowerCase()
+                                      .includes("absent")
+                                  ? "⚠"
                                   : "4"}
                               </div>
                               <span className="text-[10px] sm:text-xs font-semibold mt-2 text-center">
@@ -1300,11 +1308,12 @@ const EnrollmentPage = () => {
                                 ) : (e.status ?? "").toLowerCase() ===
                                   "failed" ? (
                                   <span className="text-red-600">Failed</span>
-                                ) : (e.status ?? "").toLowerCase() ===
-                                  "absent" ? ( // ← ADD THIS
+                                ) : (e.status ?? "")
+                                    .toLowerCase()
+                                    .includes("absent") ? (
                                   <span className="text-orange-600">
                                     Absent
-                                  </span> // ← ADD THIS
+                                  </span>
                                 ) : (
                                   <span className="text-gray-700">Pending</span>
                                 )}
@@ -1449,7 +1458,7 @@ const EnrollmentPage = () => {
                               }`}
                             ></div>
 
-                            {/* Step 4: Completed/Failed */}
+                            {/* Step 4: Completed/Failed/Absent */}
                             <div className="flex items-center gap-4">
                               <div
                                 className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-lg flex-shrink-0 ${
@@ -1459,6 +1468,10 @@ const EnrollmentPage = () => {
                                     : (e.status ?? "").toLowerCase() ===
                                       "failed"
                                     ? "bg-gradient-to-r from-red-700 to-red-800 text-white"
+                                    : (e.status ?? "")
+                                        .toLowerCase()
+                                        .includes("absent")
+                                    ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white"
                                     : "bg-gray-300 text-gray-500"
                                 }`}
                               >
@@ -1467,6 +1480,10 @@ const EnrollmentPage = () => {
                                   ? "✓"
                                   : (e.status ?? "").toLowerCase() === "failed"
                                   ? "✗"
+                                  : (e.status ?? "")
+                                      .toLowerCase()
+                                      .includes("absent")
+                                  ? "⚠"
                                   : "4"}
                               </div>
                               <div className="flex-1">
@@ -1478,6 +1495,10 @@ const EnrollmentPage = () => {
                                       : (e.status ?? "").toLowerCase() ===
                                         "failed"
                                       ? "text-red-600"
+                                      : (e.status ?? "")
+                                          .toLowerCase()
+                                          .includes("absent")
+                                      ? "text-orange-600"
                                       : "text-gray-800"
                                   }`}
                                 >
@@ -1487,6 +1508,10 @@ const EnrollmentPage = () => {
                                     : (e.status ?? "").toLowerCase() ===
                                       "failed"
                                     ? "Failed"
+                                    : (e.status ?? "")
+                                        .toLowerCase()
+                                        .includes("absent")
+                                    ? "Absent"
                                     : "Pending"}
                                 </h4>
                                 <p className="text-xs text-gray-500">
@@ -1496,6 +1521,10 @@ const EnrollmentPage = () => {
                                     : (e.status ?? "").toLowerCase() ===
                                       "failed"
                                     ? "Did not pass the training"
+                                    : (e.status ?? "")
+                                        .toLowerCase()
+                                        .includes("absent")
+                                    ? "Student was absent"
                                     : "Awaiting completion"}
                                 </p>
                               </div>

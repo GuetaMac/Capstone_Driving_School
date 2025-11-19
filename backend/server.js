@@ -5155,12 +5155,19 @@ app.patch(
       const isTheoretical = enrollment.mode === "ftof";
       const isPractical = enrollment.mode === "practical";
 
-      // Get old schedules to restore slots
-      const oldSchedulesRes = await client.query(
-        `SELECT schedule_id FROM enrollment_schedules WHERE enrollment_id = $1`,
+      // ✅ DELETE OLD SCHEDULES AND RESTORE SLOTS (DO THIS FIRST!)
+      const deletedSchedules = await client.query(
+        `DELETE FROM enrollment_schedules WHERE enrollment_id = $1 RETURNING schedule_id`,
         [enrollment_id]
       );
-      const oldScheduleIds = oldSchedulesRes.rows.map((row) => row.schedule_id);
+
+      // Restore slots for deleted schedules
+      for (const row of deletedSchedules.rows) {
+        await client.query(
+          `UPDATE schedules SET slots = slots + 1 WHERE schedule_id = $1`,
+          [row.schedule_id]
+        );
+      }
 
       // ✅ FOR PRACTICAL COURSES - Check vehicle availability
       if (isPractical) {
@@ -5269,20 +5276,6 @@ app.patch(
         }
       }
 
-      // ✅ RESTORE OLD SCHEDULE SLOTS
-      for (const old_schedule_id of oldScheduleIds) {
-        await client.query(
-          `UPDATE schedules SET slots = slots + 1 WHERE schedule_id = $1`,
-          [old_schedule_id]
-        );
-      }
-
-      // ✅ DELETE OLD ENROLLMENT_SCHEDULES
-      await client.query(
-        `DELETE FROM enrollment_schedules WHERE enrollment_id = $1`,
-        [enrollment_id]
-      );
-
       // ✅ CREATE NEW ENROLLMENT_SCHEDULES
       for (let i = 0; i < new_schedule_ids.length; i++) {
         const schedule_id = new_schedule_ids[i];
@@ -5366,6 +5359,31 @@ app.patch(
         error: "Failed to restore enrollment.",
         details: error.message,
       });
+    }
+  }
+);
+
+// Get enrollment schedules
+app.get(
+  "/enrollments/:enrollment_id/schedules",
+  authenticateToken,
+  async (req, res) => {
+    const { enrollment_id } = req.params;
+
+    try {
+      const result = await pool.query(
+        `SELECT s.schedule_id, s.date as start_date, s.start_time, s.end_time, es.day_number
+       FROM enrollment_schedules es
+       JOIN schedules s ON es.schedule_id = s.schedule_id
+       WHERE es.enrollment_id = $1
+       ORDER BY es.day_number`,
+        [enrollment_id]
+      );
+
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Error fetching enrollment schedules:", error);
+      res.status(500).json({ error: "Failed to fetch schedules" });
     }
   }
 );
