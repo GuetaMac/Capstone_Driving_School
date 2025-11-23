@@ -415,10 +415,88 @@ const RecordsPage = () => {
     fetchEnrollments();
   }, []);
 
+  // ✅ Generate dynamic status options based on required_schedules
+  // ✅ Generate dynamic status options based on required_schedules
+  const getAvailableStatuses = (enrollment) => {
+    const currentStatus = enrollment.status?.toLowerCase() || "";
+    const requiredDays = enrollment.required_schedules || 1;
+
+    // If already final status, return empty (dropdown will be disabled)
+    if (currentStatus === "passed/completed" || currentStatus === "failed") {
+      return [];
+    }
+
+    const statuses = [];
+
+    // === PROGRESSION STATUSES ===
+    const progressionGroup = [];
+
+    // Initial statuses
+    if (!currentStatus) {
+      progressionGroup.push({
+        value: "pending",
+        label: "Pending",
+        group: "progression",
+      });
+    }
+
+    if (currentStatus === "" || currentStatus === "pending") {
+      progressionGroup.push({
+        value: "in progress",
+        label: "In Progress",
+        group: "progression",
+      });
+    }
+
+    // Generate Day X - Completed based on required_schedules
+    for (let day = 1; day <= requiredDays; day++) {
+      const dayCompleted = `day ${day} - completed`;
+
+      // Show "Day X - Completed" if not yet reached
+      if (currentStatus !== dayCompleted) {
+        progressionGroup.push({
+          value: dayCompleted,
+          label: `Day ${day} - Completed`,
+          group: "progression",
+        });
+      }
+    }
+
+    // === ABSENT STATUSES ===
+    const absentGroup = [];
+    for (let day = 1; day <= requiredDays; day++) {
+      const dayAbsent = `day ${day} - absent`;
+      absentGroup.push({
+        value: dayAbsent,
+        label: `Day ${day} - Absent`,
+        group: "absent",
+      });
+    }
+
+    // === FINAL STATUSES ===
+    const finalGroup = [
+      { value: "passed/completed", label: "Passed", group: "final" },
+      { value: "failed", label: "Failed", group: "final" },
+    ];
+
+    return {
+      progression: progressionGroup,
+      absent: absentGroup,
+      final: finalGroup,
+    };
+  };
+
   const handleStatusUpdate = async (enrollmentId, newStatus, studentName) => {
     const result = await Swal.fire({
       title: `Update status?`,
-      text: `Are you sure you want to update ${studentName}'s status to "${newStatus}"?`,
+      text: `Are you sure you want to update ${studentName}'s status to "${
+        newStatus.toLowerCase() === "passed/completed"
+          ? "Passed"
+          : newStatus
+              .split(" ")
+              .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+              .join(" ")
+      }"?`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#d33",
@@ -459,7 +537,14 @@ const RecordsPage = () => {
       Swal.fire({
         icon: "success",
         title: "Status Updated",
-        text: `${studentName}'s status is now "${newStatus}".`,
+        text: `${studentName}'s status is now "${
+          newStatus.toLowerCase() === "passed/completed"
+            ? "Passed"
+            : newStatus
+                .split(" ")
+                .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                .join(" ")
+        }".`,
         timer: 2000,
         showConfirmButton: false,
       });
@@ -527,6 +612,8 @@ const RecordsPage = () => {
         return "bg-orange-100 text-orange-800 border-orange-300"; // ← ADD THIS
       case "passed/completed":
         return "bg-purple-100 text-purple-800 border-purple-300";
+      case "completed": // ✅ ADD THIS CASE TOO
+        return "bg-green-100 text-green-800 border-green-300";
       case "failed":
         return "bg-red-100 text-red-800 border-red-300";
       default:
@@ -577,12 +664,25 @@ const RecordsPage = () => {
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500"
               >
                 <option value="">All Statuses</option>
-                <option value="pending">Pending</option>
-                <option value="in progress">In Progress</option>
-                <option value="day 1 - completed">Day 1 - Completed</option>
-                <option value="day 2 - completed">Day 2 - Completed</option>
-                <option value="passed/completed">Passed/Completed</option>
-                <option value="failed">Failed</option>
+
+                <optgroup label="Progress">
+                  <option value="pending">Pending</option>
+                  <option value="in progress">In Progress</option>
+                  <option value="day 1 - completed">Day 1 - Completed</option>
+                  <option value="day 2 - completed">Day 2 - Completed</option>
+                  <option value="day 3 - completed">Day 3 - Completed</option>
+                </optgroup>
+
+                <optgroup label=" Absent">
+                  <option value="day 1 - absent">Day 1 - Absent</option>
+                  <option value="day 2 - absent">Day 2 - Absent</option>
+                  <option value="day 3 - absent">Day 3 - Absent</option>
+                </optgroup>
+
+                <optgroup label="Final">
+                  <option value="passed/completed">Passed</option>
+                  <option value="failed">Failed</option>
+                </optgroup>
               </select>
             </div>
 
@@ -779,108 +879,114 @@ const RecordsPage = () => {
                           value={enrollment.status || ""}
                           onChange={(e) => {
                             const newStatus = e.target.value;
-
-                            // Don't allow selecting the same status
-                            if (newStatus === enrollment.status) {
-                              return;
-                            }
-
+                            if (newStatus === enrollment.status) return;
                             handleStatusUpdate(
                               enrollment.enrollment_id,
                               newStatus,
                               enrollment.student_name
                             );
                           }}
-                          className="border border-gray-300 rounded px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-500"
+                          className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-500 shadow-sm hover:border-red-400 transition-colors"
                           disabled={
                             enrollment.status?.toLowerCase() ===
                               "passed/completed" ||
                             enrollment.status?.toLowerCase() === "failed"
                           }
                         >
-                          {/* 👇 ALWAYS SHOW CURRENT STATUS */}
+                          {/* Current Status */}
                           {enrollment.status && (
-                            <option value={enrollment.status}>
-                              {enrollment.status}
+                            <option
+                              value={enrollment.status}
+                              className="font-semibold"
+                            >
+                              {(() => {
+                                const status = enrollment.status.toLowerCase();
+                                // Special case: "passed/completed" → "Passed"
+                                if (status === "passed/completed") {
+                                  return "Passed";
+                                }
+                                // Capitalize each word properly
+                                return enrollment.status
+                                  .split(" ")
+                                  .map(
+                                    (word) =>
+                                      word.charAt(0).toUpperCase() +
+                                      word.slice(1)
+                                  )
+                                  .join(" ");
+                              })()}
                             </option>
                           )}
 
                           {!enrollment.status && (
-                            <option value="">Select Status</option>
+                            <option value="" className="text-gray-400">
+                              Select Status
+                            </option>
                           )}
 
-                          {/* Show only NEXT possible statuses (if not final) */}
+                          {/* Dynamic Options */}
                           {(() => {
-                            const currentStatus =
-                              enrollment.status?.toLowerCase() || "";
+                            const statusGroups =
+                              getAvailableStatuses(enrollment);
 
-                            // ✅ If already passed/completed or failed, show ONLY that (disabled dropdown)
-                            if (
-                              currentStatus === "passed/completed" ||
-                              currentStatus === "failed"
-                            ) {
-                              return null;
-                            }
-
-                            const statusOrder = [
-                              "pending",
-                              "in progress",
-                              "day 1 - completed",
-                              "day 2 - completed",
-                            ];
-                            const currentIndex =
-                              statusOrder.indexOf(currentStatus);
+                            // If no groups (final status), return nothing
+                            if (!statusGroups.progression) return null;
 
                             return (
                               <>
-                                {/* Pending - only if no status yet */}
-                                {!currentStatus && (
-                                  <option value="pending">Pending</option>
+                                {/* Progression Group */}
+                                {statusGroups.progression.length > 0 && (
+                                  <optgroup
+                                    label="Progress Status"
+                                    className="bg-blue-50"
+                                  >
+                                    {statusGroups.progression.map((status) => (
+                                      <option
+                                        key={status.value}
+                                        value={status.value}
+                                        className="py-2"
+                                      >
+                                        {status.label}
+                                      </option>
+                                    ))}
+                                  </optgroup>
                                 )}
 
-                                {/* In Progress - only if pending or no status */}
-                                {(currentStatus === "" ||
-                                  currentStatus === "pending") && (
-                                  <option value="in progress">
-                                    In Progress
-                                  </option>
+                                {/* Absent Group */}
+                                {statusGroups.absent.length > 0 && (
+                                  <optgroup
+                                    label="Absent Status"
+                                    className="bg-orange-50"
+                                  >
+                                    {statusGroups.absent.map((status) => (
+                                      <option
+                                        key={status.value}
+                                        value={status.value}
+                                        className="py-2 text-orange-700"
+                                      >
+                                        {status.label}
+                                      </option>
+                                    ))}
+                                  </optgroup>
                                 )}
 
-                                {/* Day 1 - only if not reached yet */}
-                                {currentIndex < 2 &&
-                                  currentStatus !== "day 1 - completed" && (
-                                    <option value="day 1 - completed">
-                                      Day 1 - Completed
-                                    </option>
-                                  )}
-
-                                {/* Day 2 - only if not reached yet */}
-                                {currentIndex < 3 &&
-                                  currentStatus !== "day 2 - completed" && (
-                                    <option value="day 2 - completed">
-                                      Day 2 - Completed
-                                    </option>
-                                  )}
-
-                                {/* ↓↓↓ ADD ABSENT OPTIONS ↓↓↓ */}
-                                <option value="day 1 - absent">
-                                  Day 1 - Absent
-                                </option>
-                                <option value="day 2 - absent">
-                                  Day 2 - Absent
-                                </option>
-                                <option value="day 3 - absent">
-                                  Day 3 - Absent
-                                </option>
-                                {/* ↑↑↑ END ↑↑↑ */}
-
-                                {/* Passed/Completed - always available until selected */}
-                                <option value="passed/completed">
-                                  Passed/Completed
-                                </option>
-
-                                {/* Failed - always available until selected */}
-                                <option value="failed">Failed</option>
+                                {/* Final Group */}
+                                {statusGroups.final.length > 0 && (
+                                  <optgroup
+                                    label="Final Status"
+                                    className="bg-green-50"
+                                  >
+                                    {statusGroups.final.map((status) => (
+                                      <option
+                                        key={status.value}
+                                        value={status.value}
+                                        className="py-2 font-semibold"
+                                      >
+                                        {status.label}
+                                      </option>
+                                    ))}
+                                  </optgroup>
+                                )}
                               </>
                             );
                           })()}
@@ -1009,101 +1115,101 @@ const RecordsPage = () => {
                     value={enrollment.status || ""}
                     onChange={(e) => {
                       const newStatus = e.target.value;
-
-                      // Don't allow selecting the same status
-                      if (newStatus === enrollment.status) {
-                        return;
-                      }
-
+                      if (newStatus === enrollment.status) return;
                       handleStatusUpdate(
                         enrollment.enrollment_id,
                         newStatus,
                         enrollment.student_name
                       );
                     }}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 shadow-sm hover:border-red-400 transition-all"
                     disabled={
                       enrollment.status?.toLowerCase() === "passed/completed" ||
                       enrollment.status?.toLowerCase() === "failed"
                     }
                   >
-                    {/* 👇 ALWAYS SHOW CURRENT STATUS */}
+                    {/* Current Status */}
                     {enrollment.status && (
-                      <option value={enrollment.status}>
-                        {enrollment.status}
+                      <option
+                        value={enrollment.status}
+                        className="font-semibold"
+                      >
+                        {(() => {
+                          const status = enrollment.status.toLowerCase();
+                          // Special case: "passed/completed" → "Passed"
+                          if (status === "passed/completed") {
+                            return "Passed";
+                          }
+                          // Capitalize each word properly
+                          return enrollment.status
+                            .split(" ")
+                            .map(
+                              (word) =>
+                                word.charAt(0).toUpperCase() + word.slice(1)
+                            )
+                            .join(" ");
+                        })()}
                       </option>
                     )}
 
                     {!enrollment.status && (
-                      <option value="">Select Status</option>
+                      <option value="" className="text-gray-400">
+                        Select Status
+                      </option>
                     )}
 
-                    {/* Show only NEXT possible statuses (if not final) */}
+                    {/* Dynamic Options */}
                     {(() => {
-                      const currentStatus =
-                        enrollment.status?.toLowerCase() || "";
+                      const statusGroups = getAvailableStatuses(enrollment);
 
-                      // ✅ If already passed/completed or failed, show ONLY that (disabled dropdown)
-                      if (
-                        currentStatus === "passed/completed" ||
-                        currentStatus === "failed"
-                      ) {
-                        return null;
-                      }
-
-                      const statusOrder = [
-                        "pending",
-                        "in progress",
-                        "day 1 - completed",
-                        "day 2 - completed",
-                      ];
-                      const currentIndex = statusOrder.indexOf(currentStatus);
+                      if (!statusGroups.progression) return null;
 
                       return (
                         <>
-                          {/* Pending - only if no status yet */}
-                          {!currentStatus && (
-                            <option value="pending">Pending</option>
+                          {/* Progression Group */}
+                          {statusGroups.progression.length > 0 && (
+                            <optgroup label="📊 Progress Status">
+                              {statusGroups.progression.map((status) => (
+                                <option
+                                  key={status.value}
+                                  value={status.value}
+                                  className="py-2"
+                                >
+                                  {status.label}
+                                </option>
+                              ))}
+                            </optgroup>
                           )}
 
-                          {/* In Progress - only if pending or no status */}
-                          {(currentStatus === "" ||
-                            currentStatus === "pending") && (
-                            <option value="in progress">In Progress</option>
+                          {/* Absent Group */}
+                          {statusGroups.absent.length > 0 && (
+                            <optgroup label="⚠️ Absent Status">
+                              {statusGroups.absent.map((status) => (
+                                <option
+                                  key={status.value}
+                                  value={status.value}
+                                  className="py-2"
+                                >
+                                  {status.label}
+                                </option>
+                              ))}
+                            </optgroup>
                           )}
 
-                          {/* Day 1 - only if not reached yet */}
-                          {currentIndex < 2 &&
-                            currentStatus !== "day 1 - completed" && (
-                              <option value="day 1 - completed">
-                                Day 1 - Completed
-                              </option>
-                            )}
-
-                          {/* Day 2 - only if not reached yet */}
-                          {currentIndex < 3 &&
-                            currentStatus !== "day 2 - completed" && (
-                              <option value="day 2 - completed">
-                                Day 2 - Completed
-                              </option>
-                            )}
-
-                          {/* ↓↓↓ ADD ABSENT OPTIONS ↓↓↓ */}
-                          <option value="day 1 - absent">Day 1 - Absent</option>
-                          <option value="day 2 - absent">Day 2 - Absent</option>
-                          <option value="day 3 - absent">Day 3 - Absent</option>
-                          {/* ↑↑↑ END ↑↑↑ */}
-
-                          {/* Passed/Completed - always available until selected */}
-                          <option value="passed/completed">
-                            Passed/Completed
-                          </option>
-
-                          {/* Failed - always available until selected */}
-                          <option value="failed">Failed</option>
-                          <option value="day 1 - absent">Day 1 - Absent</option>
-                          <option value="day 2 - absent">Day 2 - Absent</option>
-                          <option value="day 3 - absent">Day 3 - Absent</option>
+                          {/* Final Group */}
+                          {statusGroups.final.length > 0 && (
+                            <optgroup label="✅ Final Status">
+                              {statusGroups.final.map((status) => (
+                                <option
+                                  key={status.value}
+                                  value={status.value}
+                                  className="py-2 font-semibold"
+                                >
+                                  {status.label}
+                                </option>
+                              ))}
+                            </optgroup>
+                          )}
                         </>
                       );
                     })()}

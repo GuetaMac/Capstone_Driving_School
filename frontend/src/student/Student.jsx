@@ -1047,18 +1047,18 @@ const EnrollmentPage = () => {
               >
                 <div className="flex flex-col lg:flex-row">
                   {imageUrl && (
-                    <div className="lg:w-64 flex-shrink-0">
+                    <div className="lg:w-64 flex-shrink-0 overflow-hidden">
                       <img
                         src={imageUrl}
                         alt={e.course_name ?? "Course"}
-                        className="w-full h-48 lg:h-full object-cover"
+                        className="w-full h-48 lg:h-full object-cover object-center scale-105 hover:scale-110 transition-transform duration-300"
+                        loading="lazy"
                         onError={(evt) =>
                           (evt.currentTarget.style.display = "none")
                         }
                       />
                     </div>
                   )}
-
                   <div className="flex-grow p-6">
                     <div className="mb-4">
                       <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
@@ -1151,385 +1151,233 @@ const EnrollmentPage = () => {
 
                         {/* Progress Stepper */}
                         <div className="relative">
-                          {/* Progress Line - Hidden on mobile, visible on larger screens */}
-                          <div className="hidden sm:block absolute top-5 left-0 w-full h-1 bg-gray-200">
-                            <div
-                              className="h-full bg-gradient-to-r from-red-500 to-red-600 transition-all duration-500"
-                              style={{
-                                width: (() => {
-                                  const status = (e.status ?? "").toLowerCase();
-                                  if (
-                                    status === "passed/completed" ||
-                                    status === "failed"
-                                  )
-                                    return "100%";
-                                  if (status.includes("day 3 - absent"))
-                                    return "100%";
-                                  if (status.includes("day 2 - absent"))
-                                    return "66%";
-                                  if (status.includes("day 1 - absent"))
-                                    return "33%";
-                                  if (
-                                    status.includes("day 2") ||
-                                    status === "in progress"
-                                  )
-                                    return "66%";
-                                  if (status.includes("day 1")) return "33%";
-                                  return "0%";
-                                })(),
-                              }}
-                            ></div>
-                          </div>
+                          {(() => {
+                            const requiredDays = e.required_schedules || 2; // Default to 2 if not set
+                            const status = (e.status ?? "").toLowerCase();
 
-                          {/* DESKTOP/TABLET VIEW - Horizontal Stepper */}
-                          <div className="hidden sm:flex relative justify-between items-center">
-                            {/* Step 1: Enrolled */}
-                            <div className="flex flex-col items-center z-10 flex-1">
-                              <div
-                                className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shadow-lg transition-all ${
-                                  true
-                                    ? "bg-gradient-to-r from-red-500 to-red-600 text-white"
-                                    : "bg-gray-300 text-gray-500"
-                                }`}
-                              >
-                                ✓
-                              </div>
-                              <span className="text-[10px] sm:text-xs font-semibold mt-2 text-gray-700 text-center">
-                                Enrolled
-                              </span>
-                            </div>
+                            // Calculate progress percentage
+                            const getProgressPercentage = () => {
+                              if (
+                                status === "passed/completed" ||
+                                status === "failed"
+                              )
+                                return 100;
+                              if (status.includes(`day ${requiredDays}`))
+                                return 100;
 
-                            {/* Step 2: In Progress */}
-                            <div className="flex flex-col items-center z-10 flex-1">
-                              <div
-                                className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shadow-lg transition-all ${
-                                  [
-                                    "in progress",
-                                    "day 1 - completed",
-                                    "day 2 - completed",
-                                    "passed/completed",
-                                    "failed",
-                                  ].some((s) =>
-                                    (e.status ?? "").toLowerCase().includes(s)
-                                  )
-                                    ? "bg-gradient-to-r from-red-500 to-red-600 text-white"
-                                    : "bg-gray-300 text-gray-500"
-                                }`}
-                              >
-                                {[
-                                  "in progress",
-                                  "day 1 - completed",
-                                  "day 2 - completed",
-                                  "passed/completed",
-                                  "failed",
-                                ].some((s) =>
-                                  (e.status ?? "").toLowerCase().includes(s)
-                                )
-                                  ? "✓"
-                                  : "2"}
-                              </div>
-                              <span className="text-[10px] sm:text-xs font-semibold mt-2 text-gray-700 text-center">
-                                {(e.status ?? "")
-                                  .toLowerCase()
-                                  .includes("day 1")
+                              for (
+                                let day = requiredDays - 1;
+                                day >= 1;
+                                day--
+                              ) {
+                                if (status.includes(`day ${day}`)) {
+                                  return (day / (requiredDays + 1)) * 100;
+                                }
+                              }
+
+                              if (status === "in progress")
+                                return (1 / (requiredDays + 1)) * 100;
+                              return 0;
+                            };
+
+                            // Generate steps dynamically
+                            const steps = [
+                              { label: "Enrolled", isCompleted: true },
+                              {
+                                label: status.includes("day 1")
                                   ? "Day 1"
-                                  : "In Progress"}
-                              </span>
-                            </div>
-
-                            {/* Step 3: Day 2 */}
-                            <div className="flex flex-col items-center z-10 flex-1">
-                              <div
-                                className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shadow-lg transition-all ${
-                                  [
-                                    "day 2 - completed",
-                                    "passed/completed",
-                                    "failed",
-                                  ].some((s) =>
-                                    (e.status ?? "").toLowerCase().includes(s)
-                                  )
-                                    ? "bg-gradient-to-r from-red-500 to-red-600 text-white"
-                                    : "bg-gray-300 text-gray-500"
-                                }`}
-                              >
-                                {[
-                                  "day 2 - completed",
-                                  "passed/completed",
-                                  "failed",
-                                ].some((s) =>
-                                  (e.status ?? "").toLowerCase().includes(s)
-                                )
-                                  ? "✓"
-                                  : "3"}
-                              </div>
-                              <span className="text-[10px] sm:text-xs font-semibold mt-2 text-gray-700 text-center">
-                                {(e.status ?? "")
-                                  .toLowerCase()
-                                  .includes("day 2")
-                                  ? "Day 2"
-                                  : "Almost Done"}
-                              </span>
-                            </div>
-
-                            {/* Step 4: Completed/Failed/Absent */}
-                            <div className="flex flex-col items-center z-10 flex-1">
-                              <div
-                                className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shadow-lg transition-all ${
-                                  (e.status ?? "").toLowerCase() ===
-                                  "passed/completed"
-                                    ? "bg-gradient-to-r from-green-500 to-green-600 text-white"
-                                    : (e.status ?? "").toLowerCase() ===
-                                      "failed"
-                                    ? "bg-gradient-to-r from-red-700 to-red-800 text-white"
-                                    : (e.status ?? "")
-                                        .toLowerCase()
-                                        .includes("absent")
-                                    ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white"
-                                    : "bg-gray-300 text-gray-500"
-                                }`}
-                              >
-                                {(e.status ?? "").toLowerCase() ===
-                                "passed/completed"
-                                  ? "✓"
-                                  : (e.status ?? "").toLowerCase() === "failed"
-                                  ? "✗"
-                                  : (e.status ?? "")
-                                      .toLowerCase()
-                                      .includes("absent")
-                                  ? "⚠"
-                                  : "4"}
-                              </div>
-                              <span className="text-[10px] sm:text-xs font-semibold mt-2 text-center">
-                                {(e.status ?? "").toLowerCase() ===
-                                "passed/completed" ? (
-                                  <span className="text-green-600">
-                                    Completed
-                                  </span>
-                                ) : (e.status ?? "").toLowerCase() ===
-                                  "failed" ? (
-                                  <span className="text-red-600">Failed</span>
-                                ) : (e.status ?? "")
-                                    .toLowerCase()
-                                    .includes("absent") ? (
-                                  <span className="text-orange-600">
-                                    Absent
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-700">Pending</span>
-                                )}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* MOBILE VIEW - Vertical Stepper */}
-                          <div className="sm:hidden space-y-4">
-                            {/* Step 1: Enrolled */}
-                            <div className="flex items-center gap-4">
-                              <div
-                                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-lg flex-shrink-0 ${
-                                  true
-                                    ? "bg-gradient-to-r from-red-500 to-red-600 text-white"
-                                    : "bg-gray-300 text-gray-500"
-                                }`}
-                              >
-                                ✓
-                              </div>
-                              <div className="flex-1">
-                                <h4 className="font-bold text-sm text-gray-800">
-                                  Enrolled
-                                </h4>
-                                <p className="text-xs text-gray-500">
-                                  Course enrollment confirmed
-                                </p>
-                              </div>
-                            </div>
-
-                            {/* Vertical Line */}
-                            <div className="ml-5 h-6 w-0.5 bg-gradient-to-b from-red-500 to-gray-300"></div>
-
-                            {/* Step 2: In Progress */}
-                            <div className="flex items-center gap-4">
-                              <div
-                                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-lg flex-shrink-0 ${
+                                  : "In Progress",
+                                isCompleted:
                                   [
                                     "in progress",
-                                    "day 1 - completed",
-                                    "day 2 - completed",
-                                    "passed/completed",
-                                    "failed",
-                                  ].some((s) =>
-                                    (e.status ?? "").toLowerCase().includes(s)
-                                  )
-                                    ? "bg-gradient-to-r from-red-500 to-red-600 text-white"
-                                    : "bg-gray-300 text-gray-500"
-                                }`}
-                              >
-                                {[
-                                  "in progress",
-                                  "day 1 - completed",
-                                  "day 2 - completed",
-                                  "passed/completed",
-                                  "failed",
-                                ].some((s) =>
-                                  (e.status ?? "").toLowerCase().includes(s)
-                                )
-                                  ? "✓"
-                                  : "2"}
-                              </div>
-                              <div className="flex-1">
-                                <h4 className="font-bold text-sm text-gray-800">
-                                  {(e.status ?? "")
-                                    .toLowerCase()
-                                    .includes("day 1")
-                                    ? "Day 1 Completed"
-                                    : "In Progress"}
-                                </h4>
-                                <p className="text-xs text-gray-500">
-                                  Training in progress
-                                </p>
-                              </div>
-                            </div>
-
-                            {/* Vertical Line */}
-                            <div
-                              className={`ml-5 h-6 w-0.5 ${
-                                [
-                                  "day 2 - completed",
-                                  "passed/completed",
-                                  "failed",
-                                ].some((s) =>
-                                  (e.status ?? "").toLowerCase().includes(s)
-                                )
-                                  ? "bg-gradient-to-b from-red-500 to-red-600"
-                                  : "bg-gray-300"
-                              }`}
-                            ></div>
-
-                            {/* Step 3: Day 2 */}
-                            <div className="flex items-center gap-4">
-                              <div
-                                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-lg flex-shrink-0 ${
-                                  [
-                                    "day 2 - completed",
-                                    "passed/completed",
-                                    "failed",
-                                  ].some((s) =>
-                                    (e.status ?? "").toLowerCase().includes(s)
-                                  )
-                                    ? "bg-gradient-to-r from-red-500 to-red-600 text-white"
-                                    : "bg-gray-300 text-gray-500"
-                                }`}
-                              >
-                                {[
-                                  "day 2 - completed",
-                                  "passed/completed",
-                                  "failed",
-                                ].some((s) =>
-                                  (e.status ?? "").toLowerCase().includes(s)
-                                )
-                                  ? "✓"
-                                  : "3"}
-                              </div>
-                              <div className="flex-1">
-                                <h4 className="font-bold text-sm text-gray-800">
-                                  {(e.status ?? "")
-                                    .toLowerCase()
-                                    .includes("day 2")
-                                    ? "Day 2 Completed"
-                                    : "Almost Done"}
-                                </h4>
-                                <p className="text-xs text-gray-500">
-                                  Nearing completion
-                                </p>
-                              </div>
-                            </div>
-
-                            {/* Vertical Line */}
-                            <div
-                              className={`ml-5 h-6 w-0.5 ${
-                                (e.status ?? "").toLowerCase() ===
-                                  "passed/completed" ||
-                                (e.status ?? "").toLowerCase() === "failed"
-                                  ? (e.status ?? "").toLowerCase() ===
-                                    "passed/completed"
-                                    ? "bg-gradient-to-b from-red-600 to-green-500"
-                                    : "bg-gradient-to-b from-red-600 to-red-800"
-                                  : "bg-gray-300"
-                              }`}
-                            ></div>
-
-                            {/* Step 4: Completed/Failed/Absent */}
-                            <div className="flex items-center gap-4">
-                              <div
-                                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-lg flex-shrink-0 ${
-                                  (e.status ?? "").toLowerCase() ===
-                                  "passed/completed"
-                                    ? "bg-gradient-to-r from-green-500 to-green-600 text-white"
-                                    : (e.status ?? "").toLowerCase() ===
-                                      "failed"
-                                    ? "bg-gradient-to-r from-red-700 to-red-800 text-white"
-                                    : (e.status ?? "")
-                                        .toLowerCase()
-                                        .includes("absent")
-                                    ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white"
-                                    : "bg-gray-300 text-gray-500"
-                                }`}
-                              >
-                                {(e.status ?? "").toLowerCase() ===
-                                "passed/completed"
-                                  ? "✓"
-                                  : (e.status ?? "").toLowerCase() === "failed"
-                                  ? "✗"
-                                  : (e.status ?? "")
-                                      .toLowerCase()
-                                      .includes("absent")
-                                  ? "⚠"
-                                  : "4"}
-                              </div>
-                              <div className="flex-1">
-                                <h4
-                                  className={`font-bold text-sm ${
-                                    (e.status ?? "").toLowerCase() ===
-                                    "passed/completed"
-                                      ? "text-green-600"
-                                      : (e.status ?? "").toLowerCase() ===
-                                        "failed"
-                                      ? "text-red-600"
-                                      : (e.status ?? "")
-                                          .toLowerCase()
-                                          .includes("absent")
-                                      ? "text-orange-600"
-                                      : "text-gray-800"
-                                  }`}
-                                >
-                                  {(e.status ?? "").toLowerCase() ===
-                                  "passed/completed"
-                                    ? "Completed!"
-                                    : (e.status ?? "").toLowerCase() ===
-                                      "failed"
+                                    ...Array.from(
+                                      { length: requiredDays },
+                                      (_, i) => `day ${i + 1}`
+                                    ),
+                                  ].some((s) => status.includes(s)) ||
+                                  status === "passed/completed" ||
+                                  status === "failed",
+                              },
+                              ...Array.from(
+                                { length: requiredDays - 1 },
+                                (_, i) => {
+                                  const dayNum = i + 2;
+                                  return {
+                                    label: status.includes(`day ${dayNum}`)
+                                      ? `Day ${dayNum}`
+                                      : dayNum === requiredDays
+                                      ? "Almost Done"
+                                      : `Day ${dayNum}`,
+                                    isCompleted:
+                                      Array.from(
+                                        { length: requiredDays - i - 1 },
+                                        (_, j) => `day ${dayNum + j}`
+                                      ).some((s) => status.includes(s)) ||
+                                      status === "passed/completed" ||
+                                      status === "failed",
+                                  };
+                                }
+                              ),
+                              {
+                                label:
+                                  status === "passed/completed"
+                                    ? "Completed"
+                                    : status === "failed"
                                     ? "Failed"
-                                    : (e.status ?? "")
-                                        .toLowerCase()
-                                        .includes("absent")
+                                    : status.includes("absent")
                                     ? "Absent"
-                                    : "Pending"}
-                                </h4>
-                                <p className="text-xs text-gray-500">
-                                  {(e.status ?? "").toLowerCase() ===
-                                  "passed/completed"
-                                    ? "Training successfully completed"
-                                    : (e.status ?? "").toLowerCase() ===
-                                      "failed"
-                                    ? "Did not pass the training"
-                                    : (e.status ?? "")
-                                        .toLowerCase()
-                                        .includes("absent")
-                                    ? "Student was absent"
-                                    : "Awaiting completion"}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
+                                    : "Pending",
+                                isCompleted:
+                                  status === "passed/completed" ||
+                                  status === "failed" ||
+                                  status.includes("absent"),
+                                isFinal: true,
+                              },
+                            ];
+
+                            return (
+                              <>
+                                {/* Progress Line - Desktop */}
+                                <div className="hidden sm:block absolute top-5 left-0 w-full h-1 bg-gray-200">
+                                  <div
+                                    className="h-full bg-gradient-to-r from-red-500 to-red-600 transition-all duration-500"
+                                    style={{
+                                      width: `${getProgressPercentage()}%`,
+                                    }}
+                                  ></div>
+                                </div>
+
+                                {/* DESKTOP/TABLET VIEW - Horizontal Stepper */}
+                                <div className="hidden sm:flex relative justify-between items-center">
+                                  {steps.map((step, index) => (
+                                    <div
+                                      key={index}
+                                      className="flex flex-col items-center z-10 flex-1"
+                                    >
+                                      <div
+                                        className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shadow-lg transition-all ${
+                                          step.isFinal
+                                            ? status === "passed/completed"
+                                              ? "bg-gradient-to-r from-green-500 to-green-600 text-white"
+                                              : status === "failed"
+                                              ? "bg-gradient-to-r from-red-700 to-red-800 text-white"
+                                              : status.includes("absent")
+                                              ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white"
+                                              : "bg-gray-300 text-gray-500"
+                                            : step.isCompleted
+                                            ? "bg-gradient-to-r from-red-500 to-red-600 text-white"
+                                            : "bg-gray-300 text-gray-500"
+                                        }`}
+                                      >
+                                        {step.isFinal
+                                          ? status === "passed/completed"
+                                            ? "✓"
+                                            : status === "failed"
+                                            ? "✗"
+                                            : status.includes("absent")
+                                            ? "⚠"
+                                            : index + 1
+                                          : step.isCompleted
+                                          ? "✓"
+                                          : index + 1}
+                                      </div>
+                                      <span
+                                        className={`text-[10px] sm:text-xs font-semibold mt-2 text-center ${
+                                          step.isFinal
+                                            ? status === "passed/completed"
+                                              ? "text-green-600"
+                                              : status === "failed"
+                                              ? "text-red-600"
+                                              : status.includes("absent")
+                                              ? "text-orange-600"
+                                              : "text-gray-700"
+                                            : "text-gray-700"
+                                        }`}
+                                      >
+                                        {step.label}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+
+                                {/* MOBILE VIEW - Vertical Stepper */}
+                                <div className="sm:hidden space-y-4">
+                                  {steps.map((step, index) => (
+                                    <React.Fragment key={index}>
+                                      <div className="flex items-center gap-4">
+                                        <div
+                                          className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-lg flex-shrink-0 ${
+                                            step.isFinal
+                                              ? status === "passed/completed"
+                                                ? "bg-gradient-to-r from-green-500 to-green-600 text-white"
+                                                : status === "failed"
+                                                ? "bg-gradient-to-r from-red-700 to-red-800 text-white"
+                                                : status.includes("absent")
+                                                ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white"
+                                                : "bg-gray-300 text-gray-500"
+                                              : step.isCompleted
+                                              ? "bg-gradient-to-r from-red-500 to-red-600 text-white"
+                                              : "bg-gray-300 text-gray-500"
+                                          }`}
+                                        >
+                                          {step.isFinal
+                                            ? status === "passed/completed"
+                                              ? "✓"
+                                              : status === "failed"
+                                              ? "✗"
+                                              : status.includes("absent")
+                                              ? "⚠"
+                                              : index + 1
+                                            : step.isCompleted
+                                            ? "✓"
+                                            : index + 1}
+                                        </div>
+                                        <div className="flex-1">
+                                          <h4
+                                            className={`font-bold text-sm ${
+                                              step.isFinal
+                                                ? status === "passed/completed"
+                                                  ? "text-green-600"
+                                                  : status === "failed"
+                                                  ? "text-red-600"
+                                                  : status.includes("absent")
+                                                  ? "text-orange-600"
+                                                  : "text-gray-800"
+                                                : "text-gray-800"
+                                            }`}
+                                          >
+                                            {step.label}
+                                          </h4>
+                                          <p className="text-xs text-gray-500">
+                                            {index === 0
+                                              ? "Course enrollment confirmed"
+                                              : index === steps.length - 1
+                                              ? status === "passed/completed"
+                                                ? "Training successfully completed"
+                                                : status === "failed"
+                                                ? "Did not pass the training"
+                                                : status.includes("absent")
+                                                ? "Student was absent"
+                                                : "Awaiting completion"
+                                              : "Training in progress"}
+                                          </p>
+                                        </div>
+                                      </div>
+                                      {index < steps.length - 1 && (
+                                        <div
+                                          className={`ml-5 h-6 w-0.5 ${
+                                            steps[index + 1].isCompleted
+                                              ? "bg-gradient-to-b from-red-500 to-red-600"
+                                              : "bg-gray-300"
+                                          }`}
+                                        ></div>
+                                      )}
+                                    </React.Fragment>
+                                  ))}
+                                </div>
+                              </>
+                            );
+                          })()}
                         </div>
 
                         {/* Current Status Badge */}
@@ -1545,8 +1393,10 @@ const EnrollmentPage = () => {
                                   ? "bg-green-100 text-green-800 border-2 border-green-300"
                                   : (e.status ?? "").toLowerCase() === "failed"
                                   ? "bg-red-100 text-red-800 border-2 border-red-300"
-                                  : (e.status ?? "").toLowerCase() === "absent" // ← ADD THIS
-                                  ? "bg-orange-100 text-orange-800 border-2 border-orange-300" // ← ADD THIS
+                                  : (e.status ?? "")
+                                      .toLowerCase()
+                                      .includes("absent")
+                                  ? "bg-orange-100 text-orange-800 border-2 border-orange-300"
                                   : (e.status ?? "")
                                       .toLowerCase()
                                       .includes("day")
@@ -1554,7 +1404,26 @@ const EnrollmentPage = () => {
                                   : "bg-yellow-100 text-yellow-800 border-2 border-yellow-300"
                               }`}
                             >
-                              {e.status ?? "enrolled"}
+                              {/* ✅ FORMAT STATUS DISPLAY */}
+                              {(() => {
+                                const displayStatus = e.status ?? "enrolled";
+                                // Replace "passed/completed" with "Completed"
+                                if (
+                                  displayStatus.toLowerCase() ===
+                                  "passed/completed"
+                                ) {
+                                  return "Completed";
+                                }
+                                // Capitalize each word properly (Day 1 - Absent, etc.)
+                                return displayStatus
+                                  .split(" ")
+                                  .map(
+                                    (word) =>
+                                      word.charAt(0).toUpperCase() +
+                                      word.slice(1)
+                                  )
+                                  .join(" ");
+                              })()}
                             </span>
                           </div>
                         </div>

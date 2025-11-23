@@ -92,13 +92,27 @@ app.get("/branches", async (req, res) => {
 });
 
 app.post("/register", async (req, res) => {
-  const { name, email, password, branch_id } = req.body;
+  const {
+    name,
+    email,
+    password,
+    branch_id,
+    // Personal info
+    address,
+    contact_number,
+    birthday,
+    age,
+    nationality,
+    civil_status,
+    gender,
+  } = req.body;
+
   const hashedPassword = await bcrypt.hash(password, 10);
   const role = "student";
   const code = Math.floor(100000 + Math.random() * 900000);
 
   try {
-    // Check if email already exists BEFORE inserting
+    // Check if email already exists
     const existingUser = await pool.query(
       "SELECT email FROM users WHERE email = $1",
       [email]
@@ -115,12 +129,31 @@ app.post("/register", async (req, res) => {
       "SELECT LPAD(nextval('student_number_seq')::text, 5, '0') AS seq_num"
     );
     const seqNum = seqResult.rows[0].seq_num;
-    const year = currentYear.toString().slice(-2); // 2025 -> 25
-    const studentNumber = `${year}-${seqNum}`; // Example: 25-00001
+    const year = currentYear.toString().slice(-2);
+    const studentNumber = `${year}-${seqNum}`;
 
+    // Insert user with personal info
     await pool.query(
-      "INSERT INTO users (name, email, password, role, branch_id, is_verified, student_number) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-      [name, email, hashedPassword, role, branch_id, false, studentNumber]
+      `INSERT INTO users (
+        name, email, password, role, branch_id, is_verified, student_number,
+        address, contact_number, birthday, age, nationality, civil_status, gender
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+      [
+        name,
+        email,
+        hashedPassword,
+        role,
+        branch_id,
+        false,
+        studentNumber,
+        address,
+        contact_number,
+        birthday,
+        age,
+        nationality,
+        civil_status,
+        gender,
+      ]
     );
 
     await pool.query(
@@ -480,7 +513,8 @@ app.get("/courses", async (req, res) => {
 app.get("/student-profile", authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT u.user_id, u.name, u.email, u.branch_id, b.name as branch_name
+      `SELECT u.user_id, u.name, u.email, u.branch_id, b.name as branch_name, u.student_number,
+              u.address, u.contact_number, u.birthday, u.age, u.nationality, u.civil_status, u.gender
        FROM users u
        LEFT JOIN branches b ON u.branch_id = b.branch_id
        WHERE u.user_id = $1`,
@@ -655,7 +689,11 @@ app.delete("/courses/:id", async (req, res) => {
 app.post(
   "/enroll",
   authenticateToken,
-  upload.single("proof_image"),
+  upload.fields([
+    { name: "proof_image", maxCount: 1 },
+    { name: "discount_proof", maxCount: 1 },
+    { name: "student_permit_proof", maxCount: 1 },
+  ]),
   async (req, res) => {
     const {
       course_id,
@@ -670,7 +708,7 @@ app.post(
       civil_status,
       gender,
       is_pregnant,
-      is_pwd,
+      discount_type,
       payment_type,
       amount_paid,
       vehicle_category,
@@ -679,7 +717,15 @@ app.post(
 
     const user_id = req.user.userId;
 
-    const proof_of_payment = req.file ? req.file.filename : null;
+    const proof_of_payment = req.files?.proof_image
+      ? req.files.proof_image[0].filename
+      : null;
+    const discount_proof = req.files?.discount_proof
+      ? req.files.discount_proof[0].filename
+      : null;
+    const student_permit_proof = req.files?.student_permit_proof
+      ? req.files.student_permit_proof[0].filename
+      : null; // ✅ BAGO
 
     // Validate required fields
     if (
@@ -699,6 +745,11 @@ app.post(
       return res.status(400).json({ error: "Payment details are required" });
     }
 
+    if (discount_type && discount_type !== "none" && !discount_proof) {
+      return res.status(400).json({
+        error: "Please upload your ID/proof to claim the discount",
+      });
+    }
     if (!payment_type || !amount_paid) {
       return res
         .status(400)
@@ -726,9 +777,11 @@ app.post(
       const courseVehicleCategory = courseRes.rows[0].vehicle_category;
       const courseVehicleType = courseRes.rows[0].type;
 
-      // Calculate expected amount with PWD discount
-      const isPWD = is_pwd === "true";
-      const discountedPrice = isPWD ? coursePrice * 0.8 : coursePrice;
+      // Calculate expected amount with discount (PWD or Senior)
+      const hasDiscount =
+        discount_type &&
+        (discount_type === "pwd" || discount_type === "senior");
+      const discountedPrice = hasDiscount ? coursePrice * 0.8 : coursePrice;
       const expectedAmount =
         payment_type === "full" ? discountedPrice : discountedPrice * 0.5;
       const paidAmount = parseFloat(amount_paid);
@@ -754,11 +807,11 @@ app.post(
       if (isOnlineTheoretical) {
         const result = await client.query(
           `INSERT INTO enrollments (
-            user_id, course_id, address, contact_number, 
-            gcash_reference_number, proof_of_payment, enrollment_date,
-            birthday, age, nationality, civil_status, gender, is_pregnant,
-            is_pwd, payment_status, status, amount_paid
-          ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, $11, $12, $13, $14, 'pending', $15) 
+          user_id, course_id, address, contact_number, 
+          gcash_reference_number, proof_of_payment, enrollment_date,
+          birthday, age, nationality, civil_status, gender, is_pregnant,
+          discount_type, discount_proof, payment_status, status, amount_paid
+        ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, $11, $12, $13, $14, $15, 'pending', $16)
           RETURNING *`,
           [
             user_id,
@@ -773,7 +826,8 @@ app.post(
             civil_status,
             gender,
             is_pregnant === "true" ? true : false,
-            isPWD,
+            discount_type || "none", // ✅ BAGO
+            discount_proof,
             payment_status,
             paidAmount,
           ]
@@ -892,12 +946,12 @@ app.post(
         // ✅ All schedules have available vehicles - proceed with enrollment
         const enrollmentResult = await client.query(
           `INSERT INTO enrollments (
-            user_id, course_id, address, contact_number, 
-            gcash_reference_number, proof_of_payment, enrollment_date,
-            birthday, age, nationality, civil_status, gender, is_pregnant,
-            is_pwd, payment_status, status, amount_paid,
-            vehicle_category, vehicle_type
-          ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, $11, $12, $13, $14, 'pending', $15, $16, $17) 
+          user_id, course_id, address, contact_number, 
+          gcash_reference_number, proof_of_payment, enrollment_date,
+          birthday, age, nationality, civil_status, gender, is_pregnant,
+          discount_type, discount_proof, student_permit_proof, payment_status, status, amount_paid,
+          vehicle_category, vehicle_type
+        ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'pending', $17, $18, $19)
           RETURNING *`,
           [
             user_id,
@@ -912,7 +966,9 @@ app.post(
             civil_status,
             gender,
             is_pregnant === "true" ? true : false,
-            isPWD,
+            discount_type || "none",
+            discount_proof,
+            student_permit_proof,
             payment_status,
             paidAmount,
             courseVehicleCategory || vehicle_category,
@@ -985,11 +1041,11 @@ app.post(
         // Create enrollment
         const enrollmentResult = await client.query(
           `INSERT INTO enrollments (
-            user_id, course_id, address, contact_number, 
-            gcash_reference_number, proof_of_payment, enrollment_date,
-            birthday, age, nationality, civil_status, gender, is_pregnant,
-            is_pwd, payment_status, status, amount_paid
-          ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, $11, $12, $13, $14, 'pending', $15) 
+          user_id, course_id, address, contact_number, 
+          gcash_reference_number, proof_of_payment, enrollment_date,
+          birthday, age, nationality, civil_status, gender, is_pregnant,
+          discount_type, discount_proof, payment_status, status, amount_paid
+        ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, $11, $12, $13, $14, $15, 'pending', $16)
           RETURNING *`,
           [
             user_id,
@@ -1004,7 +1060,8 @@ app.post(
             civil_status,
             gender,
             is_pregnant === "true" ? true : false,
-            isPWD,
+            discount_type || "none",
+            discount_proof,
             payment_status,
             paidAmount,
           ]
@@ -1084,11 +1141,11 @@ app.post(
         // Insert enrollment
         const result = await client.query(
           `INSERT INTO enrollments (
-            user_id, course_id, schedule_id, address, contact_number, 
-            gcash_reference_number, proof_of_payment, enrollment_date,
-            birthday, age, nationality, civil_status, gender, is_pregnant,
-            is_pwd, payment_status, status, amount_paid
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8, $9, $10, $11, $12, $13, $14, $15, 'pending', $16) 
+          user_id, course_id, schedule_id, address, contact_number, 
+          gcash_reference_number, proof_of_payment, enrollment_date,
+          birthday, age, nationality, civil_status, gender, is_pregnant,
+          discount_type, discount_proof, payment_status, status, amount_paid
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8, $9, $10, $11, $12, $13, $14, $15, $16, 'pending', $17)
           RETURNING *`,
           [
             user_id,
@@ -1104,7 +1161,8 @@ app.post(
             civil_status,
             gender,
             is_pregnant === "true" ? true : false,
-            isPWD,
+            discount_type || "none",
+            discount_proof,
             payment_status,
             paidAmount,
           ]
@@ -1164,6 +1222,7 @@ app.get("/enrollments", authenticateToken, async (req, res) => {
         e.has_feedback,
         e.instructor_id,
         c.name AS course_name,
+        c.required_schedules, 
         c.image AS course_image
       FROM enrollments e
       JOIN courses c ON e.course_id = c.course_id
@@ -1285,6 +1344,9 @@ app.get("/admin/enrollments", authenticateToken, async (req, res) => {
         e.contact_number,
         e.gcash_reference_number,
         e.proof_of_payment,
+        e.discount_type,
+        e.discount_proof,
+        e.student_permit_proof,
         e.payment_status,
         e.amount_paid,
         e.archived_at,
@@ -1309,7 +1371,7 @@ app.get("/admin/enrollments", authenticateToken, async (req, res) => {
       LEFT JOIN users ins   ON e.instructor_id = ins.user_id   
       WHERE ${
         showArchived ? "e.archived_at IS NOT NULL" : "e.archived_at IS NULL"
-      }  -- ✅ CHANGE THIS
+      }
         AND (
           (s.branch_id = $1) OR
           (c.name = 'ONLINE THEORETICAL DRIVING COURSE' AND e.schedule_id IS NULL AND u.branch_id = $1) OR
@@ -1362,7 +1424,6 @@ app.get("/admin/enrollments", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Could not fetch enrollments" });
   }
 });
-
 //add admin/instructor account
 app.post("/accounts", async (req, res) => {
   const { name, username, password, role, branch_id } = req.body;
@@ -1719,15 +1780,16 @@ app.get("/instructor/enrollments", authenticateToken, async (req, res) => {
     // Get all enrollments assigned to this instructor
     const result = await pool.query(
       `
-      SELECT 
-        e.enrollment_id,
-        e.schedule_id,
-        e.course_id,
-        c.name AS course_name,
-        u.name AS student_name,
-        u.email AS student_email,
-        e.status
-      FROM enrollments e
+  SELECT 
+    e.enrollment_id,
+    e.schedule_id,
+    e.course_id,
+    c.name AS course_name,
+    c.required_schedules,
+    u.name AS student_name,
+    u.email AS student_email,
+    e.status
+  FROM enrollments e
       JOIN courses c ON e.course_id = c.course_id
       JOIN users u ON e.user_id = u.user_id
       WHERE e.instructor_id = $1
@@ -5070,49 +5132,6 @@ app.post("/backup", authenticateToken, async (req, res) => {
       message: "Backup failed",
       error: error.message,
     });
-  }
-});
-
-// Get student's last enrollment details for auto-fill
-app.get("/student-enrollment-info", authenticateToken, async (req, res) => {
-  const userId = req.user.userId;
-
-  try {
-    // Get the most recent enrollment info for this student
-    const result = await pool.query(
-      `
-      SELECT 
-        address,
-        contact_number,
-        birthday,
-        age,
-        nationality,
-        civil_status,
-        gender,
-        is_pregnant,
-        is_pwd
-      FROM enrollments
-      WHERE user_id = $1
-      ORDER BY enrollment_date DESC
-      LIMIT 1
-      `,
-      [userId]
-    );
-
-    if (result.rows.length > 0) {
-      res.json({
-        hasData: true,
-        data: result.rows[0],
-      });
-    } else {
-      res.json({
-        hasData: false,
-        data: null,
-      });
-    }
-  } catch (err) {
-    console.error("Error fetching student enrollment info:", err);
-    res.status(500).json({ error: "Failed to fetch enrollment info" });
   }
 });
 

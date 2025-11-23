@@ -50,6 +50,7 @@ import {
   Archive,
   RotateCcw,
   MapPin,
+  FileText,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import { BsRecord } from "react-icons/bs";
@@ -392,6 +393,7 @@ const EnrollmentsPage = () => {
   const [selectedYear, setSelectedYear] = useState("all");
   const [loading, setLoading] = useState(true);
   const [showArchived, setShowArchived] = useState(false);
+  const [expandedDocuments, setExpandedDocuments] = useState({});
   const [rescheduleCurrentMonth, setRescheduleCurrentMonth] = useState(
     new Date()
   );
@@ -1700,25 +1702,135 @@ const EnrollmentsPage = () => {
       {hasAdminFeatures && (
         <>
           <td className="px-6 py-4">
-            {e.proof_of_payment ? (
-              <a
-                href={`${import.meta.env.VITE_API_URL}/uploads/${
-                  e.proof_of_payment
-                }`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block"
-              >
-                <img
-                  src={`${import.meta.env.VITE_API_URL}/uploads/${
-                    e.proof_of_payment
-                  }`}
-                  alt="Proof of Payment"
-                  className="h-12 w-12 object-cover rounded-lg border-2 border-gray-200 hover:border-indigo-300 transition-all hover:scale-105"
-                />
-              </a>
-            ) : (
-              <span className="text-gray-400 italic text-sm">No proof</span>
+            <button
+              onClick={() => {
+                setExpandedDocuments((prev) => ({
+                  ...prev,
+                  [e.enrollment_id]: !prev[e.enrollment_id],
+                }));
+              }}
+              className={`inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                e.proof_of_payment ||
+                (e.discount_proof && e.discount_type !== "none") ||
+                e.student_permit_proof
+                  ? "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200"
+                  : "bg-gray-50 text-gray-500 border border-gray-200 cursor-not-allowed"
+              }`}
+            >
+              <FileText className="h-4 w-4 mr-1.5" />
+              {expandedDocuments[e.enrollment_id] ? "Hide" : "Show"}
+              {!expandedDocuments[e.enrollment_id] &&
+                (e.proof_of_payment ||
+                  (e.discount_proof && e.discount_type !== "none") ||
+                  e.student_permit_proof) &&
+                ` (${[
+                  e.proof_of_payment ? 1 : 0,
+                  e.discount_proof && e.discount_type !== "none" ? 1 : 0,
+                  e.student_permit_proof ? 1 : 0,
+                ].reduce((a, b) => a + b, 0)})`}
+            </button>
+
+            {/* Expanded Documents */}
+            {expandedDocuments[e.enrollment_id] && (
+              <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Payment Proof */}
+                  {e.proof_of_payment && (
+                    <div className="relative group">
+                      <a
+                        href={`${import.meta.env.VITE_API_URL}/uploads/${
+                          e.proof_of_payment
+                        }`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block"
+                      >
+                        <img
+                          src={`${import.meta.env.VITE_API_URL}/uploads/${
+                            e.proof_of_payment
+                          }`}
+                          alt="Payment"
+                          className="h-20 w-20 object-cover rounded-lg border-2 border-indigo-200 hover:border-indigo-400 transition-all hover:scale-105"
+                        />
+                      </a>
+                      <span className="absolute -top-1 -right-1 bg-indigo-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                        ₱
+                      </span>
+                      <p className="text-xs text-gray-600 mt-1 text-center">
+                        Payment
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Discount Proof */}
+                  {e.discount_type &&
+                    e.discount_type !== "none" &&
+                    e.discount_proof && (
+                      <div className="relative group">
+                        <a
+                          href={`${import.meta.env.VITE_API_URL}/uploads/${
+                            e.discount_proof
+                          }`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-block"
+                        >
+                          <img
+                            src={`${import.meta.env.VITE_API_URL}/uploads/${
+                              e.discount_proof
+                            }`}
+                            alt="Discount"
+                            className="h-20 w-20 object-cover rounded-lg border-2 border-green-200 hover:border-green-400 transition-all hover:scale-105"
+                          />
+                        </a>
+                        <span className="absolute -top-1 -right-1 bg-green-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                          {e.discount_type === "pwd" ? "P" : "S"}
+                        </span>
+                        <p className="text-xs text-gray-600 mt-1 text-center">
+                          {e.discount_type === "pwd" ? "PWD ID" : "Senior ID"}
+                        </p>
+                      </div>
+                    )}
+
+                  {/* Student Permit */}
+                  {e.student_permit_proof &&
+                    !e.course_name?.toLowerCase().includes("theoretical") && (
+                      <div className="relative group">
+                        <a
+                          href={`${import.meta.env.VITE_API_URL}/uploads/${
+                            e.student_permit_proof
+                          }`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-block"
+                        >
+                          <img
+                            src={`${import.meta.env.VITE_API_URL}/uploads/${
+                              e.student_permit_proof
+                            }`}
+                            alt="Permit"
+                            className="h-20 w-20 object-cover rounded-lg border-2 border-blue-200 hover:border-blue-400 transition-all hover:scale-105"
+                          />
+                        </a>
+                        <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                          SP
+                        </span>
+                        <p className="text-xs text-gray-600 mt-1 text-center">
+                          Permit
+                        </p>
+                      </div>
+                    )}
+
+                  {/* No documents */}
+                  {!e.proof_of_payment &&
+                    (!e.discount_proof || e.discount_type === "none") &&
+                    !e.student_permit_proof && (
+                      <span className="text-gray-400 italic text-sm">
+                        No documents uploaded
+                      </span>
+                    )}
+                </div>
+              </div>
             )}
           </td>
           <td className="px-6 py-4">
@@ -1932,30 +2044,156 @@ const EnrollmentsPage = () => {
             </div>
 
             {/* Payment Proof */}
-            {e.proof_of_payment && (
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            {/* All Proofs Section */}
+            <div className="flex flex-col gap-3 pt-2 border-t border-gray-200">
+              <div className="flex flex-col gap-2 pt-2 border-t border-gray-200">
                 <span className="text-xs sm:text-sm text-gray-600 font-medium">
-                  Payment Proof:
+                  Documents:
                 </span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Payment Proof */}
+                  {e.proof_of_payment && (
+                    <div className="relative">
+                      <a
+                        href={`${import.meta.env.VITE_API_URL}/uploads/${
+                          e.proof_of_payment
+                        }`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <img
+                          src={`${import.meta.env.VITE_API_URL}/uploads/${
+                            e.proof_of_payment
+                          }`}
+                          alt="Payment"
+                          className="h-14 w-14 object-cover rounded-lg border-2 border-indigo-200 hover:border-indigo-400 transition-all"
+                        />
+                      </a>
+                      <span className="absolute -top-1 -right-1 bg-indigo-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                        ₱
+                      </span>
+                    </div>
+                  )}
+                  {/* Discount Proof */}
+                  {e.discount_type &&
+                    e.discount_type !== "none" &&
+                    e.discount_proof && (
+                      <div className="relative">
+                        <a
+                          href={`${import.meta.env.VITE_API_URL}/uploads/${
+                            e.discount_proof
+                          }`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <img
+                            src={`${import.meta.env.VITE_API_URL}/uploads/${
+                              e.discount_proof
+                            }`}
+                            alt="Discount"
+                            className="h-14 w-14 object-cover rounded-lg border-2 border-green-200 hover:border-green-400 transition-all"
+                          />
+                        </a>
+                        <span className="absolute -top-1 -right-1 bg-green-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                          {e.discount_type === "pwd" ? "P" : "S"}
+                        </span>
+                      </div>
+                    )}
 
-                <a
-                  href={`${import.meta.env.VITE_API_URL}/uploads/${
-                    e.proof_of_payment
-                  }`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-block"
-                >
-                  <img
-                    src={`${import.meta.env.VITE_API_URL}/uploads/${
-                      e.proof_of_payment
-                    }`}
-                    alt="Proof"
-                    className="h-12 w-12 sm:h-10 sm:w-10 object-cover rounded-lg border-2 border-gray-200 hover:border-red-400 transition-colors"
-                  />
-                </a>
+                  {/* Student Permit - HINDI theoretical courses */}
+                  {e.student_permit_proof &&
+                    !e.course_name?.toLowerCase().includes("theoretical") && (
+                      <div className="relative">
+                        <a
+                          href={`${import.meta.env.VITE_API_URL}/uploads/${
+                            e.student_permit_proof
+                          }`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <img
+                            src={`${import.meta.env.VITE_API_URL}/uploads/${
+                              e.student_permit_proof
+                            }`}
+                            alt="Permit"
+                            className="h-14 w-14 object-cover rounded-lg border-2 border-blue-200 hover:border-blue-400 transition-all"
+                          />
+                        </a>
+                        <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center text-[10px] font-bold">
+                          SP
+                        </span>
+                      </div>
+                    )}
+
+                  {!e.proof_of_payment &&
+                    (!e.discount_proof || e.discount_type === "none") &&
+                    !e.student_permit_proof && (
+                      <span className="text-gray-400 italic text-xs">
+                        No documents
+                      </span>
+                    )}
+                </div>
               </div>
-            )}
+
+              {/* Discount Proof */}
+              {e.discount_type &&
+                e.discount_type !== "none" &&
+                e.discount_proof && (
+                  <div>
+                    <span className="text-xs text-gray-500 block mb-1">
+                      {e.discount_type.toUpperCase()}
+                    </span>
+                    <a
+                      href={`${import.meta.env.VITE_API_URL}/uploads/${
+                        e.discount_proof
+                      }`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <img
+                        src={`${import.meta.env.VITE_API_URL}/uploads/${
+                          e.discount_proof
+                        }`}
+                        alt="Discount"
+                        className="h-16 w-16 object-cover rounded-lg border-2 border-green-200 hover:border-green-400 transition-colors"
+                      />
+                    </a>
+                  </div>
+                )}
+
+              {/* Student Permit */}
+              {e.course_name?.toLowerCase().includes("pdc") &&
+                e.student_permit_proof && (
+                  <div>
+                    <span className="text-xs text-gray-500 block mb-1">
+                      Permit
+                    </span>
+                    <a
+                      href={`${import.meta.env.VITE_API_URL}/uploads/${
+                        e.student_permit_proof
+                      }`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <img
+                        src={`${import.meta.env.VITE_API_URL}/uploads/${
+                          e.student_permit_proof
+                        }`}
+                        alt="Permit"
+                        className="h-16 w-16 object-cover rounded-lg border-2 border-blue-200 hover:border-blue-400 transition-colors"
+                      />
+                    </a>
+                  </div>
+                )}
+
+              {!e.proof_of_payment &&
+                (!e.discount_proof || e.discount_type === "none") &&
+                !e.student_permit_proof && (
+                  <span className="text-gray-400 italic text-xs">
+                    No documents
+                  </span>
+                )}
+            </div>
           </>
         )}
 
@@ -2331,7 +2569,7 @@ const EnrollmentsPage = () => {
                       {hasAdminFeatures && (
                         <>
                           <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Payment Proof
+                            Documents Proof
                           </th>
                           <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Amount
