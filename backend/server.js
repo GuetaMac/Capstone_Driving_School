@@ -3226,7 +3226,6 @@ app.get("/admin/student-records", authenticateToken, async (req, res) => {
         e.nationality,
         COALESCE(e.gender, 'N/A') AS gender,
         e.is_pregnant,
-        e.is_pwd,
         e.enrollment_date,
         e.payment_status,
         e.amount_paid,
