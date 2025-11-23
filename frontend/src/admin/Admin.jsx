@@ -1546,9 +1546,13 @@ const EnrollmentsPage = () => {
 
   const filteredEnrollments = enrollments.filter((enrollment) => {
     // Auto-hide completed AND fully paid enrollments
+    const statusLower = enrollment.status?.toLowerCase() || "";
     const isCompleted =
-      enrollment.status?.toLowerCase() === "completed" ||
-      enrollment.status?.toLowerCase() === "passed/completed";
+      statusLower === "completed" ||
+      statusLower === "passed/completed" ||
+      statusLower === "passed" || // ✅ ADD THIS
+      statusLower.includes("passed"); // ✅ ADD THIS
+
     const isFullyPaid =
       enrollment.payment_status?.toLowerCase() === "fully paid";
 
@@ -1618,7 +1622,6 @@ const EnrollmentsPage = () => {
       case "active":
         return "bg-blue-100 text-blue-800 border-blue-200";
       case "passed/completed":
-      case "completed":
         return "bg-purple-100 text-purple-800 border-purple-200";
       case "failed":
         return "bg-red-100 text-red-800 border-red-200";
@@ -2326,7 +2329,7 @@ const EnrollmentsPage = () => {
                   {
                     enrollments.filter((e) => {
                       const isCompleted =
-                        e.status?.toLowerCase() === "completed" ||
+                        e.status?.toLowerCase() === "passed" ||
                         e.status?.toLowerCase() === "passed/completed";
                       const isFullyPaid =
                         e.payment_status?.toLowerCase() === "fully paid";
@@ -2351,7 +2354,7 @@ const EnrollmentsPage = () => {
                   {
                     enrollments.filter((e) => {
                       const isCompleted =
-                        e.status?.toLowerCase() === "completed" ||
+                        e.status?.toLowerCase() === "passed" ||
                         e.status?.toLowerCase() === "passed/completed";
                       const isFullyPaid =
                         e.payment_status?.toLowerCase() === "fully paid";
