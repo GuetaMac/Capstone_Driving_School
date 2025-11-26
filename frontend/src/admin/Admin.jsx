@@ -1622,6 +1622,8 @@ const EnrollmentsPage = () => {
       case "active":
         return "bg-blue-100 text-blue-800 border-blue-200";
       case "passed/completed":
+      case "passed":
+      case "completed":
         return "bg-purple-100 text-purple-800 border-purple-200";
       case "failed":
         return "bg-red-100 text-red-800 border-red-200";
@@ -1633,7 +1635,6 @@ const EnrollmentsPage = () => {
         return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
-
   const isOnlineTheoretical = (courseName) => {
     return (
       courseName?.toLowerCase().includes("online") &&
@@ -1901,7 +1902,13 @@ const EnrollmentsPage = () => {
               e.status
             )}`}
           >
-            {e.status || "N/A"}
+            {e.status === "passed/completed" ||
+            e.status === "passed" ||
+            e.status === "completed"
+              ? "Passed"
+              : e.status
+              ? e.status.charAt(0).toUpperCase() + e.status.slice(1)
+              : "N/A"}
           </span>
         )}
       </td>
@@ -2227,11 +2234,16 @@ const EnrollmentsPage = () => {
                 e.status
               )}`}
             >
-              {e.status || "N/A"}
+              {e.status === "passed/completed" ||
+              e.status === "passed" ||
+              e.status === "completed"
+                ? "Passed"
+                : e.status
+                ? e.status.charAt(0).toUpperCase() + e.status.slice(1)
+                : "N/A"}
             </span>
           )}
         </div>
-
         {/* Actions */}
         {hasAdminFeatures && (
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-2 border-t border-gray-200">
@@ -2714,7 +2726,14 @@ const EnrollmentsPage = () => {
                                     e.status
                                   )}`}
                                 >
-                                  {e.status || "N/A"}
+                                  {e.status === "passed/completed" ||
+                                  e.status === "passed" ||
+                                  e.status === "completed"
+                                    ? "Passed"
+                                    : e.status
+                                    ? e.status.charAt(0).toUpperCase() +
+                                      e.status.slice(1)
+                                    : "N/A"}
                                 </span>
                               </div>
                             </div>
@@ -6988,6 +7007,7 @@ const Records = () => {
                               className={`inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs font-bold shadow-sm ${
                                 rec.status.toLowerCase() ===
                                   "passed/completed" ||
+                                rec.status.toLowerCase() === "passed" ||
                                 rec.status.toLowerCase() === "completed"
                                   ? "bg-green-100 text-green-800"
                                   : rec.status.toLowerCase() === "failed"
@@ -6999,7 +7019,13 @@ const Records = () => {
                                   : "bg-gray-100 text-gray-600"
                               }`}
                             >
-                              {rec.status}
+                              {rec.status.toLowerCase() ===
+                                "passed/completed" ||
+                              rec.status.toLowerCase() === "passed" ||
+                              rec.status.toLowerCase() === "completed"
+                                ? "Passed"
+                                : rec.status.charAt(0).toUpperCase() +
+                                  rec.status.slice(1)}
                             </span>
                           ) : (
                             <span className="text-gray-400 text-xs italic">

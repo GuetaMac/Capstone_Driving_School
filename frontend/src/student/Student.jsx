@@ -363,8 +363,11 @@ const DashboardPage = () => {
           <StatCard
             number={
               enrollment?.status
-                ? enrollment.status.charAt(0).toUpperCase() +
-                  enrollment.status.slice(1)
+                ? enrollment.status === "passed/completed" ||
+                  enrollment.status === "Passed/completed"
+                  ? "Completed"
+                  : enrollment.status.charAt(0).toUpperCase() +
+                    enrollment.status.slice(1)
                 : "Pending"
             }
             title="Status"
