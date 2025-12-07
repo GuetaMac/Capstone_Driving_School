@@ -7588,11 +7588,178 @@ const VehiclesPage = () => {
     </div>
   );
 };
+
+const NotificationsPage = ({ setActivePage }) => {
+  // ← ADD PROP HERE
+  const [enrollments, setEnrollments] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchPendingEnrollments();
+  }, []);
+
+  const fetchPendingEnrollments = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/admin/enrollments`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      const data = await res.json();
+
+      // Filter only pending enrollments
+      // Filter only pending enrollments without instructor (December 2024 onwards)
+      const pending = data.filter((e) => {
+        const enrollmentDate = new Date(e.enrollment_date);
+        const cutoffDate = new Date("2025-12-01"); // ← Change to 2025
+        return !e.instructor_id && enrollmentDate >= cutoffDate;
+      });
+      setEnrollments(pending);
+
+      // ← ADD THIS: Refresh count after filtering
+      if (refreshNotificationCount) {
+        refreshNotificationCount();
+      }
+    } catch (error) {
+      console.error("Error fetching enrollments:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mb-4"></div>
+          <p className="text-gray-600">Loading notifications...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-white rounded-2xl shadow-lg p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-3xl font-bold text-red-600 mb-2">
+                Notifications
+              </h1>
+              <p className="text-gray-600">
+                New enrollment requests for your branch
+              </p>
+            </div>
+            <span className="px-4 py-2 bg-red-100 text-red-800 rounded-full font-bold">
+              {enrollments.length} New
+            </span>
+          </div>
+
+          <div className="space-y-4">
+            {enrollments.length === 0 ? (
+              <div className="text-center py-12">
+                <Bell className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 text-lg font-semibold">
+                  No new notifications
+                </p>
+                <p className="text-gray-400 text-sm mt-1">
+                  All enrollments have been processed
+                </p>
+              </div>
+            ) : (
+              enrollments.map((enrollment) => (
+                <div
+                  key={enrollment.enrollment_id}
+                  className="border border-blue-200 bg-blue-50 rounded-xl p-4 hover:shadow-md transition-all"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 bg-blue-100 rounded-lg flex-shrink-0">
+                      <Bell className="w-6 h-6 text-blue-600" />
+                    </div>
+
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-gray-800 mb-1">
+                        New Enrollment Request
+                      </h3>
+                      <p className="text-gray-700 mb-2">
+                        <span className="font-semibold">
+                          {enrollment.student_name}
+                        </span>{" "}
+                        enrolled in{" "}
+                        <span className="font-semibold">
+                          {enrollment.course_name}
+                        </span>
+                      </p>
+
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-semibold">
+                          No Instructor Assigned
+                        </span>
+                        {enrollment.start_date && (
+                          <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
+                            {new Date(
+                              enrollment.start_date
+                            ).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-gray-500 text-sm">
+                        Enrolled on:{" "}
+                        {new Date(enrollment.enrollment_date).toLocaleString()}
+                      </p>
+                    </div>
+
+                    {/* ✅ CHANGE FROM <a> TO <button> */}
+                    <button
+                      onClick={() => setActivePage("Enrollments")}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all font-semibold text-sm whitespace-nowrap"
+                    >
+                      View Details
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 const Admin_Staff = () => {
   const [activePage, setActivePage] = useState("Dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [vehiclesOpen, setVehiclesOpen] = useState(false);
   const [branchName, setBranchName] = useState(""); // ← NEW: Store branch name
+
+  const [notificationCount, setNotificationCount] = useState(0);
+
+  const fetchNotificationCount = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/admin/unread-enrollments-count`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      const data = await res.json();
+      setNotificationCount(data.count);
+    } catch (error) {
+      console.error("Error fetching notification count:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotificationCount();
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchNotificationCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // ← NEW: Get user info and branch name
   useEffect(() => {
@@ -7601,6 +7768,29 @@ const Admin_Staff = () => {
       fetchBranchName(user.branch_id);
     }
   }, []);
+
+  useEffect(() => {
+    // Refresh count when Notifications page is active
+    if (activePage === "Notifications") {
+      const fetchNotificationCount = async () => {
+        try {
+          const token = localStorage.getItem("token");
+          const res = await fetch(
+            `${import.meta.env.VITE_API_URL}/admin/unread-enrollments-count`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          const data = await res.json();
+          setNotificationCount(data.count);
+        } catch (error) {
+          console.error("Error fetching notification count:", error);
+        }
+      };
+
+      fetchNotificationCount();
+    }
+  }, [activePage]);
 
   // ← NEW: Fetch branch name from API
   const fetchBranchName = async (branchId) => {
@@ -7693,7 +7883,19 @@ const Admin_Staff = () => {
             <div className="text-gray-500 text-xs">Driving School</div>
           </div>
         </div>
-        <div className="w-10"></div>
+
+        {/* BELL ICON - DAGDAG MO TO */}
+        <button
+          onClick={() => handleNavClick("Notifications")}
+          className="p-2 rounded-lg hover:bg-gray-100 transition-colors relative"
+        >
+          <Bell className="w-6 h-6 text-gray-700" />
+          {notificationCount > 0 && (
+            <span className="absolute top-0 right-0 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+              {notificationCount > 9 ? "9+" : notificationCount}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* Mobile Overlay */}
@@ -7717,18 +7919,33 @@ const Admin_Staff = () => {
       >
         {/* Brand Header */}
         <div className="p-6 bg-gradient-to-r from-red-600 to-red-700 text-white">
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center">
-              <img
-                src={logo}
-                alt="Logo"
-                className="h-8 w-8 rounded-full object-contain"
-              />
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center">
+                <img
+                  src={logo}
+                  alt="Logo"
+                  className="h-8 w-8 rounded-full object-contain"
+                />
+              </div>
+              <div>
+                <div className="font-bold text-lg">1st Safety</div>
+                <div className="text-red-100 text-sm">Driving School</div>
+              </div>
             </div>
-            <div>
-              <div className="font-bold text-lg">1st Safety</div>
-              <div className="text-red-100 text-sm">Driving School</div>
-            </div>
+
+            {/* BELL ICON - DAGDAG MO TO */}
+            <button
+              onClick={() => handleNavClick("Notifications")}
+              className="p-2 rounded-lg hover:bg-red-700 transition-colors relative"
+            >
+              <Bell className="w-6 h-6 text-white" />
+              {notificationCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-white text-red-600 text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                  {notificationCount > 9 ? "9+" : notificationCount}
+                </span>
+              )}
+            </button>
           </div>
         </div>
 
@@ -7762,21 +7979,30 @@ const Admin_Staff = () => {
         {/* Navigation */}
         <nav className="p-4 space-y-2">
           {/* Regular Navigation Items */}
-          {navigationItems.map(({ name, icon }) => (
-            <button
-              key={name}
-              onClick={() => handleNavClick(name)}
-              className={`flex items-center w-full px-4 py-3 rounded-lg font-medium text-sm cursor-pointer transition-colors
-                ${
-                  activePage === name
-                    ? "bg-red-600 text-white"
-                    : "text-gray-700 hover:bg-gray-100"
-                }`}
-            >
-              <span className="mr-3">{icon}</span>
-              <span className="truncate">{name}</span>
-            </button>
-          ))}
+          {navigationItems.map(
+            (
+              { name, icon, badge } // ← ADD badge HERE
+            ) => (
+              <button
+                key={name}
+                onClick={() => handleNavClick(name)}
+                className={`flex items-center w-full px-4 py-3 rounded-lg font-medium text-sm cursor-pointer transition-colors
+      ${
+        activePage === name
+          ? "bg-red-600 text-white"
+          : "text-gray-700 hover:bg-gray-100"
+      }`}
+              >
+                <span className="mr-3">{icon}</span>
+                <span className="truncate">{name}</span>
+                {badge !== undefined && badge > 0 && (
+                  <span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5">
+                    {badge}
+                  </span>
+                )}
+              </button>
+            )
+          )}
 
           {/* Vehicles Dropdown */}
           <div>
@@ -7855,6 +8081,13 @@ const Admin_Staff = () => {
             {activePage === "Attendance" && <AttendancePage />}
             {activePage === "Maintenance" && <MaintenancePage />}
             {activePage === "Vehicles" && <VehiclesPage />}
+            {activePage === "Notifications" && (
+              <NotificationsPage
+                setActivePage={setActivePage}
+                refreshNotificationCount={fetchNotificationCount} // ← ADD THIS
+              />
+            )}{" "}
+            {/* ← ADD setActivePage */}
           </div>
         </main>
       </div>

@@ -5427,6 +5427,94 @@ app.get("/branches/:id", authenticateToken, async (req, res) => {
   }
 });
 
+app.get(
+  "/admin/unread-enrollments-count",
+  authenticateToken,
+  async (req, res) => {
+    const adminBranchId = req.user.branch_id;
+
+    try {
+      // Get the same data as /admin/enrollments
+      const result = await pool.query(
+        `SELECT e.enrollment_id
+         FROM enrollments e
+         JOIN users u ON e.user_id = u.user_id
+         LEFT JOIN schedules s ON e.schedule_id = s.schedule_id
+         WHERE e.archived_at IS NULL 
+           AND e.instructor_id IS NULL
+           AND e.enrollment_date >= '2025-12-01'
+           AND u.branch_id = $1`, // ← ONLY student's branch
+        [adminBranchId]
+      );
+
+      res.json({ count: result.rows.length });
+    } catch (err) {
+      console.error("Error fetching unread count:", err);
+      res.status(500).json({ error: "Could not fetch count" });
+    }
+  }
+);
+// Get notifications
+app.get("/notifications", authenticateToken, async (req, res) => {
+  const userId = req.user.userId;
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT 
+        e.enrollment_id,
+        e.course_id,
+        e.instructor_id,
+        e.enrollment_date,
+        e.status,
+        c.name AS course_name,
+        u.name AS instructor_name
+      FROM enrollments e
+      JOIN courses c ON e.course_id = c.course_id
+      LEFT JOIN users u ON u.user_id = e.instructor_id
+      WHERE e.user_id = $1 
+        AND e.instructor_id IS NOT NULL
+      ORDER BY e.enrollment_date DESC
+      `,
+      [userId]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching notifications:", err);
+    res.status(500).json({ error: "Failed to load notifications" });
+  }
+});
+
+// Get instructor notifications
+app.get("/instructor/notifications", authenticateToken, async (req, res) => {
+  const instructorId = req.user.userId;
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT 
+        e.enrollment_id,
+        e.course_id,
+        e.enrollment_date,
+        c.name AS course_name,
+        u.name AS student_name
+      FROM enrollments e
+      JOIN courses c ON e.course_id = c.course_id
+      JOIN users u ON u.user_id = e.user_id
+      WHERE e.instructor_id = $1
+      ORDER BY e.enrollment_date DESC
+      `,
+      [instructorId]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching instructor notifications:", err);
+    res.status(500).json({ error: "Failed to load notifications" });
+  }
+});
+
 app.listen(port, "0.0.0.0", () => {
   console.log(`Server running on http://0.0.0.0:${port}`);
 });

@@ -26,6 +26,7 @@ import {
   TrendingDown,
   Menu,
   X,
+  Bell,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import { BsExclamationOctagon } from "react-icons/bs";
@@ -1936,19 +1937,166 @@ const FeedbacksPage = () => {
     </div>
   );
 };
+
+const NotificationsPage = ({ setActivePage }) => {
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/instructor/notifications`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      const data = await res.json();
+
+      // Mark all as seen automatically when page loads
+      const enrollmentIds = data.map((n) => n.enrollment_id);
+      localStorage.setItem(
+        "instructorSeenNotifications",
+        JSON.stringify(enrollmentIds)
+      );
+
+      setNotifications(data);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mb-4"></div>
+          <p className="text-gray-600">Loading notifications...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-white rounded-2xl shadow-lg p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-3xl font-bold text-red-600 mb-2">
+                Notifications
+              </h1>
+              <p className="text-gray-600">New student assignments</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {notifications.length === 0 ? (
+              <div className="text-center py-12">
+                <Bell className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 text-lg font-semibold">
+                  No notifications yet
+                </p>
+                <p className="text-gray-400 text-sm mt-1">
+                  You're all caught up!
+                </p>
+              </div>
+            ) : (
+              notifications.map((notif) => (
+                <div
+                  key={notif.enrollment_id}
+                  onClick={() => setActivePage("Students")}
+                  className="border border-gray-200 bg-white rounded-xl p-4 hover:shadow-md transition-all cursor-pointer hover:border-blue-300"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 bg-blue-100 rounded-lg flex-shrink-0">
+                      <Bell className="w-6 h-6 text-blue-600" />
+                    </div>
+
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-gray-800 mb-1">
+                        New Student Assigned
+                      </h3>
+                      <p className="text-gray-700 mb-2">
+                        <span className="font-semibold">
+                          {notif.student_name}
+                        </span>{" "}
+                        has been assigned to you for{" "}
+                        <span className="font-semibold">
+                          {notif.course_name}
+                        </span>
+                      </p>
+
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
+                          Approved
+                        </span>
+                      </div>
+
+                      <p className="text-gray-500 text-sm">
+                        Assigned:{" "}
+                        {new Date(notif.enrollment_date).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Instructor = () => {
   const [activePage, setActivePage] = useState("Dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const navigationItems = [
-    { name: "Dashboard", icon: <BarChart3 className="w-5 h-5" /> },
-    { name: "Records", icon: <User className="w-5 h-5" /> },
-    {
-      name: "Report Maintenance",
-      icon: <BsExclamationOctagon className="w-5 h-5" />,
-    },
-    { name: "Feedbacks", icon: <FcFeedback className="w-5 h-5" /> },
-  ];
+  const [notifCount, setNotifCount] = useState(0);
+
+  useEffect(() => {
+    fetchNotifCount();
+    const interval = setInterval(fetchNotifCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    // Reset count when viewing Notifications page
+    if (activePage === "Notifications") {
+      setNotifCount(0);
+    }
+  }, [activePage]);
+
+  const fetchNotifCount = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/instructor/notifications`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      const data = await res.json();
+
+      const seenNotifs = JSON.parse(
+        localStorage.getItem("instructorSeenNotifications") || "[]"
+      );
+      const unseenCount = data.filter(
+        (n) => !seenNotifs.includes(n.enrollment_id)
+      ).length;
+
+      setNotifCount(unseenCount);
+    } catch (error) {
+      console.error("Error fetching notif count:", error);
+    }
+  };
 
   const handleNavClick = (pageName) => {
     setActivePage(pageName);
@@ -2035,18 +2183,33 @@ const Instructor = () => {
       >
         {/* Brand Header */}
         <div className="p-6 bg-gradient-to-r from-red-600 to-red-700 text-white">
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center">
-              <img
-                src={logo}
-                alt="Logo"
-                className="h-8 w-8 rounded-full object-contain"
-              />
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center">
+                <img
+                  src={logo}
+                  alt="Logo"
+                  className="h-8 w-8 rounded-full object-contain"
+                />
+              </div>
+              <div>
+                <div className="font-bold text-lg">1st Safety</div>
+                <div className="text-red-100 text-sm">Driving School</div>
+              </div>
             </div>
-            <div>
-              <div className="font-bold text-lg">1st Safety</div>
-              <div className="text-red-100 text-sm">Driving School</div>
-            </div>
+
+            {/* Bell Icon with Badge */}
+            <button
+              onClick={() => handleNavClick("Notifications")}
+              className="relative p-2 hover:bg-red-500 rounded-lg transition-colors"
+            >
+              <Bell className="w-6 h-6 text-white" />
+              {notifCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-yellow-400 text-red-900 text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold shadow-lg">
+                  {notifCount > 9 ? "9+" : notifCount}
+                </span>
+              )}
+            </button>
           </div>
         </div>
 
@@ -2064,21 +2227,30 @@ const Instructor = () => {
 
         {/* Navigation */}
         <nav className="p-4 space-y-2">
-          {navigationItems.map(({ name, icon }) => (
+          {[
+            { name: "Dashboard", icon: <BarChart3 className="w-5 h-5" /> },
+            { name: "Records", icon: <User className="w-5 h-5" /> },
+            {
+              name: "Report Maintenance",
+              icon: <BsExclamationOctagon className="w-5 h-5" />,
+            },
+            { name: "Feedbacks", icon: <FcFeedback className="w-5 h-5" /> },
+          ].map(({ name, icon }) => (
             <button
               key={name}
               onClick={() => handleNavClick(name)}
               className={`flex items-center w-full px-4 py-3 rounded-lg font-medium text-sm cursor-pointer transition-colors
-                ${
-                  activePage === name
-                    ? "bg-red-600 text-white"
-                    : "text-gray-700 hover:bg-gray-100"
-                }`}
+        ${
+          activePage === name
+            ? "bg-red-600 text-white"
+            : "text-gray-700 hover:bg-gray-100"
+        }`}
             >
               <span className="mr-3">{icon}</span>
               <span className="truncate">{name}</span>
             </button>
           ))}
+
           {/* Sign Out Button */}
           <div className="pt-4 border-t border-gray-200">
             <button
@@ -2101,6 +2273,9 @@ const Instructor = () => {
             {activePage === "Records" && <RecordsPage />}
             {activePage === "Report Maintenance" && <MaintenancePage />}
             {activePage === "Feedbacks" && <FeedbacksPage />}
+            {activePage === "Notifications" && (
+              <NotificationsPage setActivePage={setActivePage} />
+            )}
           </div>
         </main>
       </div>

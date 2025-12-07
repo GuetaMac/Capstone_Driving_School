@@ -31,6 +31,7 @@ import {
   Car,
   BookOpen,
   CheckCircle,
+  Bell,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import { FcFeedback } from "react-icons/fc";
@@ -1862,17 +1863,228 @@ const FeedbacksPage = () => {
   );
 };
 
+const NotificationsPage = ({ setActivePage }) => {
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/notifications`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+
+      // Mark all as seen automatically when page loads
+      const notifKeys = data.map((n) => `${n.enrollment_id}-${n.status}`);
+      localStorage.setItem("seenNotifications", JSON.stringify(notifKeys));
+
+      setNotifications(data);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Format status for display
+  // Format status for display
+  const formatStatus = (status) => {
+    if (!status) return "Pending";
+
+    // Special case: if status is "passed" or "completed", return "Passed"
+    if (status.toLowerCase() === "passed/completed") {
+      return "Passed";
+    }
+
+    // For other statuses, capitalize each word properly
+    return status
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
+  };
+
+  // Get status badge color
+  const getStatusColor = (status) => {
+    const colors = {
+      pending: "bg-yellow-100 text-yellow-800",
+      approved: "bg-green-100 text-green-800",
+      in_progress: "bg-blue-100 text-blue-800",
+      completed: "bg-green-100 text-green-800",
+      cancelled: "bg-red-100 text-red-800",
+      on_hold: "bg-orange-100 text-orange-800",
+    };
+    return colors[status] || "bg-gray-100 text-gray-800";
+  };
+
+  // Determine notification type and content
+  const getNotificationContent = (notif) => {
+    // If status is still pending/approved and instructor just assigned
+    if (notif.status === "pending" || notif.status === "approved") {
+      return {
+        title: "Instructor Assigned",
+        message: (
+          <>
+            Your instructor for{" "}
+            <span className="font-semibold">{notif.course_name}</span> is{" "}
+            <span className="font-semibold">
+              {notif.instructor_name || "Not assigned yet"}
+            </span>
+          </>
+        ),
+      };
+    }
+
+    // For other statuses - show status update
+    return {
+      title: "Status Updated",
+      message: (
+        <>
+          Instructor{" "}
+          <span className="font-semibold">
+            {notif.instructor_name || "Admin"}
+          </span>{" "}
+          updated your status for{" "}
+          <span className="font-semibold">{notif.course_name}</span> to{" "}
+          <span className="font-semibold">{formatStatus(notif.status)}</span>
+        </>
+      ),
+    };
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mb-4"></div>
+          <p className="text-gray-600">Loading notifications...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-white rounded-2xl shadow-lg p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-3xl font-bold text-red-600 mb-2">
+                Notifications
+              </h1>
+              <p className="text-gray-600">Updates on your enrollments</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {notifications.length === 0 ? (
+              <div className="text-center py-12">
+                <Bell className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 text-lg font-semibold">
+                  No notifications yet
+                </p>
+                <p className="text-gray-400 text-sm mt-1">
+                  You're all caught up!
+                </p>
+              </div>
+            ) : (
+              notifications.map((notif) => {
+                const content = getNotificationContent(notif);
+
+                return (
+                  <div
+                    key={`${notif.enrollment_id}-${notif.status}`}
+                    onClick={() => setActivePage("Enrollment Details")}
+                    className="border border-gray-200 bg-white rounded-xl p-4 hover:shadow-md transition-all cursor-pointer hover:border-blue-300"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="p-3 bg-blue-100 rounded-lg flex-shrink-0">
+                        <Bell className="w-6 h-6 text-blue-600" />
+                      </div>
+
+                      <div className="flex-1">
+                        <h3 className="text-lg font-bold text-gray-800 mb-1">
+                          {content.title}
+                        </h3>
+                        <p className="text-gray-700 mb-2">{content.message}</p>
+
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          <span
+                            className={`px-3 py-1 ${getStatusColor(
+                              notif.status
+                            )} rounded-full text-xs font-semibold`}
+                          >
+                            {formatStatus(notif.status)}
+                          </span>
+                        </div>
+
+                        <p className="text-gray-500 text-sm">
+                          Enrolled:{" "}
+                          {new Date(notif.enrollment_date).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 const Student = () => {
   const [activePage, setActivePage] = useState("Dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [notifCount, setNotifCount] = useState(0);
 
-  // Get the user from localStorage
+  useEffect(() => {
+    fetchNotifCount();
+    const interval = setInterval(fetchNotifCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    // Reset count when viewing Notifications page
+    if (activePage === "Notifications") {
+      setNotifCount(0);
+    }
+  }, [activePage]);
+
+  const fetchNotifCount = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/notifications`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+
+      const seenNotifs = JSON.parse(
+        localStorage.getItem("seenNotifications") || "[]"
+      );
+
+      // Create unique key: enrollment_id + status
+      const unseenCount = data.filter((n) => {
+        const notifKey = `${n.enrollment_id}-${n.status}`;
+        return !seenNotifs.includes(notifKey);
+      }).length;
+
+      setNotifCount(unseenCount);
+    } catch (error) {
+      console.error("Error fetching notif count:", error);
+    }
+  };
   const user = JSON.parse(localStorage.getItem("user"));
-  const name = user?.name || "Student"; // fallback kung wala
+  const name = user?.name || "Student";
 
   const handleNavClick = (pageName) => {
     setActivePage(pageName);
-    setSidebarOpen(false); // Close sidebar on mobile after navigation
+    setSidebarOpen(false);
   };
 
   const handleSignOut = async () => {
@@ -1927,7 +2139,19 @@ const Student = () => {
             <div className="text-gray-500 text-xs">Driving School</div>
           </div>
         </div>
-        <div className="w-10"></div>
+
+        {/* BELL ICON - DAGDAG MO TO */}
+        <button
+          onClick={() => handleNavClick("Notifications")}
+          className="p-2 rounded-lg hover:bg-gray-100 transition-colors relative"
+        >
+          <Bell className="w-6 h-6 text-gray-700" />
+          {notifCount > 0 && (
+            <span className="absolute top-0 right-0 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+              {notifCount > 9 ? "9+" : notifCount}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* Mobile Overlay */}
@@ -1951,18 +2175,33 @@ const Student = () => {
       >
         {/* Brand Header */}
         <div className="p-6 bg-gradient-to-r from-red-600 to-red-700 text-white">
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center">
-              <img
-                src={logo}
-                alt="Logo"
-                className="h-8 w-8 rounded-full object-contain"
-              />
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center">
+                <img
+                  src={logo}
+                  alt="Logo"
+                  className="h-8 w-8 rounded-full object-contain"
+                />
+              </div>
+              <div>
+                <div className="font-bold text-lg">1st Safety</div>
+                <div className="text-red-100 text-sm">Driving School</div>
+              </div>
             </div>
-            <div>
-              <div className="font-bold text-lg">1st Safety</div>
-              <div className="text-red-100 text-sm">Driving School</div>
-            </div>
+
+            {/* BELL ICON - DAGDAG MO TO */}
+            <button
+              onClick={() => handleNavClick("Notifications")}
+              className="p-2 rounded-lg hover:bg-red-700 transition-colors relative"
+            >
+              <Bell className="w-6 h-6 text-white" />
+              {notifCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-white text-red-600 text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                  {notifCount > 9 ? "9+" : notifCount}
+                </span>
+              )}
+            </button>
           </div>
         </div>
 
@@ -1978,7 +2217,6 @@ const Student = () => {
           </div>
         </div>
 
-        {/* Navigation */}
         {/* Navigation */}
         <nav className="p-4 space-y-2">
           {[
@@ -2004,6 +2242,7 @@ const Student = () => {
               <span className="truncate">{name}</span>
             </button>
           ))}
+
           {/* Sign Out Button */}
           <div className="pt-4 border-t border-gray-200">
             <button
@@ -2025,6 +2264,9 @@ const Student = () => {
             {activePage === "Courses" && <CoursesPage />}
             {activePage === "Enrollment Details" && <EnrollmentPage />}
             {activePage === "Submitted Feedbacks" && <FeedbacksPage />}
+            {activePage === "Notifications" && (
+              <NotificationsPage setActivePage={setActivePage} />
+            )}
           </div>
         </main>
       </div>
