@@ -83,7 +83,7 @@ app.post("/register", async (req, res) => {
     // Check if email already exists BEFORE inserting
     const existingUser = await pool.query(
       "SELECT email FROM users WHERE email = $1",
-      [email]
+      [email],
     );
 
     if (existingUser.rows.length > 0) {
@@ -95,12 +95,12 @@ app.post("/register", async (req, res) => {
 
     await pool.query(
       "INSERT INTO users (name, email, password, role, branch_id, is_verified) VALUES ($1, $2, $3, $4, $5, $6)",
-      [name, email, hashedPassword, role, branch_id, false]
+      [name, email, hashedPassword, role, branch_id, false],
     );
 
     await pool.query(
       "INSERT INTO verification_codes (email, code) VALUES ($1, $2)",
-      [email, code]
+      [email, code],
     );
 
     const mailOptions = {
@@ -194,7 +194,7 @@ app.post("/verify", async (req, res) => {
   try {
     const result = await pool.query(
       "SELECT * FROM verification_codes WHERE email=$1 AND code=$2",
-      [email, code]
+      [email, code],
     );
 
     if (result.rows.length > 0) {
@@ -261,7 +261,7 @@ app.post("/login", async (req, res) => {
         branch_id: user.branch_id,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "24h" }
+      { expiresIn: "24h" },
     );
 
     return res.json({
@@ -293,12 +293,12 @@ app.post("/check-user", async (req, res) => {
     if (isEmail) {
       result = await pool.query(
         "SELECT role, is_verified, email FROM users WHERE email = $1",
-        [identifier]
+        [identifier],
       );
     } else {
       result = await pool.query(
         "SELECT role, is_verified, email FROM users WHERE username = $1",
-        [identifier]
+        [identifier],
       );
     }
 
@@ -327,7 +327,7 @@ app.post("/resend-code", async (req, res) => {
     // Check if user exists and is not verified
     const userResult = await pool.query(
       "SELECT * FROM users WHERE email = $1 AND is_verified = false",
-      [email]
+      [email],
     );
 
     if (userResult.rows.length === 0) {
@@ -347,7 +347,7 @@ app.post("/resend-code", async (req, res) => {
     // Insert new verification code
     await pool.query(
       "INSERT INTO verification_codes (email, code) VALUES ($1, $2)",
-      [email, code]
+      [email, code],
     );
 
     // Send email with new code
@@ -459,7 +459,7 @@ app.get("/student-profile", authenticateToken, async (req, res) => {
        FROM users u
        LEFT JOIN branches b ON u.branch_id = b.branch_id
        WHERE u.user_id = $1`,
-      [req.user.userId]
+      [req.user.userId],
     );
 
     if (result.rows.length === 0) {
@@ -511,7 +511,7 @@ app.post("/courses", upload.single("image"), async (req, res) => {
         schedule_config ||
           JSON.stringify([{ day: 1, hours: 4, time: "flexible" }]),
         true,
-      ]
+      ],
     );
 
     res.json({ message: "Course added!", imageUrl: imagePath });
@@ -530,7 +530,7 @@ app.patch("/courses/:id/availability", async (req, res) => {
     // Check if course exists
     const course = await pool.query(
       "SELECT * FROM courses WHERE course_id = $1",
-      [id]
+      [id],
     );
 
     if (!course.rows.length) {
@@ -540,7 +540,7 @@ app.patch("/courses/:id/availability", async (req, res) => {
     // Update availability status
     await pool.query(
       "UPDATE courses SET is_available = $1 WHERE course_id = $2",
-      [is_available, id]
+      [is_available, id],
     );
 
     const status = is_available ? "available" : "unavailable";
@@ -574,7 +574,7 @@ app.put("/courses/:id", upload.single("image"), async (req, res) => {
     // Get current course data
     const course = await pool.query(
       "SELECT * FROM courses WHERE course_id = $1",
-      [id]
+      [id],
     );
 
     if (!course.rows.length) {
@@ -605,7 +605,7 @@ app.put("/courses/:id", upload.single("image"), async (req, res) => {
         schedule_config ||
           JSON.stringify([{ day: 1, hours: 4, time: "flexible" }]),
         id,
-      ]
+      ],
     );
 
     res.json({ message: "Course updated!", imageUrl: imagePath });
@@ -688,7 +688,7 @@ app.post(
       // Get course info
       const courseRes = await client.query(
         `SELECT name, price, branch_id, vehicle_category, type FROM courses WHERE course_id = $1`,
-        [course_id]
+        [course_id],
       );
       if (courseRes.rows.length === 0) {
         await client.query("ROLLBACK");
@@ -712,7 +712,7 @@ app.post(
         await client.query("ROLLBACK");
         return res.status(400).json({
           error: `Invalid payment amount. Expected: ₱${expectedAmount.toFixed(
-            2
+            2,
           )}, Got: ₱${paidAmount.toFixed(2)}`,
         });
       }
@@ -751,7 +751,7 @@ app.post(
             isPWD,
             payment_status,
             paidAmount,
-          ]
+          ],
         );
 
         await client.query("COMMIT");
@@ -784,7 +784,7 @@ app.post(
             courseBranchId,
             courseVehicleCategory || vehicle_category,
             courseVehicleType || vehicle_type,
-          ]
+          ],
         );
 
         const totalVehicles = parseInt(vehicleCountRes.rows[0].total_vehicles);
@@ -803,7 +803,7 @@ app.post(
           const scheduleRes = await client.query(
             `SELECT schedule_id, date, start_time, end_time, slots FROM schedules 
              WHERE schedule_id = $1 FOR UPDATE`,
-            [sid]
+            [sid],
           );
 
           if (scheduleRes.rows.length === 0) {
@@ -842,7 +842,7 @@ app.post(
               schedule.date,
               schedule.start_time,
               schedule.end_time,
-            ]
+            ],
           );
           const bookedVehicles = parseInt(conflictQuery.rows[0].booked_count);
           const availableVehicles = totalVehicles - bookedVehicles;
@@ -892,7 +892,7 @@ app.post(
             paidAmount,
             courseVehicleCategory || vehicle_category,
             courseVehicleType || vehicle_type,
-          ]
+          ],
         );
 
         const enrollment_id = enrollmentResult.rows[0].enrollment_id;
@@ -904,12 +904,12 @@ app.post(
           await client.query(
             `INSERT INTO enrollment_schedules (enrollment_id, schedule_id, day_number)
              VALUES ($1, $2, $3)`,
-            [enrollment_id, sid, i + 1]
+            [enrollment_id, sid, i + 1],
           );
 
           await client.query(
             `UPDATE schedules SET slots = slots - 1 WHERE schedule_id = $1`,
-            [sid]
+            [sid],
           );
         }
 
@@ -939,7 +939,7 @@ app.post(
           const scheduleRes = await client.query(
             `SELECT schedule_id, slots FROM schedules 
              WHERE schedule_id = $1 FOR UPDATE`,
-            [sid]
+            [sid],
           );
 
           if (scheduleRes.rows.length === 0) {
@@ -982,7 +982,7 @@ app.post(
             isPWD,
             payment_status,
             paidAmount,
-          ]
+          ],
         );
 
         const enrollment_id = enrollmentResult.rows[0].enrollment_id;
@@ -994,12 +994,12 @@ app.post(
           await client.query(
             `INSERT INTO enrollment_schedules (enrollment_id, schedule_id, day_number)
              VALUES ($1, $2, $3)`,
-            [enrollment_id, sid, i + 1]
+            [enrollment_id, sid, i + 1],
           );
 
           await client.query(
             `UPDATE schedules SET slots = slots - 1 WHERE schedule_id = $1`,
-            [sid]
+            [sid],
           );
         }
 
@@ -1018,7 +1018,7 @@ app.post(
         const scheduleInfo = await client.query(
           `SELECT schedule_id, slots, is_theoretical, group_id FROM schedules 
            WHERE schedule_id = $1 FOR UPDATE`,
-          [schedule_id]
+          [schedule_id],
         );
 
         if (scheduleInfo.rows.length === 0) {
@@ -1040,12 +1040,12 @@ app.post(
             `SELECT e.* FROM enrollments e 
              JOIN schedules s ON e.schedule_id = s.schedule_id 
              WHERE e.user_id = $1 AND e.course_id = $2 AND s.group_id = $3`,
-            [user_id, course_id, group_id]
+            [user_id, course_id, group_id],
           );
         } else {
           existingEnrollment = await client.query(
             `SELECT * FROM enrollments WHERE user_id = $1 AND schedule_id = $2`,
-            [user_id, schedule_id]
+            [user_id, schedule_id],
           );
         }
 
@@ -1082,19 +1082,19 @@ app.post(
             isPWD,
             payment_status,
             paidAmount,
-          ]
+          ],
         );
 
         // Update slots
         if (is_theoretical && group_id) {
           await client.query(
             `UPDATE schedules SET slots = slots - 1 WHERE group_id = $1`,
-            [group_id]
+            [group_id],
           );
         } else {
           await client.query(
             `UPDATE schedules SET slots = slots - 1 WHERE schedule_id = $1`,
-            [schedule_id]
+            [schedule_id],
           );
         }
 
@@ -1120,7 +1120,7 @@ app.post(
     } finally {
       client.release();
     }
-  }
+  },
 );
 // Get all enrollments for the authenticated user
 app.get("/enrollments", authenticateToken, async (req, res) => {
@@ -1145,7 +1145,7 @@ app.get("/enrollments", authenticateToken, async (req, res) => {
       WHERE e.user_id = $1
       ORDER BY e.enrollment_date DESC
       `,
-      [userId]
+      [userId],
     );
 
     // For each enrollment, fetch schedule details
@@ -1166,7 +1166,7 @@ app.get("/enrollments", authenticateToken, async (req, res) => {
             FROM schedules
             WHERE schedule_id = $1
             `,
-            [enrollment.schedule_id]
+            [enrollment.schedule_id],
           );
 
           if (scheduleResult.rows.length > 0) {
@@ -1187,7 +1187,7 @@ app.get("/enrollments", authenticateToken, async (req, res) => {
             WHERE es.enrollment_id = $1
             ORDER BY es.day_number ASC
             `,
-            [enrollment.enrollment_id]
+            [enrollment.enrollment_id],
           );
 
           multipleSchedules = multiScheduleResult.rows;
@@ -1198,7 +1198,7 @@ app.get("/enrollments", authenticateToken, async (req, res) => {
         if (enrollment.instructor_id) {
           const instructorResult = await pool.query(
             `SELECT name FROM users WHERE user_id = $1`,
-            [enrollment.instructor_id]
+            [enrollment.instructor_id],
           );
           if (instructorResult.rows.length > 0) {
             instructorName = instructorResult.rows[0].name;
@@ -1215,7 +1215,7 @@ app.get("/enrollments", authenticateToken, async (req, res) => {
           multiple_schedules:
             multipleSchedules.length > 0 ? multipleSchedules : null,
         };
-      })
+      }),
     );
 
     res.json(enrollmentsWithSchedules);
@@ -1230,7 +1230,7 @@ app.get("/check-active-enrollment", authenticateToken, async (req, res) => {
     const result = await pool.query(
       `SELECT * FROM enrollments 
        WHERE user_id = $1 AND status NOT IN ('passed/completed')`,
-      [userId]
+      [userId],
     );
 
     if (result.rows.length > 0) {
@@ -1287,7 +1287,7 @@ app.get("/admin/enrollments", authenticateToken, async (req, res) => {
       )
       ORDER BY e.enrollment_date DESC
       `,
-      [adminBranchId]
+      [adminBranchId],
     );
 
     // For each enrollment, check if it has multiple schedules
@@ -1309,7 +1309,7 @@ app.get("/admin/enrollments", authenticateToken, async (req, res) => {
           WHERE es.enrollment_id = $1 AND s.branch_id = $2
           ORDER BY es.day_number ASC
           `,
-          [enrollment.enrollment_id, adminBranchId]
+          [enrollment.enrollment_id, adminBranchId],
         );
 
         // If multiple schedules exist, use the first one for start_date/time
@@ -1323,7 +1323,7 @@ app.get("/admin/enrollments", authenticateToken, async (req, res) => {
         }
 
         return enrollment;
-      })
+      }),
     );
 
     res.json(enrollmentsWithSchedules);
@@ -1340,7 +1340,7 @@ app.post("/accounts", async (req, res) => {
   try {
     await pool.query(
       "INSERT INTO users (name, username, password, role, branch_id) VALUES ($1, $2, $3, $4, $5)",
-      [name, username, hashedPassword, role, branch_id]
+      [name, username, hashedPassword, role, branch_id],
     );
     res.json({ message: "✅ Account created successfully" });
   } catch (error) {
@@ -1377,14 +1377,14 @@ app.put("/accounts/:id", async (req, res) => {
         `UPDATE users
          SET name = $1, username = $2, password = $3, role = $4, branch_id = $5
          WHERE user_id = $6`,
-        [name, username, hashedPassword, role, branch_id, id]
+        [name, username, hashedPassword, role, branch_id, id],
       );
     } else {
       await pool.query(
         `UPDATE users
          SET name = $1, username = $2, role = $3, branch_id = $4
          WHERE user_id = $5`,
-        [name, username, role, branch_id, id]
+        [name, username, role, branch_id, id],
       );
     }
 
@@ -1440,7 +1440,7 @@ app.post("/schedules", authenticateToken, async (req, res) => {
         slots,
         is_theoretical,
         created_by,
-      ]
+      ],
     );
 
     res.status(201).json({ message: "✅ Schedule added successfully" });
@@ -1467,7 +1467,7 @@ app.delete("/schedules/:scheduleId", authenticateToken, async (req, res) => {
     // Check if schedule exists
     const scheduleCheck = await pool.query(
       "SELECT * FROM schedules WHERE schedule_id = $1",
-      [scheduleId]
+      [scheduleId],
     );
 
     if (scheduleCheck.rows.length === 0) {
@@ -1499,7 +1499,7 @@ app.get("/schedules", authenticateToken, async (req, res) => {
   try {
     const { rows: schedules } = await pool.query(
       "SELECT * FROM schedules WHERE branch_id = $1 ORDER BY date, start_time",
-      [branch_id]
+      [branch_id],
     );
 
     // If view=individual, return raw schedules for enrollment
@@ -1542,7 +1542,7 @@ app.get("/schedules", authenticateToken, async (req, res) => {
             s.date === nextDayStr &&
             s.start_time === sched.start_time &&
             s.branch_id === sched.branch_id &&
-            s.slots === sched.slots
+            s.slots === sched.slots,
         );
 
         if (nextDayIndex !== -1) {
@@ -1611,7 +1611,7 @@ app.get("/courses/:course_id", authenticateToken, async (req, res) => {
     const { course_id } = req.params;
     const { rows } = await pool.query(
       "SELECT * FROM courses WHERE course_id = $1",
-      [course_id]
+      [course_id],
     );
 
     if (rows.length === 0) {
@@ -1631,7 +1631,7 @@ app.get("/instructors", authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
       "SELECT user_id, name FROM users WHERE role = 'instructor' AND branch_id = $1",
-      [branch_id]
+      [branch_id],
     );
     res.json(result.rows);
   } catch (error) {
@@ -1655,7 +1655,7 @@ app.patch(
     try {
       const check = await pool.query(
         "SELECT instructor_id FROM enrollments WHERE enrollment_id = $1",
-        [enrollmentId]
+        [enrollmentId],
       );
 
       if (check.rows.length === 0) {
@@ -1667,7 +1667,7 @@ app.patch(
       // Allow reassignment - update instructor regardless if one is already assigned
       await pool.query(
         "UPDATE enrollments SET instructor_id = $1 WHERE enrollment_id = $2",
-        [instructor_id, enrollmentId]
+        [instructor_id, enrollmentId],
       );
 
       const message = currentInstructorId
@@ -1679,7 +1679,7 @@ app.patch(
       console.error("❌ Error assigning instructor:", err);
       res.status(500).json({ message: "Server error" });
     }
-  }
+  },
 );
 
 app.get("/instructor/enrollments", authenticateToken, async (req, res) => {
@@ -1703,7 +1703,7 @@ app.get("/instructor/enrollments", authenticateToken, async (req, res) => {
       WHERE e.instructor_id = $1
       ORDER BY e.enrollment_date DESC
       `,
-      [instructorId]
+      [instructorId],
     );
 
     // For each enrollment, get schedule details
@@ -1724,7 +1724,7 @@ app.get("/instructor/enrollments", authenticateToken, async (req, res) => {
             FROM schedules
             WHERE schedule_id = $1
             `,
-            [enrollment.schedule_id]
+            [enrollment.schedule_id],
           );
 
           if (scheduleResult.rows.length > 0) {
@@ -1753,7 +1753,7 @@ app.get("/instructor/enrollments", authenticateToken, async (req, res) => {
             WHERE es.enrollment_id = $1
             ORDER BY es.day_number ASC
             `,
-            [enrollment.enrollment_id]
+            [enrollment.enrollment_id],
           );
 
           if (multiScheduleResult.rows.length > 0) {
@@ -1767,7 +1767,7 @@ app.get("/instructor/enrollments", authenticateToken, async (req, res) => {
         }
 
         return enrollment;
-      })
+      }),
     );
 
     res.json(enrollmentsWithSchedules);
@@ -1790,7 +1790,7 @@ app.put(
       // Verify that this enrollment belongs to the instructor
       const checkResult = await pool.query(
         "SELECT enrollment_id FROM enrollments WHERE enrollment_id = $1 AND instructor_id = $2",
-        [enrollmentId, instructorId]
+        [enrollmentId, instructorId],
       );
 
       if (checkResult.rows.length === 0) {
@@ -1802,7 +1802,7 @@ app.put(
       // Update the status
       const result = await pool.query(
         "UPDATE enrollments SET status = $1 WHERE enrollment_id = $2 RETURNING *",
-        [status, enrollmentId]
+        [status, enrollmentId],
       );
 
       if (result.rows.length === 0) {
@@ -1817,7 +1817,7 @@ app.put(
       console.error("❌ Error updating enrollment status:", err);
       res.status(500).json({ error: "Failed to update status" });
     }
-  }
+  },
 );
 
 // Add this endpoint for admin to update enrollment status (for online theoretical courses)
@@ -1833,7 +1833,7 @@ app.put(
       // Verify that user is an admin
       const userCheck = await pool.query(
         "SELECT role FROM users WHERE user_id = $1",
-        [userId]
+        [userId],
       );
 
       if (
@@ -1854,7 +1854,7 @@ app.put(
       // Update the status
       const result = await pool.query(
         "UPDATE enrollments SET status = $1 WHERE enrollment_id = $2 RETURNING *",
-        [status, enrollmentId]
+        [status, enrollmentId],
       );
 
       if (result.rows.length === 0) {
@@ -1869,7 +1869,7 @@ app.put(
       console.error("❌ Error updating enrollment status:", err);
       res.status(500).json({ error: "Failed to update status" });
     }
-  }
+  },
 );
 /*
 // Route to generate certificate for completed enrollments
@@ -2271,14 +2271,14 @@ app.patch(
     try {
       await pool.query(
         "UPDATE enrollments SET amount_paid = $1 WHERE enrollment_id = $2",
-        [amount_paid, enrollmentId]
+        [amount_paid, enrollmentId],
       );
       res.json({ message: "✅ Amount paid updated successfully." });
     } catch (err) {
       console.error("❌ Error updating amount paid:", err);
       res.status(500).json({ message: "Server error" });
     }
-  }
+  },
 );
 
 // PATCH /admin/enrollments/:id/payment-status
@@ -2296,14 +2296,14 @@ app.patch(
     try {
       await pool.query(
         "UPDATE enrollments SET payment_status = $1 WHERE enrollment_id = $2",
-        [payment_status, enrollmentId]
+        [payment_status, enrollmentId],
       );
       res.json({ message: "✅ Payment status updated successfully." });
     } catch (err) {
       console.error("❌ Error updating payment status:", err);
       res.status(500).json({ message: "Server error" });
     }
-  }
+  },
 );
 
 //manager post announcemnets
@@ -2314,7 +2314,7 @@ app.post("/announcements", async (req, res) => {
     const result = await pool.query(
       `INSERT INTO announcements (title, content, branch_id) 
        VALUES ($1, $2, $3) RETURNING *`,
-      [title, content, branch_id || null]
+      [title, content, branch_id || null],
     );
 
     res.json({
@@ -2338,14 +2338,14 @@ app.get("/announcements", async (req, res) => {
          LEFT JOIN branches b ON a.branch_id = b.branch_id
          WHERE a.branch_id = $1 OR a.branch_id IS NULL
          ORDER BY a.created_at DESC`,
-        [branch_id]
+        [branch_id],
       );
     } else {
       // Kung walang branch_id, kunin lahat ng announcement
       result = await pool.query(
         `SELECT a.*, b.name AS branch_name FROM announcements a
          LEFT JOIN branches b ON a.branch_id = b.branch_id
-         ORDER BY a.created_at DESC`
+         ORDER BY a.created_at DESC`,
       );
     }
     res.json(result.rows);
@@ -2361,7 +2361,7 @@ app.delete("/announcements/:id", async (req, res) => {
   try {
     const result = await pool.query(
       "DELETE FROM announcements WHERE announcement_id = $1 RETURNING announcement_id",
-      [id]
+      [id],
     );
 
     if (result.rows.length === 0) {
@@ -2382,7 +2382,7 @@ app.put("/announcements/:id", async (req, res) => {
   try {
     await pool.query(
       `UPDATE announcements SET title = $1, content = $2, branch_id = $3 WHERE announcement_id = $4`,
-      [title, content, branch_id, id]
+      [title, content, branch_id, id],
     );
     res.json({ message: "Announcement updated" });
   } catch (err) {
@@ -2442,7 +2442,7 @@ app.post("/feedback/:enrollmentId", async (req, res) => {
     // Check if enrollment exists
     const enrollmentCheck = await pool.query(
       "SELECT enrollment_id FROM enrollments WHERE enrollment_id = $1",
-      [enrollmentId]
+      [enrollmentId],
     );
 
     if (enrollmentCheck.rows.length === 0) {
@@ -2452,7 +2452,7 @@ app.post("/feedback/:enrollmentId", async (req, res) => {
     // Check if feedback already exists
     const existingFeedback = await pool.query(
       "SELECT feedback_id FROM feedback WHERE enrollment_id = $1",
-      [enrollmentId]
+      [enrollmentId],
     );
 
     if (existingFeedback.rows.length > 0) {
@@ -2509,12 +2509,12 @@ app.post("/feedback/:enrollmentId", async (req, res) => {
         vehicle_q3,
         instructor_comments,
         comments,
-      ]
+      ],
     );
 
     await pool.query(
       "UPDATE enrollments SET has_feedback = TRUE WHERE enrollment_id = $1",
-      [enrollmentId]
+      [enrollmentId],
     );
 
     console.log("Feedback inserted successfully:", result.rows[0]);
@@ -2554,7 +2554,7 @@ app.put("/feedback/:id/feature", async (req, res) => {
 
     const result = await pool.query(
       "UPDATE feedback SET featured = $1 WHERE feedback_id = $2",
-      [featured, id]
+      [featured, id],
     );
 
     res.json({ success: true });
@@ -2693,7 +2693,7 @@ app.post("/reset-password", async (req, res) => {
   try {
     const result = await pool.query(
       "SELECT * FROM users WHERE email = $1 AND reset_code = $2",
-      [email, code]
+      [email, code],
     );
     const rows = result.rows;
 
@@ -2704,7 +2704,7 @@ app.post("/reset-password", async (req, res) => {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await pool.query(
       "UPDATE users SET password = $1, reset_code = NULL WHERE email = $2",
-      [hashedPassword, email]
+      [hashedPassword, email],
     );
 
     res.json({ message: "Password has been reset successfully." });
@@ -2770,7 +2770,7 @@ app.get("/feedback", async (req, res) => {
       ${whereClause}
       ORDER BY f.created_at DESC
       `,
-      params
+      params,
     );
 
     // Ensure featured is always a boolean
@@ -2920,7 +2920,7 @@ app.get("/student/feedback", authenticateToken, async (req, res) => {
       WHERE e.user_id = $1
       ORDER BY f.created_at DESC
     `,
-      [studentId]
+      [studentId],
     );
     res.json(result.rows);
   } catch (err) {
@@ -2938,7 +2938,7 @@ app.post("/instructor/maintenance", authenticateToken, async (req, res) => {
     await pool.query(
       `INSERT INTO maintenance_reports (instructor_id, vehicle_name, description) 
        VALUES ($1, $2, $3)`,
-      [instructorId, vehicle_name, description]
+      [instructorId, vehicle_name, description],
     );
 
     res.status(201).json({ message: "Maintenance report submitted." });
@@ -2955,7 +2955,7 @@ app.get("/instructor/maintenance", authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT * FROM maintenance_reports WHERE instructor_id = $1 ORDER BY created_at DESC`,
-      [instructorId]
+      [instructorId],
     );
     res.json(result.rows);
   } catch (err) {
@@ -2978,7 +2978,7 @@ app.get("/admin/maintenance", authenticateToken, async (req, res) => {
       WHERE u.branch_id = $1
       ORDER BY mr.created_at DESC
       `,
-      [branchId]
+      [branchId],
     );
     res.json(result.rows);
   } catch (err) {
@@ -2996,7 +2996,7 @@ app.put("/admin/maintenance/:id", authenticateToken, async (req, res) => {
   try {
     await pool.query(
       `UPDATE maintenance_reports SET status = $1, price = $2 WHERE maintenance_id = $3`,
-      [status, finalPrice, id]
+      [status, finalPrice, id],
     );
     res.json({ message: "Report updated successfully" });
   } catch (err) {
@@ -3011,7 +3011,7 @@ app.post("/check-user", async (req, res) => {
   try {
     const result = await pool.query(
       "SELECT role FROM users WHERE email = $1 OR username = $1",
-      [identifier]
+      [identifier],
     );
 
     if (result.rows.length === 0) {
@@ -3062,7 +3062,7 @@ app.get("/admin/enrollments/summary", authenticateToken, async (req, res) => {
 
 
       `,
-      [adminBranchId]
+      [adminBranchId],
     );
 
     res.json(result.rows[0]);
@@ -3146,7 +3146,7 @@ app.get("/admin/student-records", authenticateToken, async (req, res) => {
       WHERE u.branch_id = $1
       ORDER BY e.enrollment_date DESC
       `,
-      [adminBranchId]
+      [adminBranchId],
     );
 
     res.json(result.rows);
@@ -3212,7 +3212,7 @@ app.get("/manager/student-records", async (req, res) => {
 app.get("/branches/records", async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT branch_id, name FROM branches ORDER BY name ASC"
+      "SELECT branch_id, name FROM branches ORDER BY name ASC",
     );
     res.json(result.rows);
   } catch (err) {
@@ -3241,7 +3241,7 @@ app.get("/manager/years", async (req, res) => {
 app.get("/branches/records", async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT branch_id, name FROM branches ORDER BY name"
+      "SELECT branch_id, name FROM branches ORDER BY name",
     );
     res.json(result.rows);
   } catch (err) {
@@ -3271,7 +3271,7 @@ app.get("/analytics", async (req, res) => {
     // Year filter
     if (year) {
       whereConditions.push(
-        `EXTRACT(YEAR FROM e.enrollment_date) = $${paramIndex}`
+        `EXTRACT(YEAR FROM e.enrollment_date) = $${paramIndex}`,
       );
       queryParams.push(year);
       paramIndex++;
@@ -3280,7 +3280,7 @@ app.get("/analytics", async (req, res) => {
     // Month filter
     if (month) {
       whereConditions.push(
-        `EXTRACT(MONTH FROM e.enrollment_date) = $${paramIndex}`
+        `EXTRACT(MONTH FROM e.enrollment_date) = $${paramIndex}`,
       );
       queryParams.push(month);
       paramIndex++;
@@ -3317,7 +3317,7 @@ app.get("/analytics", async (req, res) => {
 
       if (year) {
         maintenanceConditions.push(
-          `EXTRACT(YEAR FROM mr.created_at) = $${maintenanceParamIndex}`
+          `EXTRACT(YEAR FROM mr.created_at) = $${maintenanceParamIndex}`,
         );
         maintenanceParams.push(year);
         maintenanceParamIndex++;
@@ -3325,7 +3325,7 @@ app.get("/analytics", async (req, res) => {
 
       if (month) {
         maintenanceConditions.push(
-          `EXTRACT(MONTH FROM mr.created_at) = $${maintenanceParamIndex}`
+          `EXTRACT(MONTH FROM mr.created_at) = $${maintenanceParamIndex}`,
         );
         maintenanceParams.push(month);
         maintenanceParamIndex++;
@@ -3408,7 +3408,7 @@ app.get("/analytics", async (req, res) => {
     `;
     const revenuePerCourseResult = await pool.query(
       revenuePerCourseQuery,
-      revenueParams
+      revenueParams,
     );
     const revenuePerCourse = revenuePerCourseResult.rows;
 
@@ -3423,7 +3423,7 @@ app.get("/analytics", async (req, res) => {
     `;
     const monthlyRevenueResult = await pool.query(
       monthlyRevenueQuery,
-      revenueParams
+      revenueParams,
     );
     const monthlyRevenue = monthlyRevenueResult.rows;
 
@@ -3436,7 +3436,7 @@ app.get("/analytics", async (req, res) => {
     `;
     const totalRevenueResult = await pool.query(
       totalRevenueQuery,
-      revenueParams
+      revenueParams,
     );
     const totalRevenue = parseFloat(totalRevenueResult.rows[0].total) || 0;
 
@@ -3452,7 +3452,7 @@ app.get("/analytics", async (req, res) => {
     `;
     const totalMaintenanceCostResult = await pool.query(
       totalMaintenanceCostQuery,
-      maintenanceWhere.params
+      maintenanceWhere.params,
     );
     const totalMaintenanceCost =
       parseFloat(totalMaintenanceCostResult.rows[0].total) || 0;
@@ -3472,7 +3472,7 @@ app.get("/analytics", async (req, res) => {
     `;
     const maintenanceCostPerBranchResult = await pool.query(
       maintenanceCostPerBranchQuery,
-      maintenanceWhere.params
+      maintenanceWhere.params,
     );
     const maintenanceCostPerBranch = maintenanceCostPerBranchResult.rows;
 
@@ -3562,7 +3562,7 @@ app.get("/admin/instructors", authenticateToken, async (req, res) => {
        WHERE u.role = 'instructor' 
          AND u.branch_id = $1
        ORDER BY u.user_id ASC`,
-      [adminBranch]
+      [adminBranch],
     );
 
     console.log("Found instructors:", result.rows);
@@ -3573,13 +3573,13 @@ app.get("/admin/instructors", authenticateToken, async (req, res) => {
         `SELECT u.user_id, u.name, u.branch_id, b.name as branch_name 
          FROM users u 
          LEFT JOIN branches b ON u.branch_id = b.branch_id 
-         WHERE u.role = 'instructor'`
+         WHERE u.role = 'instructor'`,
       );
       console.log("All instructors in database:", allInstructors.rows);
 
       const adminBranchInfo = await pool.query(
         `SELECT branch_id, name FROM branches WHERE branch_id = $1`,
-        [adminBranch]
+        [adminBranch],
       );
       console.log("Admin's branch info:", adminBranchInfo.rows);
     }
@@ -3606,7 +3606,7 @@ app.post(
       "Status:",
       status,
       "Admin branch:",
-      adminBranch
+      adminBranch,
     );
 
     if (!["present", "absent"].includes(status)) {
@@ -3617,7 +3617,7 @@ app.post(
       // check muna kung yung instructor ay nasa parehong branch
       const check = await pool.query(
         `SELECT user_id, name FROM users WHERE user_id = $1 AND branch_id = $2 AND role = 'instructor'`,
-        [instructorId, adminBranch]
+        [instructorId, adminBranch],
       );
 
       console.log("Instructor check result:", check.rows);
@@ -3629,14 +3629,14 @@ app.post(
       // Check if attendance already exists for today
       const existingAttendance = await pool.query(
         `SELECT * FROM instructor_attendance WHERE user_id = $1 AND date = CURRENT_DATE`,
-        [instructorId]
+        [instructorId],
       );
 
       if (existingAttendance.rowCount > 0) {
         // Update existing attendance
         await pool.query(
           `UPDATE instructor_attendance SET status = $1 WHERE user_id = $2 AND date = CURRENT_DATE`,
-          [status, instructorId]
+          [status, instructorId],
         );
         res.json({ message: "✅ Attendance updated" });
       } else {
@@ -3644,7 +3644,7 @@ app.post(
         await pool.query(
           `INSERT INTO instructor_attendance (user_id, date, status)
            VALUES ($1, CURRENT_DATE, $2)`,
-          [instructorId, status]
+          [instructorId, status],
         );
         res.json({ message: "✅ Attendance recorded" });
       }
@@ -3652,7 +3652,7 @@ app.post(
       console.error("❌ Error recording attendance:", err);
       res.status(500).json({ message: "Server error", error: err.message });
     }
-  }
+  },
 );
 
 // Get attendance records (filtered by branch)
@@ -3678,7 +3678,7 @@ app.get(
          WHERE u.role = 'instructor' 
            AND u.branch_id = $1
          ORDER BY ia.date DESC, u.name ASC`,
-        [adminBranch]
+        [adminBranch],
       );
 
       console.log("Attendance records found:", result.rows.length);
@@ -3688,7 +3688,7 @@ app.get(
       console.error("❌ Error fetching attendance records:", err);
       res.status(500).json({ message: "Server error", error: err.message });
     }
-  }
+  },
 );
 
 // Additional debug route
@@ -3701,7 +3701,7 @@ app.get("/admin/debug/user-info", authenticateToken, async (req, res) => {
        FROM users u
        LEFT JOIN branches b ON u.branch_id = b.branch_id
        WHERE u.user_id = $1`,
-      [req.user.user_id]
+      [req.user.user_id],
     );
 
     res.json({
@@ -3792,7 +3792,7 @@ app.get("/attendance/today", authenticateToken, async (req, res) => {
       WHERE u.role = 'instructor' AND DATE(ia.date) = $1
       ORDER BY b.name ASC, u.name ASC
     `,
-      [today]
+      [today],
     );
 
     console.log("✅ Today's attendance records fetched:", result.rows.length);
@@ -3813,7 +3813,7 @@ app.get("/profile", authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
       "SELECT name, username FROM users WHERE user_id = $1",
-      [userId]
+      [userId],
     );
 
     if (result.rows.length === 0) {
@@ -3849,7 +3849,7 @@ app.put("/profile", authenticateToken, async (req, res) => {
     // Check if username is already taken by another user
     const existingUser = await pool.query(
       "SELECT user_id FROM users WHERE username = $1 AND user_id != $2",
-      [username, userId]
+      [username, userId],
     );
 
     if (existingUser.rows.length > 0) {
@@ -3861,7 +3861,7 @@ app.put("/profile", authenticateToken, async (req, res) => {
     // Update the user profile
     await pool.query(
       "UPDATE users SET name = $1, username = $2 WHERE user_id = $3",
-      [name, username, userId]
+      [name, username, userId],
     );
 
     res.json({
@@ -3883,7 +3883,7 @@ app.put("/change-password", authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
       "SELECT password FROM users WHERE user_id = $1",
-      [userId]
+      [userId],
     );
 
     if (result.rows.length === 0) {
@@ -4042,7 +4042,7 @@ app.delete(
        JOIN courses c ON e.course_id = c.course_id
        LEFT JOIN schedules s ON e.schedule_id = s.schedule_id
        WHERE e.enrollment_id = $1`,
-        [enrollmentId]
+        [enrollmentId],
       );
 
       console.log("📊 Enrollment check result:", checkResult.rows);
@@ -4085,7 +4085,7 @@ app.delete(
 
       const deleteResult = await pool.query(
         `DELETE FROM enrollments WHERE enrollment_id = $1 RETURNING *`,
-        [enrollmentId]
+        [enrollmentId],
       );
 
       console.log("🗑️ Delete result:", deleteResult.rows);
@@ -4101,7 +4101,7 @@ app.delete(
       await pool.query("COMMIT");
 
       console.log(
-        `✅ Enrollment deleted: ID ${enrollmentId}, Student: ${enrollment.student_name}`
+        `✅ Enrollment deleted: ID ${enrollmentId}, Student: ${enrollment.student_name}`,
       );
 
       res.json({
@@ -4120,7 +4120,7 @@ app.delete(
         details: error.message,
       });
     }
-  }
+  },
 );
 
 // Add this to your Express backend server
@@ -4130,14 +4130,12 @@ app.post("/generate-insights", async (req, res) => {
   try {
     const { chartType, data, context } = req.body;
 
-    // Validate input
     if (!chartType || !data || !context) {
       return res.status(400).json({
         error: "Missing required fields: chartType, data, or context",
       });
     }
 
-    // Create a simple, concise prompt
     const prompt = `Analyze this ${chartType} data briefly:
 
 ${JSON.stringify(data, null, 2)}
@@ -4146,59 +4144,32 @@ Context: ${context}
 
 Give me 3-4 SHORT insights using simple words. Make each point 1 sentence only. Focus on what's important and what to do.`;
 
-    // Call Google Gemini API (using gemini-2.0-flash - more stable)
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      "https://api.groq.com/openai/v1/chat/completions",
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
         },
         body: JSON.stringify({
-          contents: [
+          model: "llama-3.3-70b-versatile",
+          messages: [
             {
-              parts: [
-                {
-                  text: prompt,
-                },
-              ],
+              role: "user",
+              content: prompt,
             },
           ],
-          generationConfig: {
-            temperature: 0.7,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 250,
-            candidateCount: 1,
-            stopSequences: [],
-          },
-          safetySettings: [
-            {
-              category: "HARM_CATEGORY_HARASSMENT",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE",
-            },
-            {
-              category: "HARM_CATEGORY_HATE_SPEECH",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE",
-            },
-            {
-              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE",
-            },
-            {
-              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE",
-            },
-          ],
+          max_tokens: 300,
+          temperature: 0.7,
         }),
-      }
+      },
     );
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error("Gemini API Error:", errorData);
+      console.error("Groq API Error:", errorData);
 
-      // Handle specific error cases
       if (response.status === 429) {
         return res.status(429).json({
           error: "Rate limit exceeded. Please try again in a moment.",
@@ -4207,55 +4178,21 @@ Give me 3-4 SHORT insights using simple words. Make each point 1 sentence only. 
 
       if (response.status === 401) {
         return res.status(500).json({
-          error: "Invalid API key. Please check your Gemini API configuration.",
+          error: "Invalid API key. Please check your Groq API configuration.",
         });
       }
 
-      throw new Error(`Gemini API error: ${response.status}`);
+      throw new Error(`Groq API error: ${response.status}`);
     }
 
     const result = await response.json();
+    const insights = result.choices[0]?.message?.content;
 
-    // Log the full response for debugging
-    console.log("Gemini API Response:", JSON.stringify(result, null, 2));
-
-    // Extract the generated text with better error handling
-    if (result.candidates && result.candidates.length > 0) {
-      const candidate = result.candidates[0];
-
-      // Check if content and parts exist
-      if (
-        candidate.content &&
-        candidate.content.parts &&
-        candidate.content.parts.length > 0
-      ) {
-        const insights = candidate.content.parts[0].text;
-
-        res.json({
-          insights,
-          success: true,
-        });
-      } else if (candidate.finishReason === "MAX_TOKENS") {
-        // Handle MAX_TOKENS error
-        throw new Error(
-          "Response was too long and got cut off. Please try again with a smaller dataset."
-        );
-      } else if (candidate.finishReason === "SAFETY") {
-        // Handle safety filter
-        throw new Error(
-          "Content was blocked by safety filters. Please try with different data."
-        );
-      } else {
-        console.error("No parts in response. Candidate:", candidate);
-        throw new Error("No content generated - response may be empty");
-      }
-    } else if (result.error) {
-      console.error("Gemini API returned error:", result.error);
-      throw new Error(result.error.message || "Gemini API error");
-    } else {
-      console.error("No candidates in response:", result);
-      throw new Error("No insights generated - empty response");
+    if (!insights) {
+      throw new Error("No insights generated");
     }
+
+    res.json({ insights, success: true });
   } catch (error) {
     console.error("Generate Insights Error:", error);
     res.status(500).json({
@@ -4264,34 +4201,6 @@ Give me 3-4 SHORT insights using simple words. Make each point 1 sentence only. 
     });
   }
 });
-
-// Health check endpoint to test API key
-app.get("/check-gemini", async (req, res) => {
-  try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash?key=${process.env.GEMINI_API_KEY}`
-    );
-
-    if (response.ok) {
-      res.json({
-        status: "Gemini API is configured correctly",
-        success: true,
-      });
-    } else {
-      res.status(500).json({
-        status: "Gemini API key may be invalid",
-        success: false,
-      });
-    }
-  } catch (error) {
-    res.status(500).json({
-      status: "Failed to connect to Gemini API",
-      success: false,
-      error: error.message,
-    });
-  }
-});
-
 // GET all vehicles (filtered by admin's branch)
 app.get("/vehicles", async (req, res) => {
   try {
@@ -4314,12 +4223,12 @@ app.get("/vehicles", async (req, res) => {
     if (decoded.role === "administrative_staff" && decoded.branch_id) {
       result = await pool.query(
         "SELECT * FROM vehicle_units WHERE branch_id = $1 ORDER BY created_at DESC",
-        [decoded.branch_id]
+        [decoded.branch_id],
       );
     } else {
       // Manager or no branch_id = show all
       result = await pool.query(
-        "SELECT * FROM vehicle_units ORDER BY created_at DESC"
+        "SELECT * FROM vehicle_units ORDER BY created_at DESC",
       );
     }
 
@@ -4343,7 +4252,7 @@ app.post("/vehicles", async (req, res) => {
 
     await pool.query(
       "INSERT INTO vehicle_units (branch_id, car_name, vehicle_category, type, total_units) VALUES ($1, $2, $3, $4, $5)",
-      [branch_id, car_name, vehicle_category, type, total_units]
+      [branch_id, car_name, vehicle_category, type, total_units],
     );
 
     res.json({ message: "✅ Vehicle added successfully" });
@@ -4365,7 +4274,7 @@ app.put("/vehicles/:id", async (req, res) => {
     // Check if vehicle belongs to admin's branch
     const checkResult = await pool.query(
       "SELECT branch_id FROM vehicle_units WHERE vehicle_id = $1",
-      [id]
+      [id],
     );
 
     if (checkResult.rows.length === 0) {
@@ -4381,7 +4290,7 @@ app.put("/vehicles/:id", async (req, res) => {
 
     await pool.query(
       "UPDATE vehicle_units SET car_name = $1, vehicle_category = $2, type = $3, total_units = $4 WHERE vehicle_id = $5",
-      [car_name, vehicle_category, type, total_units, id]
+      [car_name, vehicle_category, type, total_units, id],
     );
 
     res.json({ message: "✅ Vehicle updated successfully" });
@@ -4402,7 +4311,7 @@ app.delete("/vehicles/:id", async (req, res) => {
     // Check if vehicle belongs to admin's branch
     const checkResult = await pool.query(
       "SELECT branch_id FROM vehicle_units WHERE vehicle_id = $1",
-      [id]
+      [id],
     );
 
     if (checkResult.rows.length === 0) {
@@ -4442,7 +4351,7 @@ app.get("/schedules/with-availability", async (req, res) => {
     // Get course details including mode
     const courseRes = await pool.query(
       "SELECT name, branch_id, vehicle_category, type, mode FROM courses WHERE course_id = $1",
-      [course_id]
+      [course_id],
     );
 
     if (courseRes.rows.length === 0) {
@@ -4470,7 +4379,7 @@ app.get("/schedules/with-availability", async (req, res) => {
           AND date >= CURRENT_DATE
           AND slots > 0
           ORDER BY date, start_time`,
-        [branch_id]
+        [branch_id],
       );
       // Return as-is, no vehicle availability needed for theoretical
       return res.json(schedules.rows);
@@ -4488,7 +4397,7 @@ app.get("/schedules/with-availability", async (req, res) => {
        WHERE branch_id = $1 
        AND vehicle_category = $2 
        AND type = $3`,
-      [branch_id, vehicle_category, type]
+      [branch_id, vehicle_category, type],
     );
 
     const totalVehicles = parseInt(vehicleCountRes.rows[0].total_vehicles);
@@ -4512,7 +4421,7 @@ app.get("/schedules/with-availability", async (req, res) => {
           AND date >= CURRENT_DATE
           AND slots > 0
           ORDER BY date, start_time`,
-      [branch_id]
+      [branch_id],
     );
     const schedules = schedulesRes.rows;
 
@@ -4541,7 +4450,7 @@ app.get("/schedules/with-availability", async (req, res) => {
             schedule.start_date, // This is now a string 'YYYY-MM-DD'
             schedule.start_time,
             schedule.end_time,
-          ]
+          ],
         );
 
         const bookedVehicles = parseInt(conflictQuery.rows[0].booked_count);
@@ -4552,12 +4461,12 @@ app.get("/schedules/with-availability", async (req, res) => {
           available_vehicles: Math.max(0, availableVehicles),
           total_vehicles: totalVehicles,
         };
-      })
+      }),
     );
 
     // Filter out schedules with no available vehicles
     const availableSchedules = schedulesWithAvailability.filter(
-      (s) => s.available_vehicles > 0
+      (s) => s.available_vehicles > 0,
     );
 
     res.json(availableSchedules);
@@ -4595,7 +4504,7 @@ app.post("/vehicles/check-availability", async (req, res) => {
       `SELECT schedule_id, date, start_time, end_time, branch_id 
        FROM schedules 
        WHERE schedule_id = ANY($1)`,
-      [schedule_ids]
+      [schedule_ids],
     );
 
     if (scheduleQuery.rows.length === 0) {
@@ -4612,7 +4521,7 @@ app.post("/vehicles/check-availability", async (req, res) => {
        WHERE branch_id = $1 
        AND vehicle_category = $2 
        AND type = $3`,
-      [branchId, vehicle_category, vehicle_type]
+      [branchId, vehicle_category, vehicle_type],
     );
 
     const totalVehicles = parseInt(vehicleQuery.rows[0].total_vehicles);
@@ -4650,7 +4559,7 @@ app.post("/vehicles/check-availability", async (req, res) => {
           schedule.date,
           schedule.start_time,
           schedule.end_time,
-        ]
+        ],
       );
 
       const conflicts = parseInt(conflictQuery.rows[0].conflict_count);
@@ -4784,7 +4693,7 @@ const createBackup = async () => {
         WHERE table_name = $1 AND table_schema = 'public'
         ORDER BY ordinal_position
       `,
-        [tablename]
+        [tablename],
       );
 
       // Get primary keys
@@ -4795,7 +4704,7 @@ const createBackup = async () => {
         JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
         WHERE i.indrelid = $1::regclass AND i.indisprimary
       `,
-        [tablename]
+        [tablename],
       );
 
       const primaryKeys = pkResult.rows.map((r) => r.attname);
@@ -4867,7 +4776,7 @@ const createBackup = async () => {
 
       if (dataResult.rows.length > 0) {
         console.log(
-          `   💾 Data: ${tablename} (${dataResult.rows.length} rows)`
+          `   💾 Data: ${tablename} (${dataResult.rows.length} rows)`,
         );
 
         sqlDump += `-- Data for ${tablename}\n`;
@@ -4895,7 +4804,7 @@ const createBackup = async () => {
           });
 
           sqlDump += `INSERT INTO "${tablename}" ("${columns.join(
-            '", "'
+            '", "',
           )}") VALUES (${values.join(", ")});\n`;
         }
 
@@ -5045,7 +4954,7 @@ app.post("/backup", authenticateToken, async (req, res) => {
       "Content-Disposition",
       `attachment; filename="backup_${
         new Date().toISOString().split("T")[0]
-      }.sql"`
+      }.sql"`,
     );
     res.send(fileContent);
   } catch (error) {
