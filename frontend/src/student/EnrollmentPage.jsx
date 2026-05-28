@@ -33,7 +33,9 @@ const EnrollmentPage = () => {
 
   // Pre-enrollment state
   const [hasStudentPermit, setHasStudentPermit] = useState(null);
-  const [isPWD, setIsPWD] = useState(false);
+  const [studentPermitProof, setStudentPermitProof] = useState(null);
+  const [discountType, setDiscountType] = useState("none"); // 'none', 'pwd', 'senior'
+  const [discountProof, setDiscountProof] = useState(null);
 
   // Personal Info State
   const [personalInfo, setPersonalInfo] = useState({
@@ -68,10 +70,17 @@ const EnrollmentPage = () => {
   const requiredSchedules = course?.required_schedules || 1;
 
   // Calculate prices with PWD discount
+  // Calculate prices with discount
   const originalPrice = parseFloat(course.price);
-  const discountedPrice = isPWD ? originalPrice * 0.8 : originalPrice;
+  const getDiscountAmount = () => {
+    if (discountType === "pwd" || discountType === "senior") {
+      return originalPrice * 0.2; // 20% discount
+    }
+    return 0;
+  };
+  const discountAmount = getDiscountAmount();
+  const discountedPrice = originalPrice - discountAmount;
   const downpaymentAmount = discountedPrice * 0.5;
-  const pwdDiscount = isPWD ? originalPrice * 0.2 : 0;
 
   const isTheoretical = course.mode === "ftof";
   const isOnlineTheoretical = course.mode === "online";
@@ -112,6 +121,7 @@ const EnrollmentPage = () => {
     checkActiveEnrollment();
     fetchFullCourseDetails();
     fetchStudentBranch();
+    fetchPreviousEnrollmentInfo();
   }, []);
 
   useEffect(() => {
@@ -119,6 +129,36 @@ const EnrollmentPage = () => {
       fetchSchedules();
     }
   }, [currentMonth, course]);
+
+  useEffect(() => {
+    if (!isOnlineTheoretical && course) {
+      fetchSchedules();
+    }
+  }, [currentMonth, course]);
+
+  // 👇 ILAGAY MO TO DITO - AUTO CALCULATE AGE
+  useEffect(() => {
+    if (personalInfo.birthday) {
+      const today = new Date();
+      const birthDate = new Date(personalInfo.birthday);
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+
+      if (
+        monthDiff < 0 ||
+        (monthDiff === 0 && today.getDate() < birthDate.getDate())
+      ) {
+        age--;
+      }
+
+      if (personalInfo.age !== age.toString()) {
+        setPersonalInfo((prev) => ({
+          ...prev,
+          age: age.toString(),
+        }));
+      }
+    }
+  }, [personalInfo.birthday]);
 
   const fetchFullCourseDetails = async () => {
     setLoadingCourse(true);
@@ -159,7 +199,45 @@ const EnrollmentPage = () => {
       console.error("Error fetching student branch:", error);
     }
   };
+  const fetchPreviousEnrollmentInfo = async () => {
+    try {
+      const token = window.localStorage?.getItem("token");
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/student-profile`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      const data = await res.json();
 
+      if (res.ok && data) {
+        let formattedBirthday = "";
+        if (data.birthday) {
+          const date = new Date(data.birthday);
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, "0");
+          const day = String(date.getDate()).padStart(2, "0");
+          formattedBirthday = `${year}-${month}-${day}`;
+        }
+
+        // Auto-fill from user's profile (from users table)
+        setPersonalInfo({
+          address: data.address || "",
+          contact_number: data.contact_number || "",
+          birthday: formattedBirthday,
+          age: data.age?.toString() || "",
+          nationality: data.nationality || "",
+          civil_status: data.civil_status || "",
+          gender: data.gender || "",
+          is_pregnant: "false", // Default value, user can change if needed
+        });
+
+        console.log("✅ Auto-filled personal info from user registration");
+      }
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+    }
+  };
   const checkActiveEnrollment = async () => {
     setCheckingEnrollment(true);
     try {
@@ -563,7 +641,15 @@ const EnrollmentPage = () => {
         paymentInfo.gcash_reference_number
       );
       formData.append("proof_image", paymentInfo.proof_image);
-      formData.append("is_pwd", isPWD.toString());
+
+      // Add discount info
+      formData.append("discount_type", discountType);
+      if (discountProof) {
+        formData.append("discount_proof", discountProof);
+      }
+      if (studentPermitProof) {
+        formData.append("student_permit_proof", studentPermitProof);
+      }
 
       const vehicleCategory = getVehicleCategory();
       if (vehicleCategory && course.type) {
@@ -624,7 +710,6 @@ const EnrollmentPage = () => {
       setSubmitting(false);
     }
   };
-
   const getScheduleInstructions = () => {
     return scheduleConfig
       .map((config, index) => {
@@ -837,43 +922,123 @@ const EnrollmentPage = () => {
                 <div className="space-y-4 sm:space-y-6">
                   <div className="border-2 border-blue-300 rounded-xl p-4 sm:p-5 bg-blue-50">
                     <h3 className="font-bold text-blue-900 mb-3 flex items-center gap-2 text-sm sm:text-base">
-                      PWD Discount Available
+                      Discount Eligibility
                     </h3>
                     <p className="text-xs sm:text-sm text-blue-800 mb-4">
-                      Are you a Person with Disability (PWD)? You can get 20%
-                      discount on this course!
+                      Are you eligible for any discount? We offer 20% discount
+                      for:
                     </p>
-                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                    <ul className="text-xs sm:text-sm text-blue-800 mb-4 list-disc list-inside">
+                      <li>Persons with Disability (PWD)</li>
+                      <li>Senior Citizens (60 years old and above)</li>
+                    </ul>
+
+                    <div className="space-y-3">
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
                           type="radio"
-                          name="is_pwd"
-                          checked={isPWD === true}
-                          onChange={() => setIsPWD(true)}
+                          name="discount_type"
+                          value="none"
+                          checked={discountType === "none"}
+                          onChange={(e) => {
+                            setDiscountType(e.target.value);
+                            setDiscountProof(null); // Clear proof when switching
+                          }}
                           className="w-4 h-4"
                         />
                         <span className="font-semibold text-sm sm:text-base">
-                          Yes, I am a PWD
+                          No discount
                         </span>
                       </label>
+
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
                           type="radio"
-                          name="is_pwd"
-                          checked={isPWD === false}
-                          onChange={() => setIsPWD(false)}
+                          name="discount_type"
+                          value="pwd"
+                          checked={discountType === "pwd"}
+                          onChange={(e) => setDiscountType(e.target.value)}
                           className="w-4 h-4"
                         />
                         <span className="font-semibold text-sm sm:text-base">
-                          No
+                          Person with Disability (PWD)
+                        </span>
+                      </label>
+
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="discount_type"
+                          value="senior"
+                          checked={discountType === "senior"}
+                          onChange={(e) => setDiscountType(e.target.value)}
+                          className="w-4 h-4"
+                        />
+                        <span className="font-semibold text-sm sm:text-base">
+                          Senior Citizen (60+)
                         </span>
                       </label>
                     </div>
-                    {isPWD && (
+
+                    {/* Show upload field if discount selected */}
+                    {discountType !== "none" && (
+                      <div className="mt-4 p-3 bg-white border border-blue-300 rounded-lg">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                          Upload Valid ID / Proof *
+                        </label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              if (!file.type.startsWith("image/")) {
+                                Swal.fire({
+                                  icon: "error",
+                                  title: "Invalid File Type",
+                                  text: "Please upload an image file only (JPG, PNG, etc.)",
+                                  confirmButtonColor: "#dc2626",
+                                });
+                                e.target.value = "";
+                                return;
+                              }
+                              const maxSize = 5 * 1024 * 1024; // 5MB
+                              if (file.size > maxSize) {
+                                Swal.fire({
+                                  icon: "error",
+                                  title: "File Too Large",
+                                  text: "Please upload an image smaller than 5MB",
+                                  confirmButtonColor: "#dc2626",
+                                });
+                                e.target.value = "";
+                                return;
+                              }
+                              setDiscountProof(file);
+                            }
+                          }}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                          required
+                        />
+                        {discountProof && (
+                          <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
+                            <CheckCircle className="w-3 h-3" />
+                            File selected: {discountProof.name}
+                          </p>
+                        )}
+                        <p className="text-xs text-gray-600 mt-2">
+                          Please upload a clear photo of your{" "}
+                          {discountType === "pwd"
+                            ? "PWD ID"
+                            : "Senior Citizen ID or valid ID showing birthdate"}
+                        </p>
+                      </div>
+                    )}
+
+                    {discountType !== "none" && (
                       <div className="mt-4 p-3 bg-green-100 border border-green-300 rounded-lg">
                         <p className="text-xs sm:text-sm text-green-800 font-semibold">
                           Great! You'll get 20% discount (₱
-                          {pwdDiscount.toFixed(2)} off)
+                          {discountAmount.toFixed(2)} off)
                         </p>
                         <p className="text-xs sm:text-sm text-green-700 mt-1">
                           Your price:{" "}
@@ -925,14 +1090,67 @@ const EnrollmentPage = () => {
                       </div>
 
                       {hasStudentPermit === true && (
-                        <div className="p-3 bg-green-100 border border-green-300 rounded-lg">
-                          <p className="text-xs sm:text-sm text-green-800 font-semibold">
-                            Perfect! You can proceed with enrollment.
-                          </p>
-                          <p className="text-xs text-orange-700 mt-2">
-                            <strong>Important:</strong> Please bring your
-                            Student Permit when you attend your scheduled class.
-                          </p>
+                        <div className="space-y-3">
+                          <div className="p-3 bg-green-100 border border-green-300 rounded-lg">
+                            <p className="text-xs sm:text-sm text-green-800 font-semibold">
+                              Perfect! You can proceed with enrollment.
+                            </p>
+                            <p className="text-xs text-orange-700 mt-2">
+                              <strong>Important:</strong> Please bring your
+                              Student Permit when you attend your scheduled
+                              class.
+                            </p>
+                          </div>
+
+                          {/* ✅ FILE UPLOAD FOR STUDENT PERMIT */}
+                          <div className="p-3 bg-white border border-orange-300 rounded-lg">
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                              Upload Student Permit Photo *
+                            </label>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files[0];
+                                if (file) {
+                                  if (!file.type.startsWith("image/")) {
+                                    Swal.fire({
+                                      icon: "error",
+                                      title: "Invalid File Type",
+                                      text: "Please upload an image file only (JPG, PNG, etc.)",
+                                      confirmButtonColor: "#dc2626",
+                                    });
+                                    e.target.value = "";
+                                    return;
+                                  }
+                                  const maxSize = 5 * 1024 * 1024; // 5MB
+                                  if (file.size > maxSize) {
+                                    Swal.fire({
+                                      icon: "error",
+                                      title: "File Too Large",
+                                      text: "Please upload an image smaller than 5MB",
+                                      confirmButtonColor: "#dc2626",
+                                    });
+                                    e.target.value = "";
+                                    return;
+                                  }
+                                  setStudentPermitProof(file);
+                                }
+                              }}
+                              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                              required
+                            />
+                            {studentPermitProof && (
+                              <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
+                                <CheckCircle className="w-3 h-3" />
+                                File selected: {studentPermitProof.name}
+                              </p>
+                            )}
+                            <p className="text-xs text-gray-600 mt-2">
+                              Please upload a clear photo of your LTO Student
+                              Permit
+                            </p>
+                          </div>
                         </div>
                       )}
 
@@ -958,6 +1176,38 @@ const EnrollmentPage = () => {
                           icon: "error",
                           title: "Student Permit Required",
                           text: "You need a Student Permit to enroll in this course. Please get one from LTO first.",
+                          confirmButtonColor: "#dc2626",
+                          confirmButtonText: "OK",
+                        });
+                        return;
+                      }
+
+                      // ✅ VALIDATE STUDENT PERMIT PROOF
+                      if (
+                        requiresStudentPermit &&
+                        hasStudentPermit === true &&
+                        !studentPermitProof
+                      ) {
+                        await Swal.fire({
+                          icon: "error",
+                          title: "Student Permit Photo Required",
+                          text: "Please upload a photo of your Student Permit to continue.",
+                          confirmButtonColor: "#dc2626",
+                          confirmButtonText: "OK",
+                        });
+                        return;
+                      }
+
+                      // Validate discount proof if discount selected
+                      if (discountType !== "none" && !discountProof) {
+                        await Swal.fire({
+                          icon: "error",
+                          title: "Proof Required",
+                          text: `Please upload your ${
+                            discountType === "pwd"
+                              ? "PWD ID"
+                              : "Senior Citizen ID"
+                          } to claim the discount.`,
                           confirmButtonColor: "#dc2626",
                           confirmButtonText: "OK",
                         });
@@ -1481,22 +1731,26 @@ const EnrollmentPage = () => {
                       <p>
                         <strong>Account Name:</strong> {gcashDetails.name}
                       </p>
-                      {isPWD && (
+                      {discountType !== "none" && (
                         <p className="text-green-700 font-semibold">
-                          <strong>PWD Discount Applied:</strong> -₱
-                          {pwdDiscount.toFixed(2)} (20% off)
+                          <strong>
+                            {discountType === "pwd" ? "PWD" : "Senior Citizen"}{" "}
+                            Discount Applied:
+                          </strong>{" "}
+                          -₱{discountAmount.toFixed(2)} (20% off)
                         </p>
                       )}
                       <p className="text-sm sm:text-lg font-bold text-blue-900">
                         <strong>Original Price:</strong>{" "}
-                        {isPWD && (
+                        {discountType !== "none" && (
                           <span className="line-through text-gray-500">
                             ₱{originalPrice.toFixed(2)}
                           </span>
                         )}
-                        {!isPWD && `₱${originalPrice.toFixed(2)}`}
+                        {discountType === "none" &&
+                          `₱${originalPrice.toFixed(2)}`}
                       </p>
-                      {isPWD && (
+                      {discountType !== "none" && (
                         <p className="text-sm sm:text-lg font-bold text-green-700">
                           <strong>Your Price:</strong> ₱
                           {discountedPrice.toFixed(2)}
@@ -1741,8 +1995,7 @@ const EnrollmentPage = () => {
                             </span>
                           </div>
                         )}
-
-                      {isPWD && (
+                      {discountType !== "none" && (
                         <>
                           <div className="flex justify-between">
                             <span className="text-gray-600">
@@ -1754,10 +2007,13 @@ const EnrollmentPage = () => {
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-600">
-                              PWD Discount (20%):
+                              {discountType === "pwd"
+                                ? "PWD"
+                                : "Senior Citizen"}{" "}
+                              Discount (20%):
                             </span>
                             <span className="text-green-600 font-semibold">
-                              -₱{pwdDiscount.toFixed(2)}
+                              -₱{discountAmount.toFixed(2)}
                             </span>
                           </div>
                         </>
@@ -1792,14 +2048,16 @@ const EnrollmentPage = () => {
                       </div>
                     )}
 
-                    {isPWD && (
+                    {discountType !== "none" && (
                       <div className="mt-2 p-3 bg-blue-50 border border-blue-300 rounded-lg">
                         <p className="text-xs sm:text-sm text-blue-800">
-                          <strong>Remember to bring:</strong> PWD ID
+                          <strong>Remember to bring:</strong>{" "}
+                          {discountType === "pwd"
+                            ? "PWD ID"
+                            : "Senior Citizen ID or valid ID"}
                         </p>
                       </div>
                     )}
-
                     {personalInfo.gender === "Female" &&
                       !isOnlineTheoretical &&
                       personalInfo.is_pregnant === "true" && (

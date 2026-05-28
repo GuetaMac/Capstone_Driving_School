@@ -47,6 +47,10 @@ import {
   BellRing,
   Volume2,
   VolumeX,
+  Archive,
+  RotateCcw,
+  MapPin,
+  FileText,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import { BsRecord } from "react-icons/bs";
@@ -388,12 +392,18 @@ const EnrollmentsPage = () => {
   const [selectedMonth, setSelectedMonth] = useState("all");
   const [selectedYear, setSelectedYear] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [showArchived, setShowArchived] = useState(false);
+  const [expandedDocuments, setExpandedDocuments] = useState({});
+  const [rescheduleCurrentMonth, setRescheduleCurrentMonth] = useState(
+    new Date()
+  );
+  const [loadingRescheduleSchedules, setLoadingRescheduleSchedules] =
+    useState(false);
 
   useEffect(() => {
     fetchEnrollments();
     fetchInstructors();
-  }, []);
-
+  }, [showArchived]);
   const fetchEnrollments = async () => {
     try {
       setLoading(true);
@@ -402,7 +412,9 @@ const EnrollmentsPage = () => {
       let data;
       if (token) {
         const response = await axios.get(
-          `${import.meta.env.VITE_API_URL}/admin/enrollments`,
+          `${
+            import.meta.env.VITE_API_URL
+          }/admin/enrollments?show_archived=${showArchived}`, // ✅ ADD QUERY PARAM
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -524,6 +536,69 @@ const EnrollmentsPage = () => {
     }
   };
 
+  // ✅ Calendar helper functions for reschedule
+  const getDaysInMonth = (date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay();
+
+    const days = [];
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      days.push(null);
+    }
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push(new Date(year, month, i));
+    }
+    return days;
+  };
+
+  const getSchedulesForDate = (date, schedules) => {
+    if (!date) return [];
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const dateStr = `${year}-${month}-${day}`;
+
+    return schedules.filter((s) => {
+      const schedDate = s.start_date.split("T")[0];
+      return schedDate === dateStr;
+    });
+  };
+
+  const isDateSelected = (date, selectedSchedules) => {
+    if (!date) return false;
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const dateStr = `${year}-${month}-${day}`;
+
+    return selectedSchedules.some((s) => {
+      const schedDate = s.start_date.split("T")[0];
+      return schedDate === dateStr;
+    });
+  };
+
+  const previousRescheduleMonth = () => {
+    setRescheduleCurrentMonth(
+      new Date(
+        rescheduleCurrentMonth.getFullYear(),
+        rescheduleCurrentMonth.getMonth() - 1
+      )
+    );
+  };
+
+  const nextRescheduleMonth = () => {
+    setRescheduleCurrentMonth(
+      new Date(
+        rescheduleCurrentMonth.getFullYear(),
+        rescheduleCurrentMonth.getMonth() + 1
+      )
+    );
+  };
+
   const updateAmountPaid = async (enrollmentId, value, resetValue) => {
     try {
       const token = localStorage.getItem("token");
@@ -573,32 +648,51 @@ const EnrollmentsPage = () => {
         return;
       }
 
-      if (status === "Fully Paid") {
-        const result = await Swal.fire({
-          title: 'Are you sure you want to mark as "Fully Paid"?',
-          icon: "warning",
-          showCancelButton: true,
-          confirmButtonText: "Yes",
-          cancelButtonText: "No",
+      const currentEnrollment = enrollments.find(
+        (e) => e.enrollment_id === enrollmentId
+      );
+
+      // Prevent changing from "Fully Paid" back to "Not Fully Paid"
+      if (
+        currentEnrollment?.payment_status?.toLowerCase() === "fully paid" &&
+        status === "Not Fully Paid"
+      ) {
+        await Swal.fire({
+          title: "Cannot Change Status",
+          text: "Payment status cannot be changed from 'Fully Paid' to 'Not Fully Paid'.",
+          icon: "error",
         });
-
-        if (result.isConfirmed) {
-          await axios.patch(
-            `${
-              import.meta.env.VITE_API_URL
-            }/admin/enrollments/${enrollmentId}/payment-status`,
-            { payment_status: status },
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            }
-          );
-
-          await Swal.fire("Success", "Payment status updated.", "success");
-          fetchEnrollments();
-        } else {
-          if (resetStatus) resetStatus();
-        }
+        if (resetStatus) resetStatus();
+        return;
       }
+
+      // ✅ DAGDAG CONFIRMATION DIALOG
+      const result = await Swal.fire({
+        title: `Update payment status to "${status}"?`,
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: "Yes, Update",
+        cancelButtonText: "No",
+      });
+
+      if (!result.isConfirmed) {
+        if (resetStatus) resetStatus();
+        return;
+      }
+
+      // ✅ ACTUAL UPDATE REQUEST (TO NAWALA MO!)
+      await axios.patch(
+        `${
+          import.meta.env.VITE_API_URL
+        }/admin/enrollments/${enrollmentId}/payment-status`,
+        { payment_status: status },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      await Swal.fire("✅ Success", "Payment status updated.", "success");
+      fetchEnrollments();
     } catch (error) {
       console.error("Error updating payment status:", error);
       await Swal.fire("❌ Error", "Error updating payment status.", "error");
@@ -675,56 +769,40 @@ const EnrollmentsPage = () => {
     }
   };
 
-  const deleteEnrollment = async (enrollmentId, studentName) => {
+  const archiveEnrollment = async (enrollmentId, studentName) => {
     try {
       const token = localStorage.getItem("token");
-
       if (!token) {
-        console.error("❌ No authentication token found");
         await Swal.fire({
           title: "Authentication Error",
-          text: "You need to be logged in to delete enrollments. Please log in again.",
+          text: "You need to be logged in.",
           icon: "error",
         });
         return;
       }
 
-      console.log("🔍 Attempting to delete enrollment:", {
-        enrollmentId,
-        studentName,
-        token: token.substring(0, 20) + "...",
-      });
-
       const result = await Swal.fire({
-        title: "Delete Enrollment?",
-        text: `Are you sure you want to delete the enrollment for ${studentName}? This action cannot be undone.`,
+        title: "Archive Enrollment?",
+        text: `Archive the enrollment for ${studentName}? This will hide it from the list.`,
         icon: "warning",
         showCancelButton: true,
         confirmButtonColor: "#dc2626",
-        cancelButtonColor: "#6b7280",
-        confirmButtonText: "Yes, delete",
-        cancelButtonText: "Cancel",
+        confirmButtonText: "Yes, archive",
       });
 
-      if (!result.isConfirmed) {
-        console.log("❌ Delete cancelled by user");
-        return;
-      }
+      if (!result.isConfirmed) return;
 
-      console.log("📤 Sending DELETE request...");
-
-      const response = await axios.delete(
-        `${import.meta.env.VITE_API_URL}/admin/enrollments/${enrollmentId}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+      await axios.patch(
+        `${
+          import.meta.env.VITE_API_URL
+        }/admin/enrollments/${enrollmentId}/archive`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      console.log("✅ Delete successful:", response.data);
-
       await Swal.fire({
-        title: "Deleted!",
-        text: "Enrollment has been deleted successfully.",
+        title: "Archived!",
+        text: "Enrollment has been archived.",
         icon: "success",
         timer: 2000,
         showConfirmButton: false,
@@ -732,36 +810,560 @@ const EnrollmentsPage = () => {
 
       fetchEnrollments();
     } catch (error) {
-      console.error("❌ Error deleting enrollment:", error);
+      console.error("Error archiving:", error);
+      await Swal.fire({
+        title: "Error",
+        text: error.response?.data?.error || "Failed to archive.",
+        icon: "error",
+      });
+    }
+  };
 
-      if (error.response) {
-        console.error("Response data:", error.response.data);
-        console.error("Response status:", error.response.status);
-        console.error("Response headers:", error.response.headers);
-
+  const unarchiveEnrollment = async (enrollmentId, studentName) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
         await Swal.fire({
-          title: "Error",
-          text:
-            error.response.data?.error ||
-            `Failed to delete enrollment. Status: ${error.response.status}`,
+          title: "Authentication Error",
+          text: "You need to be logged in.",
           icon: "error",
         });
-      } else if (error.request) {
-        console.error("No response received:", error.request);
-        await Swal.fire({
-          title: "Network Error",
-          text: "No response from server. Please check your connection.",
-          icon: "error",
-        });
-      } else {
-        console.error("Error:", error.message);
-        await Swal.fire({
-          title: "Error",
-          text:
-            error.message || "Failed to delete enrollment. Please try again.",
-          icon: "error",
-        });
+        return;
       }
+
+      const result = await Swal.fire({
+        title: "Restore Enrollment?",
+        text: `Restore the enrollment for ${studentName}?`,
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonColor: "#10b981",
+        confirmButtonText: "Yes, restore",
+      });
+
+      if (!result.isConfirmed) return;
+
+      await axios.patch(
+        `${
+          import.meta.env.VITE_API_URL
+        }/admin/enrollments/${enrollmentId}/unarchive`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      await Swal.fire({
+        title: "Restored!",
+        text: "Enrollment has been restored.",
+        icon: "success",
+        timer: 2000,
+        showConfirmButton: false,
+      });
+
+      fetchEnrollments();
+    } catch (error) {
+      console.error("Error unarchiving:", error);
+      await Swal.fire({
+        title: "Error",
+        text: error.response?.data?.error || "Failed to restore.",
+        icon: "error",
+      });
+    }
+  };
+
+  const handleReschedule = async (enrollment) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        await Swal.fire({
+          title: "Error",
+          text: "You need to be logged in to reschedule.",
+          icon: "error",
+        });
+        return;
+      }
+
+      // Reset month to current when starting reschedule
+      setRescheduleCurrentMonth(new Date());
+
+      // Get course details
+      const courseRes = await axios.get(
+        `${import.meta.env.VITE_API_URL}/courses/${enrollment.course_id}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const course = courseRes.data;
+      const scheduleConfig = course.schedule_config
+        ? typeof course.schedule_config === "string"
+          ? JSON.parse(course.schedule_config)
+          : course.schedule_config
+        : [{ day: 1, hours: 4, time: "flexible" }];
+
+      const requiredSchedules =
+        course.required_schedules || scheduleConfig.length;
+
+      // ✅ GET CURRENT SCHEDULES OF STUDENT
+      const currentSchedulesRes = await axios.get(
+        `${import.meta.env.VITE_API_URL}/enrollments/${
+          enrollment.enrollment_id
+        }/schedules`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const currentSchedules = currentSchedulesRes.data;
+
+      if (currentSchedules.length === 0) {
+        await Swal.fire({
+          title: "No Schedules Found",
+          text: "This student has no existing schedules to reschedule.",
+          icon: "info",
+        });
+        return;
+      }
+
+      // ✅ ASK ADMIN WHICH DAYS TO RESCHEDULE
+      const daySelectionHtml = `
+  <div class="text-left">
+    <p class="mb-4 text-gray-700">Select which day(s) to reschedule:</p>
+    <div class="space-y-3">
+      ${currentSchedules
+        .map((sched, index) => {
+          const date = new Date(sched.start_date).toLocaleDateString("en-US", {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          });
+          return `
+          <label class="flex items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+            <input 
+              type="checkbox" 
+              value="${index}" 
+              class="day-checkbox w-4 h-4 text-blue-600 rounded mr-3"
+              checked
+            />
+            <div class="flex-1">
+              <div class="font-semibold text-gray-900">Day ${index + 1}</div>
+              <div class="text-sm text-gray-600">${date}</div>
+              <div class="text-xs text-gray-500">${fmtTime(
+                sched.start_time
+              )} - ${fmtTime(sched.end_time)}</div>
+            </div>
+          </label>
+        `;
+        })
+        .join("")}
+    </div>
+  </div>
+`;
+
+      const daySelectionResult = await Swal.fire({
+        title: "Select Days to Reschedule",
+        html: daySelectionHtml,
+        showCancelButton: true,
+        confirmButtonText: "Continue",
+        cancelButtonText: "Cancel",
+        width: "600px",
+        preConfirm: () => {
+          const checkboxes = document.querySelectorAll(".day-checkbox:checked");
+          const selectedIndices = Array.from(checkboxes).map((cb) =>
+            parseInt(cb.value)
+          );
+
+          if (selectedIndices.length === 0) {
+            Swal.showValidationMessage(
+              "Please select at least one day to reschedule"
+            );
+            return false;
+          }
+
+          return selectedIndices;
+        },
+      });
+
+      if (!daySelectionResult.isConfirmed) return;
+
+      const daysToReschedule = daySelectionResult.value;
+
+      // ✅ BUILD NEW SCHEDULES ARRAY (KEEP UNCHANGED, REPLACE SELECTED)
+      const newScheduleIds = [...currentSchedules.map((s) => s.schedule_id)];
+
+      // Get all available schedules
+      setLoadingRescheduleSchedules(true);
+
+      // ✅ Check if theoretical course BEFORE the calendar loop
+      const isTheoreticalCourse =
+        course.is_theoretical === 1 ||
+        course.mode === "ftof" ||
+        course.course_name?.toLowerCase().includes("theoretical");
+
+      const schedRes = await axios.get(
+        `${
+          import.meta.env.VITE_API_URL
+        }/schedules/with-availability?course_id=${enrollment.course_id}${
+          isTheoreticalCourse ? "&is_theoretical=true" : ""
+        }`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      let allSchedules = schedRes.data;
+      setLoadingRescheduleSchedules(false);
+
+      if (allSchedules.length === 0) {
+        await Swal.fire({
+          title: "No Schedules Available",
+          text: "There are no available schedules for this course at the moment.",
+          icon: "info",
+        });
+        return;
+      }
+
+      // Filter out past schedules
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      allSchedules = allSchedules.filter((s) => {
+        const scheduleDateStr = s.start_date.split("T")[0];
+        const [year, month, day] = scheduleDateStr.split("-").map(Number);
+        const schedDate = new Date(year, month - 1, day);
+        schedDate.setHours(0, 0, 0, 0);
+        return schedDate >= today && s.slots > 0;
+      });
+
+      // Helper functions
+      const getScheduleDuration = (startTime, endTime) => {
+        const [startHour, startMin] = startTime.split(":").map(Number);
+        const [endHour, endMin] = endTime.split(":").map(Number);
+        const durationInMinutes =
+          endHour * 60 + endMin - (startHour * 60 + startMin);
+        const clockHours = durationInMinutes / 60;
+        return clockHours >= 8 ? clockHours - 1 : clockHours;
+      };
+
+      const filterSchedulesForDay = (
+        schedules,
+        dayConfig,
+        selectedSchedules = []
+      ) => {
+        return schedules.filter((s) => {
+          const duration = getScheduleDuration(s.start_time, s.end_time);
+
+          if (
+            selectedSchedules.some((sel) => sel.schedule_id === s.schedule_id)
+          )
+            return false;
+
+          if (selectedSchedules.length > 0) {
+            const lastDate = new Date(
+              selectedSchedules[selectedSchedules.length - 1].start_date
+            );
+            const currentDate = new Date(s.start_date);
+            if (currentDate <= lastDate) return false;
+          }
+
+          if (Math.abs(dayConfig.hours - duration) > 0.05) return false;
+
+          if (dayConfig.time && dayConfig.time !== "flexible") {
+            const startHour = parseInt(s.start_time.split(":")[0]);
+            if (dayConfig.time === "morning" && startHour !== 8) return false;
+            if (dayConfig.time === "afternoon" && startHour !== 13)
+              return false;
+          }
+
+          return true;
+        });
+      };
+
+      // ✅ SELECT SCHEDULES WITH CALENDAR VIEW
+      // ✅ SELECT SCHEDULES WITH CALENDAR VIEW
+      const selectedSchedules = [];
+
+      // ✅ ONLY LOOP THROUGH SELECTED DAYS
+      for (let i = 0; i < daysToReschedule.length; i++) {
+        const dayIndex = daysToReschedule[i];
+        const currentConfig = scheduleConfig[dayIndex];
+
+        let selectedScheduleId = null;
+        let userCancelled = false;
+
+        // Keep showing calendar until user selects a schedule or cancels
+        while (!selectedScheduleId && !userCancelled) {
+          const availableForDay = filterSchedulesForDay(
+            allSchedules,
+            currentConfig,
+            selectedSchedules
+          );
+
+          if (availableForDay.length === 0) {
+            await Swal.fire({
+              title: "No Schedules Available",
+              text: `No available schedules found for Day ${dayIndex + 1}.`,
+              icon: "error",
+            });
+            return;
+          }
+
+          // ✅ CALENDAR VIEW HTML
+          const calendarHTML = `
+          <div class="text-left">
+            <!-- Month Navigation -->
+            <div class="flex items-center justify-between mb-4 px-2">
+              <button type="button" id="prevMonth" class="p-2 hover:bg-gray-100 rounded-lg transition-all">
+                <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+              </button>
+              <h4 id="monthYear" class="text-xl font-bold text-gray-800"></h4>
+              <button type="button" id="nextMonth" class="p-2 hover:bg-gray-100 rounded-lg transition-all">
+                <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+              </button>
+            </div>
+
+            <!-- Calendar Grid -->
+            <div class="border border-gray-300 rounded-lg overflow-hidden">
+              <!-- Day Headers -->
+              <div class="grid grid-cols-7 bg-gray-100">
+                ${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+                  .map(
+                    (day) =>
+                      `<div class="p-3 text-center font-semibold text-gray-700 text-sm border-r border-gray-300 last:border-r-0">${day}</div>`
+                  )
+                  .join("")}
+              </div>
+              <!-- Calendar Days -->
+              <div id="calendarDays" class="grid grid-cols-7"></div>
+            </div>
+          </div>
+        `;
+
+          const result = await Swal.fire({
+            title: `Select Schedule for Day ${dayIndex + 1}`,
+            html: calendarHTML,
+            showCancelButton: dayIndex > 0,
+            showConfirmButton: false,
+            cancelButtonText: "Back",
+            width: "700px",
+            didOpen: () => {
+              let currentMonth = new Date(rescheduleCurrentMonth);
+
+              const updateCalendar = () => {
+                const monthYearEl = document.getElementById("monthYear");
+                monthYearEl.textContent = currentMonth.toLocaleDateString(
+                  "en-US",
+                  {
+                    month: "long",
+                    year: "numeric",
+                  }
+                );
+
+                const daysEl = document.getElementById("calendarDays");
+                const days = getDaysInMonth(currentMonth);
+
+                daysEl.innerHTML = days
+                  .map((date, index) => {
+                    if (!date) {
+                      return '<div class="min-h-24 p-2 border-r border-b border-gray-300 bg-gray-50"></div>';
+                    }
+
+                    const daySchedules = getSchedulesForDate(
+                      date,
+                      availableForDay
+                    );
+                    const isPast = date < new Date().setHours(0, 0, 0, 0);
+                    const isSelected = isDateSelected(date, selectedSchedules);
+
+                    let dayHTML = `<div class="min-h-24 p-2 border-r border-b border-gray-300 ${
+                      isPast ? "bg-gray-100 opacity-50" : ""
+                    } ${
+                      isSelected ? "bg-red-100 border-2 border-red-500" : ""
+                    }">`;
+                    dayHTML += `<div class="text-sm font-semibold mb-1 ${
+                      isPast ? "text-gray-400" : "text-gray-700"
+                    }">${date.getDate()}</div>`;
+
+                    if (daySchedules.length > 0 && !isPast) {
+                      dayHTML += '<div class="space-y-1">';
+                      daySchedules.forEach((schedule) => {
+                        const isAlreadySelected = selectedSchedules.some(
+                          (s) => s.schedule_id === schedule.schedule_id
+                        );
+
+                        // ✅ Check availability based on course type
+                        const isUnavailable = isTheoreticalCourse
+                          ? schedule.slots === 0
+                          : schedule.available_vehicles === 0 ||
+                            schedule.available_vehicles === undefined;
+
+                        dayHTML += `
+    <button 
+      type="button"
+      data-schedule='${JSON.stringify(schedule)}'
+      class="schedule-btn w-full text-left p-1.5 rounded text-xs transition-all ${
+        isUnavailable
+          ? "bg-red-300 cursor-not-allowed opacity-50"
+          : isAlreadySelected
+          ? "bg-green-500 text-white"
+          : "bg-blue-500 hover:bg-blue-600 text-white"
+      }"
+      ${isUnavailable ? "disabled" : ""}
+    >
+      <div class="font-semibold">${fmtTime(schedule.start_time)} - ${fmtTime(
+                          schedule.end_time
+                        )}</div>
+      <div class="text-xs opacity-90">
+        <span>${schedule.slots} slot${schedule.slots !== 1 ? "s" : ""}</span>
+        ${
+          !isTheoreticalCourse && schedule.available_vehicles !== undefined
+            ? ` | <span class="font-semibold">🚗 ${schedule.available_vehicles}</span>`
+            : ""
+        }
+      </div>
+    </button>
+  `;
+                      });
+                      dayHTML += "</div>";
+                    }
+
+                    dayHTML += "</div>";
+                    return dayHTML;
+                  })
+                  .join("");
+
+                // Add click handlers for schedule buttons
+                document.querySelectorAll(".schedule-btn").forEach((btn) => {
+                  btn.addEventListener("click", () => {
+                    const schedule = JSON.parse(btn.dataset.schedule);
+                    selectedScheduleId = schedule.schedule_id;
+                    Swal.clickConfirm();
+                  });
+                });
+              };
+
+              // Initial render
+              updateCalendar();
+
+              // Month navigation
+              document
+                .getElementById("prevMonth")
+                .addEventListener("click", () => {
+                  currentMonth = new Date(
+                    currentMonth.getFullYear(),
+                    currentMonth.getMonth() - 1
+                  );
+                  updateCalendar();
+                });
+
+              document
+                .getElementById("nextMonth")
+                .addEventListener("click", () => {
+                  currentMonth = new Date(
+                    currentMonth.getFullYear(),
+                    currentMonth.getMonth() + 1
+                  );
+                  updateCalendar();
+                });
+            },
+            preConfirm: () => {
+              return selectedScheduleId;
+            },
+          });
+
+          if (!result.isConfirmed) {
+            if (selectedSchedules.length > 0) {
+              selectedSchedules.pop();
+              dayIndex -= 2;
+              userCancelled = false;
+              break;
+            } else {
+              return;
+            }
+          } else {
+            // User selected a schedule
+            selectedSchedules.push(
+              availableForDay.find((s) => s.schedule_id === selectedScheduleId)
+            );
+          }
+        }
+
+        if (userCancelled) {
+          return;
+        }
+      }
+
+      // ✅ UPDATE THE NEW SCHEDULE IDS ARRAY
+      daysToReschedule.forEach((dayIndex, i) => {
+        newScheduleIds[dayIndex] = selectedSchedules[i].schedule_id;
+      });
+
+      // ✅ CONFIRMATION
+      const summaryHtml = daysToReschedule
+        .map((dayIndex, i) => {
+          const sched = selectedSchedules[i];
+          const date = new Date(sched.start_date).toLocaleDateString("en-US", {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          });
+          return `
+      <div class="p-3 mb-2 border rounded-lg ${
+        currentSchedules[dayIndex].schedule_id === sched.schedule_id
+          ? "bg-gray-50"
+          : "bg-blue-50"
+      }">
+        <div class="font-semibold text-sm text-gray-500 mb-1">Day ${
+          dayIndex + 1
+        }</div>
+        <div class="font-semibold">${date}</div>
+        <div class="text-sm text-gray-600">${fmtTime(
+          sched.start_time
+        )} - ${fmtTime(sched.end_time)}</div>
+      </div>
+    `;
+        })
+        .join("");
+
+      const confirmResult = await Swal.fire({
+        title: "Confirm Reschedule",
+        html: `
+        <div class="text-left">
+          <p class="mb-3 text-gray-700">Reschedule <strong>${enrollment.student_name}</strong> to:</p>
+          ${summaryHtml}
+        </div>
+      `,
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: "Yes, reschedule",
+        cancelButtonText: "Cancel",
+      });
+
+      if (!confirmResult.isConfirmed) return;
+
+      // Send reschedule request
+      // Send reschedule request
+      await axios.patch(
+        `${import.meta.env.VITE_API_URL}/admin/enrollments/${
+          enrollment.enrollment_id
+        }/reschedule`,
+        { new_schedule_ids: newScheduleIds },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      await Swal.fire({
+        title: "Success!",
+        text: "Student has been rescheduled successfully.",
+        icon: "success",
+        timer: 2000,
+        showConfirmButton: false,
+      });
+
+      fetchEnrollments();
+    } catch (error) {
+      console.error("Error rescheduling:", error);
+      await Swal.fire({
+        title: "Error",
+        text: error.response?.data?.error || "Failed to reschedule.",
+        icon: "error",
+      });
     }
   };
 
@@ -785,28 +1387,26 @@ const EnrollmentsPage = () => {
       })
       .toLowerCase();
   };
-
   const formatSchedule = (e) => {
+    console.log("🔍 Formatting schedule for:", e.student_name);
+    console.log("📅 Raw start_date:", e.start_date);
     if (e.course_name === "ONLINE THEORETICAL DRIVING COURSE") {
       return "Online Course - Self-paced";
     }
 
     if (e.multiple_schedules && e.multiple_schedules.length > 0) {
-      // Format each schedule with compact date and time
       const scheduleDetails = e.multiple_schedules
         .map((s) => {
-          const dateStr = s.start_date.split("T")[0]; // Extract YYYY-MM-DD
-          const [year, month, day] = dateStr.split("-").map(Number);
-          const date = new Date(year, month - 1, day);
+          // ✅ USE SAME AS STUDENT
+          const formattedDate = new Date(s.start_date).toLocaleDateString(
+            "en-US",
+            {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            }
+          );
 
-          // Short month format with year (Nov 17, 2025)
-          const formattedDate = date.toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          });
-
-          // Compact time format (8am-5pm)
           const startTime = fmtTime(s.start_time)
             .replace(":00", "")
             .replace(" ", "");
@@ -825,12 +1425,13 @@ const EnrollmentsPage = () => {
       return e.schedule || "Schedule TBD";
     }
 
-    // For single schedule
     const dateStr = e.start_date.split("T")[0];
-    const [year, month, day] = dateStr.split("-").map(Number);
-    const start = new Date(year, month - 1, day);
+    const dateParts = dateStr.split("-");
+    const year = parseInt(dateParts[0]);
+    const month = parseInt(dateParts[1]) - 1;
+    const day = parseInt(dateParts[2]);
 
-    const startDate = start.toLocaleDateString("en-US", {
+    const startDate = new Date(year, month, day).toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
@@ -841,7 +1442,6 @@ const EnrollmentsPage = () => {
 
     return `${startDate} (${startTime}-${endTime})`;
   };
-
   const getAvailableYears = () => {
     const years = new Set();
     enrollments.forEach((enrollment) => {
@@ -874,22 +1474,66 @@ const EnrollmentsPage = () => {
 
   const groupEnrollmentsBySchedule = (enrollments) => {
     const groups = enrollments.reduce((acc, enrollment) => {
-      const scheduleKey =
+      // ✅ Handle online courses separately
+      if (
         enrollment.course_name?.toLowerCase().includes("online") &&
         enrollment.course_name?.toLowerCase().includes("theoretical")
-          ? "online_course"
-          : `${enrollment.start_date || "tbd"}_${
-              enrollment.start_time || "tbd"
-            }_${enrollment.end_time || "tbd"}_${
-              enrollment.is_theoretical || false
-            }`;
+      ) {
+        const onlineKey = "online_course";
+        if (!acc[onlineKey]) {
+          acc[onlineKey] = {
+            schedule: "Online Course - Self-paced",
+            sortDate: new Date(0), // Put online courses first
+            enrollments: [],
+          };
+        }
+        acc[onlineKey].enrollments.push(enrollment);
+        return acc;
+      }
+
+      // ✅ NEW: Use multiple_schedules to create unique group key
+      let scheduleKey;
+      let sortDate = new Date();
+
+      if (
+        enrollment.multiple_schedules &&
+        enrollment.multiple_schedules.length > 0
+      ) {
+        // Create key based on ALL schedule dates for this enrollment
+        const scheduleDates = enrollment.multiple_schedules
+          .map((s) => s.start_date.split("T")[0])
+          .sort()
+          .join("_");
+        scheduleKey = `multi_${scheduleDates}_${enrollment.course_id}`;
+
+        // Use first schedule date for sorting
+        const firstDateStr =
+          enrollment.multiple_schedules[0].start_date.split("T")[0];
+        const [year, month, day] = firstDateStr.split("-");
+        sortDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      } else {
+        // Fallback to old method for single schedules
+        scheduleKey = `${enrollment.start_date || "tbd"}_${
+          enrollment.start_time || "tbd"
+        }_${enrollment.end_time || "tbd"}_${
+          enrollment.is_theoretical || false
+        }`;
+
+        if (enrollment.start_date) {
+          const dateStr = enrollment.start_date.split("T")[0];
+          const [year, month, day] = dateStr.split("-");
+          sortDate = new Date(
+            parseInt(year),
+            parseInt(month) - 1,
+            parseInt(day)
+          );
+        }
+      }
 
       if (!acc[scheduleKey]) {
         acc[scheduleKey] = {
           schedule: formatSchedule(enrollment),
-          sortDate: enrollment.start_date
-            ? new Date(enrollment.start_date)
-            : new Date(),
+          sortDate: sortDate,
           enrollments: [],
         };
       }
@@ -902,9 +1546,13 @@ const EnrollmentsPage = () => {
 
   const filteredEnrollments = enrollments.filter((enrollment) => {
     // Auto-hide completed AND fully paid enrollments
+    const statusLower = enrollment.status?.toLowerCase() || "";
     const isCompleted =
-      enrollment.status?.toLowerCase() === "completed" ||
-      enrollment.status?.toLowerCase() === "passed/completed";
+      statusLower === "completed" ||
+      statusLower === "passed/completed" ||
+      statusLower === "passed" || // ✅ ADD THIS
+      statusLower.includes("passed"); // ✅ ADD THIS
+
     const isFullyPaid =
       enrollment.payment_status?.toLowerCase() === "fully paid";
 
@@ -974,6 +1622,7 @@ const EnrollmentsPage = () => {
       case "active":
         return "bg-blue-100 text-blue-800 border-blue-200";
       case "passed/completed":
+      case "passed":
       case "completed":
         return "bg-purple-100 text-purple-800 border-purple-200";
       case "failed":
@@ -986,7 +1635,6 @@ const EnrollmentsPage = () => {
         return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
-
   const isOnlineTheoretical = (courseName) => {
     return (
       courseName?.toLowerCase().includes("online") &&
@@ -1058,25 +1706,135 @@ const EnrollmentsPage = () => {
       {hasAdminFeatures && (
         <>
           <td className="px-6 py-4">
-            {e.proof_of_payment ? (
-              <a
-                href={`${import.meta.env.VITE_API_URL}/uploads/${
-                  e.proof_of_payment
-                }`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block"
-              >
-                <img
-                  src={`${import.meta.env.VITE_API_URL}/uploads/${
-                    e.proof_of_payment
-                  }`}
-                  alt="Proof of Payment"
-                  className="h-12 w-12 object-cover rounded-lg border-2 border-gray-200 hover:border-indigo-300 transition-all hover:scale-105"
-                />
-              </a>
-            ) : (
-              <span className="text-gray-400 italic text-sm">No proof</span>
+            <button
+              onClick={() => {
+                setExpandedDocuments((prev) => ({
+                  ...prev,
+                  [e.enrollment_id]: !prev[e.enrollment_id],
+                }));
+              }}
+              className={`inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                e.proof_of_payment ||
+                (e.discount_proof && e.discount_type !== "none") ||
+                e.student_permit_proof
+                  ? "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200"
+                  : "bg-gray-50 text-gray-500 border border-gray-200 cursor-not-allowed"
+              }`}
+            >
+              <FileText className="h-4 w-4 mr-1.5" />
+              {expandedDocuments[e.enrollment_id] ? "Hide" : "Show"}
+              {!expandedDocuments[e.enrollment_id] &&
+                (e.proof_of_payment ||
+                  (e.discount_proof && e.discount_type !== "none") ||
+                  e.student_permit_proof) &&
+                ` (${[
+                  e.proof_of_payment ? 1 : 0,
+                  e.discount_proof && e.discount_type !== "none" ? 1 : 0,
+                  e.student_permit_proof ? 1 : 0,
+                ].reduce((a, b) => a + b, 0)})`}
+            </button>
+
+            {/* Expanded Documents */}
+            {expandedDocuments[e.enrollment_id] && (
+              <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Payment Proof */}
+                  {e.proof_of_payment && (
+                    <div className="relative group">
+                      <a
+                        href={`${import.meta.env.VITE_API_URL}/uploads/${
+                          e.proof_of_payment
+                        }`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block"
+                      >
+                        <img
+                          src={`${import.meta.env.VITE_API_URL}/uploads/${
+                            e.proof_of_payment
+                          }`}
+                          alt="Payment"
+                          className="h-20 w-20 object-cover rounded-lg border-2 border-indigo-200 hover:border-indigo-400 transition-all hover:scale-105"
+                        />
+                      </a>
+                      <span className="absolute -top-1 -right-1 bg-indigo-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                        ₱
+                      </span>
+                      <p className="text-xs text-gray-600 mt-1 text-center">
+                        Payment
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Discount Proof */}
+                  {e.discount_type &&
+                    e.discount_type !== "none" &&
+                    e.discount_proof && (
+                      <div className="relative group">
+                        <a
+                          href={`${import.meta.env.VITE_API_URL}/uploads/${
+                            e.discount_proof
+                          }`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-block"
+                        >
+                          <img
+                            src={`${import.meta.env.VITE_API_URL}/uploads/${
+                              e.discount_proof
+                            }`}
+                            alt="Discount"
+                            className="h-20 w-20 object-cover rounded-lg border-2 border-green-200 hover:border-green-400 transition-all hover:scale-105"
+                          />
+                        </a>
+                        <span className="absolute -top-1 -right-1 bg-green-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                          {e.discount_type === "pwd" ? "P" : "S"}
+                        </span>
+                        <p className="text-xs text-gray-600 mt-1 text-center">
+                          {e.discount_type === "pwd" ? "PWD ID" : "Senior ID"}
+                        </p>
+                      </div>
+                    )}
+
+                  {/* Student Permit */}
+                  {e.student_permit_proof &&
+                    !e.course_name?.toLowerCase().includes("theoretical") && (
+                      <div className="relative group">
+                        <a
+                          href={`${import.meta.env.VITE_API_URL}/uploads/${
+                            e.student_permit_proof
+                          }`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-block"
+                        >
+                          <img
+                            src={`${import.meta.env.VITE_API_URL}/uploads/${
+                              e.student_permit_proof
+                            }`}
+                            alt="Permit"
+                            className="h-20 w-20 object-cover rounded-lg border-2 border-blue-200 hover:border-blue-400 transition-all hover:scale-105"
+                          />
+                        </a>
+                        <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                          SP
+                        </span>
+                        <p className="text-xs text-gray-600 mt-1 text-center">
+                          Permit
+                        </p>
+                      </div>
+                    )}
+
+                  {/* No documents */}
+                  {!e.proof_of_payment &&
+                    (!e.discount_proof || e.discount_type === "none") &&
+                    !e.student_permit_proof && (
+                      <span className="text-gray-400 italic text-sm">
+                        No documents uploaded
+                      </span>
+                    )}
+                </div>
+              </div>
             )}
           </td>
           <td className="px-6 py-4">
@@ -1108,8 +1866,14 @@ const EnrollmentsPage = () => {
               className={`text-sm border rounded-full px-3 py-1 font-medium ${getStatusColor(
                 e.payment_status
               )}`}
+              disabled={e.payment_status?.toLowerCase() === "fully paid"}
             >
-              <option value="Not Fully Paid">Not Fully Paid</option>
+              <option
+                value="Not Fully Paid"
+                disabled={e.payment_status?.toLowerCase() === "fully paid"}
+              >
+                Not Fully Paid
+              </option>
               <option value="Fully Paid">Fully Paid</option>
             </select>
           </td>
@@ -1138,20 +1902,54 @@ const EnrollmentsPage = () => {
               e.status
             )}`}
           >
-            {e.status || "N/A"}
+            {e.status === "passed/completed" ||
+            e.status === "passed" ||
+            e.status === "completed"
+              ? "Passed"
+              : e.status
+              ? e.status.charAt(0).toUpperCase() + e.status.slice(1)
+              : "N/A"}
           </span>
         )}
       </td>
       {hasAdminFeatures && (
         <td className="px-6 py-4">
-          <button
-            onClick={() => deleteEnrollment(e.enrollment_id, e.student_name)}
-            className="inline-flex items-center px-3 py-1.5 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 hover:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors duration-200"
-            title="Delete enrollment"
-          >
-            <Trash2 className="h-4 w-4 mr-1" />
-            Delete
-          </button>
+          <div className="flex items-center gap-2">
+            {/* ✅ DAGDAG TO - Reschedule Button */}
+            {!isOnlineTheoretical(e.course_name) && (
+              <button
+                onClick={() => handleReschedule(e)}
+                className="inline-flex items-center px-3 py-1.5 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200"
+                title="Reschedule student"
+              >
+                <Calendar className="h-4 w-4 mr-1" />
+                Reschedule
+              </button>
+            )}
+            {showArchived ? (
+              <button
+                onClick={() =>
+                  unarchiveEnrollment(e.enrollment_id, e.student_name)
+                }
+                className="inline-flex items-center justify-center px-3 py-1.5 border border-green-300 text-xs sm:text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 hover:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors duration-200 flex-1 sm:flex-initial"
+                title="Restore enrollment"
+              >
+                <RotateCcw className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                Restore
+              </button>
+            ) : (
+              <button
+                onClick={() =>
+                  archiveEnrollment(e.enrollment_id, e.student_name)
+                }
+                className="inline-flex items-center justify-center px-3 py-1.5 border border-orange-300 text-xs sm:text-sm font-medium rounded-md text-orange-700 bg-orange-50 hover:bg-orange-100 hover:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors duration-200 flex-1 sm:flex-initial"
+                title="Archive enrollment"
+              >
+                <Archive className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                Archive
+              </button>
+            )}
+          </div>
         </td>
       )}
     </tr>
@@ -1256,30 +2054,156 @@ const EnrollmentsPage = () => {
             </div>
 
             {/* Payment Proof */}
-            {e.proof_of_payment && (
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            {/* All Proofs Section */}
+            <div className="flex flex-col gap-3 pt-2 border-t border-gray-200">
+              <div className="flex flex-col gap-2 pt-2 border-t border-gray-200">
                 <span className="text-xs sm:text-sm text-gray-600 font-medium">
-                  Payment Proof:
+                  Documents:
                 </span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Payment Proof */}
+                  {e.proof_of_payment && (
+                    <div className="relative">
+                      <a
+                        href={`${import.meta.env.VITE_API_URL}/uploads/${
+                          e.proof_of_payment
+                        }`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <img
+                          src={`${import.meta.env.VITE_API_URL}/uploads/${
+                            e.proof_of_payment
+                          }`}
+                          alt="Payment"
+                          className="h-14 w-14 object-cover rounded-lg border-2 border-indigo-200 hover:border-indigo-400 transition-all"
+                        />
+                      </a>
+                      <span className="absolute -top-1 -right-1 bg-indigo-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                        ₱
+                      </span>
+                    </div>
+                  )}
+                  {/* Discount Proof */}
+                  {e.discount_type &&
+                    e.discount_type !== "none" &&
+                    e.discount_proof && (
+                      <div className="relative">
+                        <a
+                          href={`${import.meta.env.VITE_API_URL}/uploads/${
+                            e.discount_proof
+                          }`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <img
+                            src={`${import.meta.env.VITE_API_URL}/uploads/${
+                              e.discount_proof
+                            }`}
+                            alt="Discount"
+                            className="h-14 w-14 object-cover rounded-lg border-2 border-green-200 hover:border-green-400 transition-all"
+                          />
+                        </a>
+                        <span className="absolute -top-1 -right-1 bg-green-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                          {e.discount_type === "pwd" ? "P" : "S"}
+                        </span>
+                      </div>
+                    )}
 
-                <a
-                  href={`${import.meta.env.VITE_API_URL}/uploads/${
-                    e.proof_of_payment
-                  }`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-block"
-                >
-                  <img
-                    src={`${import.meta.env.VITE_API_URL}/uploads/${
-                      e.proof_of_payment
-                    }`}
-                    alt="Proof"
-                    className="h-12 w-12 sm:h-10 sm:w-10 object-cover rounded-lg border-2 border-gray-200 hover:border-red-400 transition-colors"
-                  />
-                </a>
+                  {/* Student Permit - HINDI theoretical courses */}
+                  {e.student_permit_proof &&
+                    !e.course_name?.toLowerCase().includes("theoretical") && (
+                      <div className="relative">
+                        <a
+                          href={`${import.meta.env.VITE_API_URL}/uploads/${
+                            e.student_permit_proof
+                          }`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <img
+                            src={`${import.meta.env.VITE_API_URL}/uploads/${
+                              e.student_permit_proof
+                            }`}
+                            alt="Permit"
+                            className="h-14 w-14 object-cover rounded-lg border-2 border-blue-200 hover:border-blue-400 transition-all"
+                          />
+                        </a>
+                        <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center text-[10px] font-bold">
+                          SP
+                        </span>
+                      </div>
+                    )}
+
+                  {!e.proof_of_payment &&
+                    (!e.discount_proof || e.discount_type === "none") &&
+                    !e.student_permit_proof && (
+                      <span className="text-gray-400 italic text-xs">
+                        No documents
+                      </span>
+                    )}
+                </div>
               </div>
-            )}
+
+              {/* Discount Proof */}
+              {e.discount_type &&
+                e.discount_type !== "none" &&
+                e.discount_proof && (
+                  <div>
+                    <span className="text-xs text-gray-500 block mb-1">
+                      {e.discount_type.toUpperCase()}
+                    </span>
+                    <a
+                      href={`${import.meta.env.VITE_API_URL}/uploads/${
+                        e.discount_proof
+                      }`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <img
+                        src={`${import.meta.env.VITE_API_URL}/uploads/${
+                          e.discount_proof
+                        }`}
+                        alt="Discount"
+                        className="h-16 w-16 object-cover rounded-lg border-2 border-green-200 hover:border-green-400 transition-colors"
+                      />
+                    </a>
+                  </div>
+                )}
+
+              {/* Student Permit */}
+              {e.course_name?.toLowerCase().includes("pdc") &&
+                e.student_permit_proof && (
+                  <div>
+                    <span className="text-xs text-gray-500 block mb-1">
+                      Permit
+                    </span>
+                    <a
+                      href={`${import.meta.env.VITE_API_URL}/uploads/${
+                        e.student_permit_proof
+                      }`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <img
+                        src={`${import.meta.env.VITE_API_URL}/uploads/${
+                          e.student_permit_proof
+                        }`}
+                        alt="Permit"
+                        className="h-16 w-16 object-cover rounded-lg border-2 border-blue-200 hover:border-blue-400 transition-colors"
+                      />
+                    </a>
+                  </div>
+                )}
+
+              {!e.proof_of_payment &&
+                (!e.discount_proof || e.discount_type === "none") &&
+                !e.student_permit_proof && (
+                  <span className="text-gray-400 italic text-xs">
+                    No documents
+                  </span>
+                )}
+            </div>
           </>
         )}
 
@@ -1310,25 +2234,44 @@ const EnrollmentsPage = () => {
                 e.status
               )}`}
             >
-              {e.status || "N/A"}
+              {e.status === "passed/completed" ||
+              e.status === "passed" ||
+              e.status === "completed"
+                ? "Passed"
+                : e.status
+                ? e.status.charAt(0).toUpperCase() + e.status.slice(1)
+                : "N/A"}
             </span>
           )}
         </div>
-
         {/* Actions */}
         {hasAdminFeatures && (
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-2 border-t border-gray-200">
             <span className="text-xs sm:text-sm text-gray-600 font-medium">
               Actions:
             </span>
-            <button
-              onClick={() => deleteEnrollment(e.enrollment_id, e.student_name)}
-              className="inline-flex items-center justify-center px-3 py-1.5 border border-red-300 text-xs sm:text-sm font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 hover:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors duration-200 w-full sm:w-auto"
-              title="Delete enrollment"
-            >
-              <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-              Delete
-            </button>
+            <div className="flex gap-2">
+              {!isOnlineTheoretical(e.course_name) && (
+                <button
+                  onClick={() => handleReschedule(e)}
+                  className="inline-flex items-center justify-center px-3 py-1.5 border border-blue-300 text-xs sm:text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200 flex-1 sm:flex-initial"
+                  title="Reschedule student"
+                >
+                  <Calendar className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                  Reschedule
+                </button>
+              )}
+              <button
+                onClick={() =>
+                  archiveEnrollment(e.enrollment_id, e.student_name)
+                }
+                className="inline-flex items-center justify-center px-3 py-1.5 border border-orange-300 text-xs sm:text-sm font-medium rounded-md text-orange-700 bg-orange-50 hover:bg-orange-100 hover:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors duration-200 flex-1 sm:flex-initial"
+                title="Archive enrollment"
+              >
+                <Archive className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                Archive
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -1350,18 +2293,38 @@ const EnrollmentsPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
+        {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-red-600 rounded-lg">
-              <Users className="h-6 w-6 text-white" />
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-red-600 rounded-lg">
+                <Users className="h-6 w-6 text-white" />
+              </div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Enrollment Management
+              </h1>
             </div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              Enrollment Management
-            </h1>
+
+            {/* ✅ ADD THIS TOGGLE BUTTON */}
+            {hasAdminFeatures && (
+              <button
+                onClick={() => setShowArchived(!showArchived)}
+                className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                  showArchived
+                    ? "bg-green-100 text-green-700 hover:bg-green-200"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                <Archive className="h-4 w-4" />
+                {showArchived ? "Show Active" : "Show Archived"}
+              </button>
+            )}
           </div>
           <p className="text-gray-600">
             {hasAdminFeatures
-              ? "Manage student enrollments, instructor assignments, and payment tracking"
+              ? showArchived
+                ? "View archived enrollments"
+                : "Manage student enrollments, instructor assignments, and payment tracking"
               : "View student enrollments and their details"}
           </p>
         </div>
@@ -1372,13 +2335,13 @@ const EnrollmentsPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">
-                  Active Enrollments
+                  New Enrollees
                 </p>
                 <p className="text-2xl font-bold text-gray-900">
                   {
                     enrollments.filter((e) => {
                       const isCompleted =
-                        e.status?.toLowerCase() === "completed" ||
+                        e.status?.toLowerCase() === "passed" ||
                         e.status?.toLowerCase() === "passed/completed";
                       const isFullyPaid =
                         e.payment_status?.toLowerCase() === "fully paid";
@@ -1403,7 +2366,7 @@ const EnrollmentsPage = () => {
                   {
                     enrollments.filter((e) => {
                       const isCompleted =
-                        e.status?.toLowerCase() === "completed" ||
+                        e.status?.toLowerCase() === "passed" ||
                         e.status?.toLowerCase() === "passed/completed";
                       const isFullyPaid =
                         e.payment_status?.toLowerCase() === "fully paid";
@@ -1621,7 +2584,7 @@ const EnrollmentsPage = () => {
                       {hasAdminFeatures && (
                         <>
                           <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Payment Proof
+                            Documents Proof
                           </th>
                           <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Amount
@@ -1632,7 +2595,7 @@ const EnrollmentsPage = () => {
                         </>
                       )}
                       <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
+                        Progress{" "}
                       </th>
                       {hasAdminFeatures && (
                         <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1763,7 +2726,14 @@ const EnrollmentsPage = () => {
                                     e.status
                                   )}`}
                                 >
-                                  {e.status || "N/A"}
+                                  {e.status === "passed/completed" ||
+                                  e.status === "passed" ||
+                                  e.status === "completed"
+                                    ? "Passed"
+                                    : e.status
+                                    ? e.status.charAt(0).toUpperCase() +
+                                      e.status.slice(1)
+                                    : "N/A"}
                                 </span>
                               </div>
                             </div>
@@ -4408,7 +5378,7 @@ const AttendancePage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs sm:text-sm font-medium text-gray-600">
-                  Pending
+                  Missing
                 </p>
                 <p className="text-xl sm:text-3xl font-bold text-yellow-600">
                   {stats.pending}
@@ -5569,6 +6539,7 @@ const Records = () => {
   const [selectedYear, setSelectedYear] = useState("all");
   const [availableYears, setAvailableYears] = useState([]);
   const [searchName, setSearchName] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("all");
   const searchInputRef = useRef(null);
   const [isPending, startTransition] = useTransition();
 
@@ -5625,6 +6596,7 @@ const Records = () => {
       setSelectedYear("all");
       searchInputRef.current.value = "";
       setSearchName("");
+      setSelectedStatus("all"); // 👈 DAGDAG TO
     });
   };
   //  Proper filtering with date normalization
@@ -5653,7 +6625,12 @@ const Records = () => {
       (rec.student_name &&
         rec.student_name.toLowerCase().includes(searchName.toLowerCase()));
 
-    return monthMatch && yearMatch && nameMatch;
+    // 👇 DAGDAG STATUS FILTER
+    const statusMatch =
+      selectedStatus === "all" ||
+      (rec.status && rec.status.toLowerCase() === selectedStatus.toLowerCase());
+
+    return monthMatch && yearMatch && nameMatch && statusMatch; // 👈 DAGDAG statusMatch
   });
 
   if (loading) {
@@ -5709,7 +6686,8 @@ const Records = () => {
               </h3>
               {(selectedMonth !== "all" ||
                 selectedYear !== "all" ||
-                searchName !== "") && (
+                searchName !== "" ||
+                selectedStatus !== "all") && (
                 <button
                   onClick={handleResetFilters}
                   disabled={isPending}
@@ -5721,8 +6699,10 @@ const Records = () => {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* Search Box with Button */}
-              <div className="mb-4">
+              {" "}
+              {/* 👈 3 TO 4 */}
+              {/* Search Box with Button - FULL WIDTH */}
+              <div className="col-span-full">
                 <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                   Search by Name
                 </label>
@@ -5764,7 +6744,9 @@ const Records = () => {
                 </label>
                 <select
                   value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  onChange={(e) =>
+                    startTransition(() => setSelectedMonth(e.target.value))
+                  }
                   className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all text-sm sm:text-base"
                 >
                   {months.map((month) => (
@@ -5774,7 +6756,6 @@ const Records = () => {
                   ))}
                 </select>
               </div>
-
               {/* Year Filter */}
               <div>
                 <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
@@ -5782,7 +6763,9 @@ const Records = () => {
                 </label>
                 <select
                   value={selectedYear}
-                  onChange={(e) => setSelectedYear(e.target.value)}
+                  onChange={(e) =>
+                    startTransition(() => setSelectedYear(e.target.value))
+                  }
                   className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all text-sm sm:text-base"
                 >
                   <option value="all">All Years</option>
@@ -5793,20 +6776,43 @@ const Records = () => {
                   ))}
                 </select>
               </div>
+              {/* Status Filter */}
+              <div>
+                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
+                  Status
+                </label>
+                <select
+                  value={selectedStatus}
+                  onChange={(e) =>
+                    startTransition(() => setSelectedStatus(e.target.value))
+                  }
+                  className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all text-sm sm:text-base"
+                >
+                  <option value="all">All Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="passed/completed">Passed/Completed</option>
+                  <option value="failed">Failed</option>
+                </select>
+              </div>
+            </div>
 
-              {/* Results Count */}
-              <div className="flex items-end">
-                <div className="w-full p-3 sm:p-4 bg-gradient-to-r from-red-50 to-orange-50 rounded-lg border-2 border-red-200">
-                  <p className="text-xs sm:text-sm text-gray-600">
-                    Showing Results
-                  </p>
-                  <p className="text-lg sm:text-2xl font-bold text-red-600">
-                    {filteredRecords.length}{" "}
-                    <span className="text-sm sm:text-base text-gray-500">
-                      of {records.length}
-                    </span>
-                  </p>
-                </div>
+            {/* Results Count */}
+            <div className="mt-4">
+              <div className="w-full p-3 sm:p-4 bg-gradient-to-r from-red-50 to-orange-50 rounded-lg border-2 border-red-200">
+                <p className="text-xs sm:text-sm text-gray-600">
+                  {selectedStatus === "all"
+                    ? "Showing Results of Student Information"
+                    : `Showing Results of ${
+                        selectedStatus.charAt(0).toUpperCase() +
+                        selectedStatus.slice(1)
+                      } Status`}
+                </p>
+                <p className="text-lg sm:text-2xl font-bold text-red-600">
+                  {filteredRecords.length}{" "}
+                  <span className="text-sm sm:text-base text-gray-500">
+                    of {records.length}
+                  </span>
+                </p>
               </div>
             </div>
           </div>
@@ -5818,6 +6824,9 @@ const Records = () => {
             <table className="w-full">
               <thead className="bg-gradient-to-r from-red-600 to-red-700 text-white">
                 <tr>
+                  <th className="px-3 sm:px-4 py-3 sm:py-4 text-left text-xs sm:text-sm font-bold whitespace-nowrap">
+                    Student No.
+                  </th>
                   <th className="px-3 sm:px-4 py-3 sm:py-4 text-left text-xs sm:text-sm font-bold whitespace-nowrap">
                     Name
                   </th>
@@ -5863,6 +6872,9 @@ const Records = () => {
                   <th className="px-3 sm:px-4 py-3 sm:py-4 text-left text-xs sm:text-sm font-bold whitespace-nowrap">
                     Amount Paid
                   </th>
+                  <th className="px-3 sm:px-4 py-3 sm:py-4 text-center text-xs sm:text-sm font-bold whitespace-nowrap">
+                    Status
+                  </th>
                   <th className="px-3 sm:px-4 py-3 sm:py-4 text-left text-xs sm:text-sm font-bold whitespace-nowrap">
                     Branch
                   </th>
@@ -5881,6 +6893,11 @@ const Records = () => {
                           index % 2 === 0 ? "bg-white" : "bg-gray-50"
                         }`}
                       >
+                        <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-bold text-red-600 whitespace-nowrap">
+                          {rec.student_number || (
+                            <span className="text-gray-400 italic">—</span>
+                          )}
+                        </td>
                         <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-semibold text-gray-800 whitespace-nowrap">
                           {rec.student_name || "N/A"}
                         </td>
@@ -5984,6 +7001,38 @@ const Records = () => {
                         <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-bold text-green-600 whitespace-nowrap">
                           ₱{parseFloat(rec.amount_paid || 0).toFixed(2)}
                         </td>
+                        <td className="px-3 sm:px-4 py-3 sm:py-4 text-center whitespace-nowrap">
+                          {rec.status ? (
+                            <span
+                              className={`inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs font-bold shadow-sm ${
+                                rec.status.toLowerCase() ===
+                                  "passed/completed" ||
+                                rec.status.toLowerCase() === "passed" ||
+                                rec.status.toLowerCase() === "completed"
+                                  ? "bg-green-100 text-green-800"
+                                  : rec.status.toLowerCase() === "failed"
+                                  ? "bg-red-100 text-red-800"
+                                  : rec.status.toLowerCase() === "approved"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : rec.status.toLowerCase() === "pending"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : "bg-gray-100 text-gray-600"
+                              }`}
+                            >
+                              {rec.status.toLowerCase() ===
+                                "passed/completed" ||
+                              rec.status.toLowerCase() === "passed" ||
+                              rec.status.toLowerCase() === "completed"
+                                ? "Passed"
+                                : rec.status.charAt(0).toUpperCase() +
+                                  rec.status.slice(1)}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 text-xs italic">
+                              —
+                            </span>
+                          )}
+                        </td>
                         <td className="px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-600 whitespace-nowrap">
                           {rec.branch_name || "N/A"}
                         </td>
@@ -5992,7 +7041,7 @@ const Records = () => {
                   })
                 ) : (
                   <tr>
-                    <td colSpan="16" className="px-4 py-12 text-center">
+                    <td colSpan="18" className="px-4 py-12 text-center">
                       <div className="flex flex-col items-center justify-center">
                         <div className="text-6xl mb-4">🔍</div>
                         <p className="text-lg font-semibold text-gray-700 mb-2">
@@ -6540,27 +7589,246 @@ const VehiclesPage = () => {
   );
 };
 
+const NotificationsPage = ({ setActivePage }) => {
+  // ← ADD PROP HERE
+  const [enrollments, setEnrollments] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchPendingEnrollments();
+  }, []);
+
+  const fetchPendingEnrollments = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/admin/enrollments`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      const data = await res.json();
+
+      // Filter only pending enrollments
+      // Filter only pending enrollments without instructor (December 2024 onwards)
+      const pending = data.filter((e) => {
+        const enrollmentDate = new Date(e.enrollment_date);
+        const cutoffDate = new Date("2025-12-01"); // ← Change to 2025
+        return !e.instructor_id && enrollmentDate >= cutoffDate;
+      });
+      setEnrollments(pending);
+
+      // ← ADD THIS: Refresh count after filtering
+      if (refreshNotificationCount) {
+        refreshNotificationCount();
+      }
+    } catch (error) {
+      console.error("Error fetching enrollments:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mb-4"></div>
+          <p className="text-gray-600">Loading notifications...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-white rounded-2xl shadow-lg p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-3xl font-bold text-red-600 mb-2">
+                Notifications
+              </h1>
+              <p className="text-gray-600">
+                New enrollment requests for your branch
+              </p>
+            </div>
+            <span className="px-4 py-2 bg-red-100 text-red-800 rounded-full font-bold">
+              {enrollments.length} New
+            </span>
+          </div>
+
+          <div className="space-y-4">
+            {enrollments.length === 0 ? (
+              <div className="text-center py-12">
+                <Bell className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 text-lg font-semibold">
+                  No new notifications
+                </p>
+                <p className="text-gray-400 text-sm mt-1">
+                  All enrollments have been processed
+                </p>
+              </div>
+            ) : (
+              enrollments.map((enrollment) => (
+                <div
+                  key={enrollment.enrollment_id}
+                  className="border border-blue-200 bg-blue-50 rounded-xl p-4 hover:shadow-md transition-all"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 bg-blue-100 rounded-lg flex-shrink-0">
+                      <Bell className="w-6 h-6 text-blue-600" />
+                    </div>
+
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-gray-800 mb-1">
+                        New Enrollment Request
+                      </h3>
+                      <p className="text-gray-700 mb-2">
+                        <span className="font-semibold">
+                          {enrollment.student_name}
+                        </span>{" "}
+                        enrolled in{" "}
+                        <span className="font-semibold">
+                          {enrollment.course_name}
+                        </span>
+                      </p>
+
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-semibold">
+                          No Instructor Assigned
+                        </span>
+                        {enrollment.start_date && (
+                          <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
+                            {new Date(
+                              enrollment.start_date
+                            ).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-gray-500 text-sm">
+                        Enrolled on:{" "}
+                        {new Date(enrollment.enrollment_date).toLocaleString()}
+                      </p>
+                    </div>
+
+                    {/* ✅ CHANGE FROM <a> TO <button> */}
+                    <button
+                      onClick={() => setActivePage("Enrollments")}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all font-semibold text-sm whitespace-nowrap"
+                    >
+                      View Details
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 const Admin_Staff = () => {
   const [activePage, setActivePage] = useState("Dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [vehiclesOpen, setVehiclesOpen] = useState(false);
+  const [branchName, setBranchName] = useState(""); // ← NEW: Store branch name
+
+  const [notificationCount, setNotificationCount] = useState(0);
+
+  const fetchNotificationCount = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/admin/unread-enrollments-count`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      const data = await res.json();
+      setNotificationCount(data.count);
+    } catch (error) {
+      console.error("Error fetching notification count:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotificationCount();
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchNotificationCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // ← NEW: Get user info and branch name
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("user"));
+    if (user && user.branch_id) {
+      fetchBranchName(user.branch_id);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Refresh count when Notifications page is active
+    if (activePage === "Notifications") {
+      const fetchNotificationCount = async () => {
+        try {
+          const token = localStorage.getItem("token");
+          const res = await fetch(
+            `${import.meta.env.VITE_API_URL}/admin/unread-enrollments-count`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          const data = await res.json();
+          setNotificationCount(data.count);
+        } catch (error) {
+          console.error("Error fetching notification count:", error);
+        }
+      };
+
+      fetchNotificationCount();
+    }
+  }, [activePage]);
+
+  // ← NEW: Fetch branch name from API
+  const fetchBranchName = async (branchId) => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/branches/${branchId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      const data = await response.json();
+      // ✅ Use 'name' instead of 'branch_name' to match backend
+      if (data.name) {
+        setBranchName(data.name);
+      }
+    } catch (error) {
+      console.error("Error fetching branch:", error);
+    }
+  };
 
   const navigationItems = [
     { name: "Dashboard", icon: <BarChart3 className="w-5 h-5" /> },
     { name: "Enrollments", icon: <User className="w-5 h-5" /> },
-    { name: "Records", icon: <List className="w-5 h-5" /> },
+    { name: "Student Records", icon: <List className="w-5 h-5" /> },
     { name: "Schedules", icon: <Users className="w-5 h-5" /> },
     { name: "FeedbackPage", icon: <BarChart3 className="w-5 h-5" /> },
     {
       name: "Attendance",
       icon: <ListCheck className="w-5 h-5" />,
     },
-    { name: "Maintenance", icon: <Settings className="w-5 h-5" /> },
-    { name: "Vehicles", icon: <Car className="w-5 h-5" /> },
   ];
 
   const handleNavClick = (pageName) => {
     setActivePage(pageName);
-    setSidebarOpen(false); // Close sidebar on mobile after navigation
+    setSidebarOpen(false);
   };
 
   const handleSignOut = async () => {
@@ -6590,7 +7858,7 @@ const Admin_Staff = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Mobile Header - Static (Not Fixed) */}
+      {/* Mobile Header */}
       <div className="lg:hidden bg-white shadow-lg border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -6615,7 +7883,19 @@ const Admin_Staff = () => {
             <div className="text-gray-500 text-xs">Driving School</div>
           </div>
         </div>
-        <div className="w-10"></div>
+
+        {/* BELL ICON - DAGDAG MO TO */}
+        <button
+          onClick={() => handleNavClick("Notifications")}
+          className="p-2 rounded-lg hover:bg-gray-100 transition-colors relative"
+        >
+          <Bell className="w-6 h-6 text-gray-700" />
+          {notificationCount > 0 && (
+            <span className="absolute top-0 right-0 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+              {notificationCount > 9 ? "9+" : notificationCount}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* Mobile Overlay */}
@@ -6626,7 +7906,7 @@ const Admin_Staff = () => {
         />
       )}
 
-      {/* Sidebar - Fixed on Desktop, Overlay on Mobile */}
+      {/* Sidebar */}
       <div
         className={`
           fixed top-0 bottom-0 left-0 z-50
@@ -6639,52 +7919,143 @@ const Admin_Staff = () => {
       >
         {/* Brand Header */}
         <div className="p-6 bg-gradient-to-r from-red-600 to-red-700 text-white">
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center">
-              <img
-                src={logo}
-                alt="Logo"
-                className="h-8 w-8 rounded-full object-contain"
-              />
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center">
+                <img
+                  src={logo}
+                  alt="Logo"
+                  className="h-8 w-8 rounded-full object-contain"
+                />
+              </div>
+              <div>
+                <div className="font-bold text-lg">1st Safety</div>
+                <div className="text-red-100 text-sm">Driving School</div>
+              </div>
             </div>
-            <div>
-              <div className="font-bold text-lg">1st Safety</div>
-              <div className="text-red-100 text-sm">Driving School</div>
-            </div>
+
+            {/* BELL ICON - DAGDAG MO TO */}
+            <button
+              onClick={() => handleNavClick("Notifications")}
+              className="p-2 rounded-lg hover:bg-red-700 transition-colors relative"
+            >
+              <Bell className="w-6 h-6 text-white" />
+              {notificationCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-white text-red-600 text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                  {notificationCount > 9 ? "9+" : notificationCount}
+                </span>
+              )}
+            </button>
           </div>
         </div>
 
         {/* User Profile */}
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-red-500 to-red-600 rounded-full flex items-center justify-center shadow-lg">
+            <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-red-600 rounded-lg flex items-center justify-center shadow-sm">
               <User className="w-5 h-5 text-white" />
             </div>
-            <div>
-              <div className="font-semibold text-gray-900">
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-gray-900 text-sm">
                 Administrative Staff
               </div>
+              {branchName ? (
+                <div className="flex items-center mt-0.5">
+                  <MapPin className="w-3 h-3 mr-1 text-red-500 flex-shrink-0" />
+                  <span className="text-xs text-gray-600 truncate">
+                    {branchName}
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center mt-0.5">
+                  <div className="w-2.5 h-2.5 border-2 border-gray-300 border-t-red-500 rounded-full animate-spin mr-1.5"></div>
+                  <span className="text-xs text-gray-400">Loading...</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
         {/* Navigation */}
         <nav className="p-4 space-y-2">
-          {navigationItems.map(({ name, icon }) => (
+          {/* Regular Navigation Items */}
+          {navigationItems.map(
+            (
+              { name, icon, badge } // ← ADD badge HERE
+            ) => (
+              <button
+                key={name}
+                onClick={() => handleNavClick(name)}
+                className={`flex items-center w-full px-4 py-3 rounded-lg font-medium text-sm cursor-pointer transition-colors
+      ${
+        activePage === name
+          ? "bg-red-600 text-white"
+          : "text-gray-700 hover:bg-gray-100"
+      }`}
+              >
+                <span className="mr-3">{icon}</span>
+                <span className="truncate">{name}</span>
+                {badge !== undefined && badge > 0 && (
+                  <span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5">
+                    {badge}
+                  </span>
+                )}
+              </button>
+            )
+          )}
+
+          {/* Vehicles Dropdown */}
+          <div>
             <button
-              key={name}
-              onClick={() => handleNavClick(name)}
-              className={`flex items-center w-full px-4 py-3 rounded-lg font-medium text-sm cursor-pointer transition-colors
+              onClick={() => setVehiclesOpen(!vehiclesOpen)}
+              className={`flex items-center justify-between w-full px-4 py-3 rounded-lg font-medium text-sm cursor-pointer transition-colors
                 ${
-                  activePage === name
+                  activePage === "Vehicles" || activePage === "Maintenance"
                     ? "bg-red-600 text-white"
                     : "text-gray-700 hover:bg-gray-100"
                 }`}
             >
-              <span className="mr-3">{icon}</span>
-              <span className="truncate">{name}</span>
+              <div className="flex items-center">
+                <Car className="w-5 h-5 mr-3" />
+                <span className="truncate">Vehicles</span>
+              </div>
+              <ChevronDown
+                className={`w-4 h-4 transition-transform ${
+                  vehiclesOpen ? "rotate-180" : ""
+                }`}
+              />
             </button>
-          ))}
+
+            {vehiclesOpen && (
+              <div className="ml-4 mt-1 space-y-1">
+                <button
+                  onClick={() => handleNavClick("Vehicles")}
+                  className={`flex items-center w-full px-4 py-2 rounded-lg font-medium text-sm cursor-pointer transition-colors
+                    ${
+                      activePage === "Vehicles"
+                        ? "bg-red-500 text-white"
+                        : "text-gray-600 hover:bg-gray-100"
+                    }`}
+                >
+                  <Car className="w-4 h-4 mr-3" />
+                  <span className="truncate">Vehicle List</span>
+                </button>
+                <button
+                  onClick={() => handleNavClick("Maintenance")}
+                  className={`flex items-center w-full px-4 py-2 rounded-lg font-medium text-sm cursor-pointer transition-colors
+                    ${
+                      activePage === "Maintenance"
+                        ? "bg-red-500 text-white"
+                        : "text-gray-600 hover:bg-gray-100"
+                    }`}
+                >
+                  <Settings className="w-4 h-4 mr-3" />
+                  <span className="truncate">Maintenance</span>
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Sign Out Button */}
           <div className="pt-4 border-t border-gray-200">
             <button
@@ -6701,16 +8072,22 @@ const Admin_Staff = () => {
       {/* Main Content */}
       <div className="lg:ml-64">
         <main className="p-4 lg:p-8 max-w-7xl mx-auto">
-          {/* Page Content */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 min-h-[calc(100vh-120px)] lg:min-h-[calc(100vh-64px)]">
             {activePage === "Dashboard" && <DashboardPage />}
             {activePage === "Enrollments" && <EnrollmentsPage />}
-            {activePage === "Records" && <Records />}
+            {activePage === "Student Records" && <Records />}
             {activePage === "Schedules" && <Schedules />}
             {activePage === "FeedbackPage" && <FeedbackPage />}
             {activePage === "Attendance" && <AttendancePage />}
             {activePage === "Maintenance" && <MaintenancePage />}
             {activePage === "Vehicles" && <VehiclesPage />}
+            {activePage === "Notifications" && (
+              <NotificationsPage
+                setActivePage={setActivePage}
+                refreshNotificationCount={fetchNotificationCount} // ← ADD THIS
+              />
+            )}{" "}
+            {/* ← ADD setActivePage */}
           </div>
         </main>
       </div>

@@ -33,6 +33,24 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// Function to generate student number (for students only)
+const generateStudentNumber = async (enrollmentYear) => {
+  try {
+    // Get the next sequence number
+    const result = await pool.query(
+      "SELECT LPAD(nextval('student_number_seq')::text, 4, '0') AS seq_num",
+    );
+
+    const seqNum = result.rows[0].seq_num;
+    const year = enrollmentYear.toString().slice(-2); // Get last 2 digits (2024 -> 24)
+
+    return `${year}-${seqNum}`; // Format: 24-0001
+  } catch (err) {
+    console.error("Error generating student number:", err);
+    throw err;
+  }
+};
+
 // Multer setup for file uploads
 const storage = multer.diskStorage({
   destination: "uploads/",
@@ -74,18 +92,31 @@ app.get("/branches", async (req, res) => {
 });
 
 app.post("/register", async (req, res) => {
-  const { name, email, password, branch_id } = req.body;
+  const {
+    name,
+    email,
+    password,
+    branch_id,
+    // Personal info
+    address,
+    contact_number,
+    birthday,
+    age,
+    nationality,
+    civil_status,
+    gender,
+  } = req.body;
+
   const hashedPassword = await bcrypt.hash(password, 10);
   const role = "student";
   const code = Math.floor(100000 + Math.random() * 900000);
 
   try {
-    // Check if email already exists BEFORE inserting
+    // Check if email already exists
     const existingUser = await pool.query(
       "SELECT email FROM users WHERE email = $1",
       [email],
     );
-
     if (existingUser.rows.length > 0) {
       return res.status(400).json({
         message:
@@ -93,9 +124,38 @@ app.post("/register", async (req, res) => {
       });
     }
 
+    const currentYear = new Date().getFullYear();
+    const seqResult = await pool.query(
+      "SELECT LPAD(nextval('student_number_seq')::text, 5, '0') AS seq_num",
+    );
+    const seqNum = seqResult.rows[0].seq_num;
+    const year = currentYear.toString().slice(-2);
+    const studentNumber = `${year}-${seqNum}`;
+
+    // Insert user with personal info
     await pool.query(
       "INSERT INTO users (name, email, password, role, branch_id, is_verified) VALUES ($1, $2, $3, $4, $5, $6)",
       [name, email, hashedPassword, role, branch_id, false],
+      `INSERT INTO users (
+        name, email, password, role, branch_id, is_verified, student_number,
+        address, contact_number, birthday, age, nationality, civil_status, gender
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+      [
+        name,
+        email,
+        hashedPassword,
+        role,
+        branch_id,
+        false,
+        studentNumber,
+        address,
+        contact_number,
+        birthday,
+        age,
+        nationality,
+        civil_status,
+        gender,
+      ],
     );
 
     await pool.query(
@@ -455,7 +515,8 @@ app.get("/courses", async (req, res) => {
 app.get("/student-profile", authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT u.user_id, u.name, u.email, u.branch_id, b.name as branch_name
+      `SELECT u.user_id, u.name, u.email, u.branch_id, b.name as branch_name, u.student_number,
+              u.address, u.contact_number, u.birthday, u.age, u.nationality, u.civil_status, u.gender
        FROM users u
        LEFT JOIN branches b ON u.branch_id = b.branch_id
        WHERE u.user_id = $1`,
@@ -630,7 +691,11 @@ app.delete("/courses/:id", async (req, res) => {
 app.post(
   "/enroll",
   authenticateToken,
-  upload.single("proof_image"),
+  upload.fields([
+    { name: "proof_image", maxCount: 1 },
+    { name: "discount_proof", maxCount: 1 },
+    { name: "student_permit_proof", maxCount: 1 },
+  ]),
   async (req, res) => {
     const {
       course_id,
@@ -645,7 +710,7 @@ app.post(
       civil_status,
       gender,
       is_pregnant,
-      is_pwd,
+      discount_type,
       payment_type,
       amount_paid,
       vehicle_category,
@@ -654,7 +719,15 @@ app.post(
 
     const user_id = req.user.userId;
 
-    const proof_of_payment = req.file ? req.file.filename : null;
+    const proof_of_payment = req.files?.proof_image
+      ? req.files.proof_image[0].filename
+      : null;
+    const discount_proof = req.files?.discount_proof
+      ? req.files.discount_proof[0].filename
+      : null;
+    const student_permit_proof = req.files?.student_permit_proof
+      ? req.files.student_permit_proof[0].filename
+      : null; // ✅ BAGO
 
     // Validate required fields
     if (
@@ -674,6 +747,11 @@ app.post(
       return res.status(400).json({ error: "Payment details are required" });
     }
 
+    if (discount_type && discount_type !== "none" && !discount_proof) {
+      return res.status(400).json({
+        error: "Please upload your ID/proof to claim the discount",
+      });
+    }
     if (!payment_type || !amount_paid) {
       return res
         .status(400)
@@ -701,9 +779,11 @@ app.post(
       const courseVehicleCategory = courseRes.rows[0].vehicle_category;
       const courseVehicleType = courseRes.rows[0].type;
 
-      // Calculate expected amount with PWD discount
-      const isPWD = is_pwd === "true";
-      const discountedPrice = isPWD ? coursePrice * 0.8 : coursePrice;
+      // Calculate expected amount with discount (PWD or Senior)
+      const hasDiscount =
+        discount_type &&
+        (discount_type === "pwd" || discount_type === "senior");
+      const discountedPrice = hasDiscount ? coursePrice * 0.8 : coursePrice;
       const expectedAmount =
         payment_type === "full" ? discountedPrice : discountedPrice * 0.5;
       const paidAmount = parseFloat(amount_paid);
@@ -729,11 +809,11 @@ app.post(
       if (isOnlineTheoretical) {
         const result = await client.query(
           `INSERT INTO enrollments (
-            user_id, course_id, address, contact_number, 
-            gcash_reference_number, proof_of_payment, enrollment_date,
-            birthday, age, nationality, civil_status, gender, is_pregnant,
-            is_pwd, payment_status, status, amount_paid
-          ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, $11, $12, $13, $14, 'pending', $15) 
+          user_id, course_id, address, contact_number, 
+          gcash_reference_number, proof_of_payment, enrollment_date,
+          birthday, age, nationality, civil_status, gender, is_pregnant,
+          discount_type, discount_proof, payment_status, status, amount_paid
+        ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, $11, $12, $13, $14, $15, 'pending', $16)
           RETURNING *`,
           [
             user_id,
@@ -748,7 +828,8 @@ app.post(
             civil_status,
             gender,
             is_pregnant === "true" ? true : false,
-            isPWD,
+            discount_type || "none", // ✅ BAGO
+            discount_proof,
             payment_status,
             paidAmount,
           ],
@@ -867,12 +948,12 @@ app.post(
         // ✅ All schedules have available vehicles - proceed with enrollment
         const enrollmentResult = await client.query(
           `INSERT INTO enrollments (
-            user_id, course_id, address, contact_number, 
-            gcash_reference_number, proof_of_payment, enrollment_date,
-            birthday, age, nationality, civil_status, gender, is_pregnant,
-            is_pwd, payment_status, status, amount_paid,
-            vehicle_category, vehicle_type
-          ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, $11, $12, $13, $14, 'pending', $15, $16, $17) 
+          user_id, course_id, address, contact_number, 
+          gcash_reference_number, proof_of_payment, enrollment_date,
+          birthday, age, nationality, civil_status, gender, is_pregnant,
+          discount_type, discount_proof, student_permit_proof, payment_status, status, amount_paid,
+          vehicle_category, vehicle_type
+        ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'pending', $17, $18, $19)
           RETURNING *`,
           [
             user_id,
@@ -887,7 +968,9 @@ app.post(
             civil_status,
             gender,
             is_pregnant === "true" ? true : false,
-            isPWD,
+            discount_type || "none",
+            discount_proof,
+            student_permit_proof,
             payment_status,
             paidAmount,
             courseVehicleCategory || vehicle_category,
@@ -960,11 +1043,11 @@ app.post(
         // Create enrollment
         const enrollmentResult = await client.query(
           `INSERT INTO enrollments (
-            user_id, course_id, address, contact_number, 
-            gcash_reference_number, proof_of_payment, enrollment_date,
-            birthday, age, nationality, civil_status, gender, is_pregnant,
-            is_pwd, payment_status, status, amount_paid
-          ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, $11, $12, $13, $14, 'pending', $15) 
+          user_id, course_id, address, contact_number, 
+          gcash_reference_number, proof_of_payment, enrollment_date,
+          birthday, age, nationality, civil_status, gender, is_pregnant,
+          discount_type, discount_proof, payment_status, status, amount_paid
+        ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, $11, $12, $13, $14, $15, 'pending', $16)
           RETURNING *`,
           [
             user_id,
@@ -979,7 +1062,8 @@ app.post(
             civil_status,
             gender,
             is_pregnant === "true" ? true : false,
-            isPWD,
+            discount_type || "none",
+            discount_proof,
             payment_status,
             paidAmount,
           ],
@@ -1059,11 +1143,11 @@ app.post(
         // Insert enrollment
         const result = await client.query(
           `INSERT INTO enrollments (
-            user_id, course_id, schedule_id, address, contact_number, 
-            gcash_reference_number, proof_of_payment, enrollment_date,
-            birthday, age, nationality, civil_status, gender, is_pregnant,
-            is_pwd, payment_status, status, amount_paid
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8, $9, $10, $11, $12, $13, $14, $15, 'pending', $16) 
+          user_id, course_id, schedule_id, address, contact_number, 
+          gcash_reference_number, proof_of_payment, enrollment_date,
+          birthday, age, nationality, civil_status, gender, is_pregnant,
+          discount_type, discount_proof, payment_status, status, amount_paid
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8, $9, $10, $11, $12, $13, $14, $15, $16, 'pending', $17)
           RETURNING *`,
           [
             user_id,
@@ -1079,7 +1163,8 @@ app.post(
             civil_status,
             gender,
             is_pregnant === "true" ? true : false,
-            isPWD,
+            discount_type || "none",
+            discount_proof,
             payment_status,
             paidAmount,
           ],
@@ -1139,6 +1224,7 @@ app.get("/enrollments", authenticateToken, async (req, res) => {
         e.has_feedback,
         e.instructor_id,
         c.name AS course_name,
+        c.required_schedules, 
         c.image AS course_image
       FROM enrollments e
       JOIN courses c ON e.course_id = c.course_id
@@ -1224,6 +1310,7 @@ app.get("/enrollments", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Failed to load enrollments" });
   }
 });
+
 app.get("/check-active-enrollment", authenticateToken, async (req, res) => {
   const userId = req.user.userId;
   try {
@@ -1246,9 +1333,9 @@ app.get("/check-active-enrollment", authenticateToken, async (req, res) => {
 
 app.get("/admin/enrollments", authenticateToken, async (req, res) => {
   const adminBranchId = req.user.branch_id;
+  const showArchived = req.query.show_archived === "true";
 
   try {
-    // First, get basic enrollment data
     const result = await pool.query(
       `
       SELECT
@@ -1259,8 +1346,12 @@ app.get("/admin/enrollments", authenticateToken, async (req, res) => {
         e.contact_number,
         e.gcash_reference_number,
         e.proof_of_payment,
+        e.discount_type,
+        e.discount_proof,
+        e.student_permit_proof,
         e.payment_status,
         e.amount_paid,
+        e.archived_at,
         c.course_id,
         c.name       AS course_name,
         c.price      AS course_price,
@@ -1280,11 +1371,14 @@ app.get("/admin/enrollments", authenticateToken, async (req, res) => {
       JOIN users u     ON e.user_id     = u.user_id
       LEFT JOIN schedules s ON e.schedule_id = s.schedule_id   
       LEFT JOIN users ins   ON e.instructor_id = ins.user_id   
-      WHERE (
+      WHERE ${
+        showArchived ? "e.archived_at IS NOT NULL" : "e.archived_at IS NULL"
+      }
+        AND (
           (s.branch_id = $1) OR
           (c.name = 'ONLINE THEORETICAL DRIVING COURSE' AND e.schedule_id IS NULL AND u.branch_id = $1) OR
           (e.schedule_id IS NULL AND u.branch_id = $1)
-      )
+        )
       ORDER BY e.enrollment_date DESC
       `,
       [adminBranchId],
@@ -1332,7 +1426,6 @@ app.get("/admin/enrollments", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Could not fetch enrollments" });
   }
 });
-
 //add admin/instructor account
 app.post("/accounts", async (req, res) => {
   const { name, username, password, role, branch_id } = req.body;
@@ -1689,15 +1782,16 @@ app.get("/instructor/enrollments", authenticateToken, async (req, res) => {
     // Get all enrollments assigned to this instructor
     const result = await pool.query(
       `
-      SELECT 
-        e.enrollment_id,
-        e.schedule_id,
-        e.course_id,
-        c.name AS course_name,
-        u.name AS student_name,
-        u.email AS student_email,
-        e.status
-      FROM enrollments e
+  SELECT 
+    e.enrollment_id,
+    e.schedule_id,
+    e.course_id,
+    c.name AS course_name,
+    c.required_schedules,
+    u.name AS student_name,
+    u.email AS student_email,
+    e.status
+  FROM enrollments e
       JOIN courses c ON e.course_id = c.course_id
       JOIN users u ON e.user_id = u.user_id
       WHERE e.instructor_id = $1
@@ -3123,6 +3217,7 @@ app.get("/admin/student-records", authenticateToken, async (req, res) => {
       `
       SELECT 
         u.user_id,
+        u.student_number,
         u.name AS student_name,
         u.email,
         e.contact_number,
@@ -3133,10 +3228,10 @@ app.get("/admin/student-records", authenticateToken, async (req, res) => {
         e.nationality,
         COALESCE(e.gender, 'N/A') AS gender,
         e.is_pregnant,
-        e.is_pwd,
         e.enrollment_date,
         e.payment_status,
         e.amount_paid,
+        e.status,
         c.name AS course_name,
         b.name AS branch_name
       FROM enrollments e
@@ -3162,6 +3257,7 @@ app.get("/manager/student-records", async (req, res) => {
     let query = `
       SELECT
         u.user_id,
+        u.student_number,
         u.name AS student_name,
         u.email,
         e.contact_number,
@@ -3177,8 +3273,8 @@ app.get("/manager/student-records", async (req, res) => {
         e.nationality
       FROM enrollments e
       JOIN users u ON e.user_id = u.user_id
-      JOIN branches b ON u.branch_id = b.branch_id
       JOIN courses c ON e.course_id = c.course_id
+      JOIN branches b ON u.branch_id = b.branch_id
       WHERE 1=1
     `;
 
@@ -4018,14 +4114,15 @@ app.get("/manager/export-records", async (req, res) => {
   }
 });
 
-app.delete(
-  "/admin/enrollments/:enrollmentId",
+// Archive enrollment (soft delete)
+app.patch(
+  "/admin/enrollments/:enrollmentId/archive",
   authenticateToken,
   async (req, res) => {
     const { enrollmentId } = req.params;
     const adminBranchId = req.user.branch_id;
 
-    console.log("🔍 Delete request received:", {
+    console.log("🗄️ Archive request received:", {
       enrollmentId,
       adminBranchId,
       adminUser: req.user.email,
@@ -4034,7 +4131,7 @@ app.delete(
     try {
       // Verify enrollment exists and belongs to admin's branch
       const checkResult = await pool.query(
-        `SELECT e.enrollment_id, e.user_id, e.course_id,
+        `SELECT e.enrollment_id, e.user_id, e.course_id, e.archived_at,
               u.name AS student_name, c.name AS course_name,
               s.branch_id, u.branch_id AS student_branch_id
        FROM enrollments e
@@ -4045,8 +4142,6 @@ app.delete(
         [enrollmentId],
       );
 
-      console.log("📊 Enrollment check result:", checkResult.rows);
-
       if (checkResult.rows.length === 0) {
         console.error("❌ Enrollment not found:", enrollmentId);
         return res.status(404).json({ error: "Enrollment not found" });
@@ -4054,30 +4149,24 @@ app.delete(
 
       const enrollment = checkResult.rows[0];
 
-      // ✅ FIXED: Better access logic
+      // Check if already archived
+      if (enrollment.archived_at) {
+        return res.status(400).json({ error: "Enrollment already archived" });
+      }
+
+      // Check access
       const hasAccess =
-        // If schedule has a branch, check if it matches admin's branch
         (enrollment.branch_id !== null &&
           enrollment.branch_id === adminBranchId) ||
-        // If no schedule branch (null), check if student belongs to admin's branch
         (enrollment.branch_id === null &&
           enrollment.student_branch_id === adminBranchId) ||
-        // Special case for online courses
         (enrollment.course_name === "ONLINE THEORETICAL DRIVING COURSE" &&
           enrollment.student_branch_id === adminBranchId);
-
-      console.log("🔐 Access check:", {
-        enrollmentBranchId: enrollment.branch_id,
-        adminBranchId,
-        studentBranchId: enrollment.student_branch_id,
-        courseName: enrollment.course_name,
-        hasAccess,
-      });
 
       if (!hasAccess) {
         console.error("❌ Permission denied");
         return res.status(403).json({
-          error: "You don't have permission to delete this enrollment",
+          error: "You don't have permission to archive this enrollment",
         });
       }
 
@@ -4088,35 +4177,23 @@ app.delete(
         [enrollmentId],
       );
 
-      console.log("🗑️ Delete result:", deleteResult.rows);
-
-      if (deleteResult.rowCount === 0) {
-        await pool.query("ROLLBACK");
-        console.error("❌ Delete failed - no rows affected");
-        return res
-          .status(404)
-          .json({ error: "Enrollment not found or already deleted" });
-      }
-
-      await pool.query("COMMIT");
-
       console.log(
         `✅ Enrollment deleted: ID ${enrollmentId}, Student: ${enrollment.student_name}`,
       );
 
       res.json({
-        message: "Enrollment deleted successfully",
-        deleted_enrollment: {
+        message: "Enrollment archived successfully",
+        archived_enrollment: {
           enrollment_id: enrollmentId,
           student_name: enrollment.student_name,
           course_name: enrollment.course_name,
+          archived_at: archiveResult.rows[0].archived_at,
         },
       });
     } catch (error) {
-      await pool.query("ROLLBACK");
-      console.error("❌ Error deleting enrollment:", error);
+      console.error("❌ Error archiving enrollment:", error);
       res.status(500).json({
-        error: "Failed to delete enrollment. Please try again.",
+        error: "Failed to archive enrollment.",
         details: error.message,
       });
     }
@@ -4963,6 +5040,387 @@ app.post("/backup", authenticateToken, async (req, res) => {
       message: "Backup failed",
       error: error.message,
     });
+  }
+});
+
+// Reschedule enrollment
+app.patch(
+  "/admin/enrollments/:enrollment_id/reschedule",
+  authenticateToken,
+  async (req, res) => {
+    const { enrollment_id } = req.params;
+    const { new_schedule_ids } = req.body; // Array of new schedule IDs
+
+    if (
+      !new_schedule_ids ||
+      !Array.isArray(new_schedule_ids) ||
+      new_schedule_ids.length === 0
+    ) {
+      return res.status(400).json({ error: "Invalid schedule IDs" });
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      // Get enrollment details
+      const enrollmentRes = await client.query(
+        `SELECT e.*, c.name as course_name, c.branch_id, c.vehicle_category, c.type, c.mode
+       FROM enrollments e
+       JOIN courses c ON e.course_id = c.course_id
+       WHERE e.enrollment_id = $1`,
+        [enrollment_id],
+      );
+
+      if (enrollmentRes.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ error: "Enrollment not found" });
+      }
+
+      const enrollment = enrollmentRes.rows[0];
+      const isTheoretical = enrollment.mode === "ftof";
+      const isPractical = enrollment.mode === "practical";
+
+      // ✅ DELETE OLD SCHEDULES AND RESTORE SLOTS (DO THIS FIRST!)
+      const deletedSchedules = await client.query(
+        `DELETE FROM enrollment_schedules WHERE enrollment_id = $1 RETURNING schedule_id`,
+        [enrollment_id],
+      );
+
+      // Restore slots for deleted schedules
+      for (const row of deletedSchedules.rows) {
+        await client.query(
+          `UPDATE schedules SET slots = slots + 1 WHERE schedule_id = $1`,
+          [row.schedule_id],
+        );
+      }
+
+      // ✅ FOR PRACTICAL COURSES - Check vehicle availability
+      if (isPractical) {
+        const vehicleCountRes = await client.query(
+          `SELECT COALESCE(SUM(total_units), 0) as total_vehicles
+         FROM vehicle_units
+         WHERE branch_id = $1 
+         AND vehicle_category = $2 
+         AND type = $3`,
+          [enrollment.branch_id, enrollment.vehicle_category, enrollment.type],
+        );
+
+        const totalVehicles = parseInt(vehicleCountRes.rows[0].total_vehicles);
+
+        if (totalVehicles === 0) {
+          await client.query("ROLLBACK");
+          return res
+            .status(400)
+            .json({ error: "No vehicles available at this branch" });
+        }
+
+        // Check each new schedule for vehicle availability
+        for (const schedule_id of new_schedule_ids) {
+          const scheduleRes = await client.query(
+            `SELECT schedule_id, date, start_time, end_time, slots 
+           FROM schedules 
+           WHERE schedule_id = $1`,
+            [schedule_id],
+          );
+
+          if (scheduleRes.rows.length === 0) {
+            await client.query("ROLLBACK");
+            return res
+              .status(404)
+              .json({ error: `Schedule ${schedule_id} not found` });
+          }
+
+          const schedule = scheduleRes.rows[0];
+
+          if (schedule.slots <= 0) {
+            await client.query("ROLLBACK");
+            return res.status(400).json({
+              error: `Schedule on ${schedule.date} has no available slots`,
+            });
+          }
+
+          // Check vehicle conflicts (excluding this enrollment)
+          const conflictQuery = await client.query(
+            `SELECT COUNT(DISTINCT e.enrollment_id) as booked_count
+           FROM enrollments e
+           JOIN enrollment_schedules es ON e.enrollment_id = es.enrollment_id
+           JOIN schedules s ON es.schedule_id = s.schedule_id
+           WHERE e.vehicle_category = $1
+           AND e.vehicle_type = $2
+           AND s.branch_id = $3
+           AND e.enrollment_id != $4
+           AND e.status IN ('pending', 'approved', 'active', 'ongoing')
+           AND s.date = $5
+           AND (
+             (s.start_time, s.end_time) OVERLAPS ($6::time, $7::time)
+           )`,
+            [
+              enrollment.vehicle_category,
+              enrollment.type,
+              enrollment.branch_id,
+              enrollment_id,
+              schedule.date,
+              schedule.start_time,
+              schedule.end_time,
+            ],
+          );
+
+          const bookedVehicles = parseInt(conflictQuery.rows[0].booked_count);
+          const availableVehicles = totalVehicles - bookedVehicles;
+
+          if (availableVehicles <= 0) {
+            await client.query("ROLLBACK");
+            return res.status(400).json({
+              error: `No vehicles available for schedule on ${schedule.date} at ${schedule.start_time}-${schedule.end_time}`,
+            });
+          }
+        }
+      }
+
+      // ✅ FOR THEORETICAL COURSES - Just check slots
+      if (isTheoretical) {
+        for (const schedule_id of new_schedule_ids) {
+          const scheduleRes = await client.query(
+            `SELECT schedule_id, slots FROM schedules WHERE schedule_id = $1`,
+            [schedule_id],
+          );
+
+          if (scheduleRes.rows.length === 0) {
+            await client.query("ROLLBACK");
+            return res
+              .status(404)
+              .json({ error: `Schedule ${schedule_id} not found` });
+          }
+
+          if (scheduleRes.rows[0].slots <= 0) {
+            await client.query("ROLLBACK");
+            return res.status(400).json({
+              error: `Schedule ${schedule_id} has no available slots`,
+            });
+          }
+        }
+      }
+
+      // ✅ CREATE NEW ENROLLMENT_SCHEDULES
+      for (let i = 0; i < new_schedule_ids.length; i++) {
+        const schedule_id = new_schedule_ids[i];
+
+        await client.query(
+          `INSERT INTO enrollment_schedules (enrollment_id, schedule_id, day_number)
+         VALUES ($1, $2, $3)`,
+          [enrollment_id, schedule_id, i + 1],
+        );
+
+        // Decrease slots for new schedule
+        await client.query(
+          `UPDATE schedules SET slots = slots - 1 WHERE schedule_id = $1`,
+          [schedule_id],
+        );
+      }
+
+      await client.query("COMMIT");
+
+      res.json({
+        message: "✅ Schedule updated successfully",
+        new_schedules_count: new_schedule_ids.length,
+      });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      console.error("Error rescheduling enrollment:", error);
+      res.status(500).json({ error: "Failed to reschedule" });
+    } finally {
+      client.release();
+    }
+  },
+);
+
+// Unarchive enrollment
+app.patch(
+  "/admin/enrollments/:enrollmentId/unarchive",
+  authenticateToken,
+  async (req, res) => {
+    const { enrollmentId } = req.params;
+    const adminBranchId = req.user.branch_id;
+
+    try {
+      const checkResult = await pool.query(
+        `SELECT e.enrollment_id, e.archived_at, u.name AS student_name
+         FROM enrollments e
+         JOIN users u ON e.user_id = u.user_id
+         WHERE e.enrollment_id = $1`,
+        [enrollmentId],
+      );
+
+      if (checkResult.rows.length === 0) {
+        return res.status(404).json({ error: "Enrollment not found" });
+      }
+
+      const enrollment = checkResult.rows[0];
+
+      if (!enrollment.archived_at) {
+        return res.status(400).json({ error: "Enrollment is not archived" });
+      }
+
+      const unarchiveResult = await pool.query(
+        `UPDATE enrollments 
+         SET archived_at = NULL
+         WHERE enrollment_id = $1 
+         RETURNING *`,
+        [enrollmentId],
+      );
+
+      console.log(`✅ Enrollment restored: ID ${enrollmentId}`);
+
+      res.json({
+        message: "Enrollment restored successfully",
+        restored_enrollment: {
+          enrollment_id: enrollmentId,
+          student_name: enrollment.student_name,
+        },
+      });
+    } catch (error) {
+      console.error("❌ Error unarchiving enrollment:", error);
+      res.status(500).json({
+        error: "Failed to restore enrollment.",
+        details: error.message,
+      });
+    }
+  },
+);
+
+// Get enrollment schedules
+app.get(
+  "/enrollments/:enrollment_id/schedules",
+  authenticateToken,
+  async (req, res) => {
+    const { enrollment_id } = req.params;
+
+    try {
+      const result = await pool.query(
+        `SELECT s.schedule_id, s.date as start_date, s.start_time, s.end_time, es.day_number
+       FROM enrollment_schedules es
+       JOIN schedules s ON es.schedule_id = s.schedule_id
+       WHERE es.enrollment_id = $1
+       ORDER BY es.day_number`,
+        [enrollment_id],
+      );
+
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Error fetching enrollment schedules:", error);
+      res.status(500).json({ error: "Failed to fetch schedules" });
+    }
+  },
+);
+
+// ✅ GET Branch by ID
+app.get("/branches/:id", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      "SELECT branch_id, name, location FROM branches WHERE branch_id = $1",
+      [id],
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Branch not found" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Error fetching branch:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+app.get(
+  "/admin/unread-enrollments-count",
+  authenticateToken,
+  async (req, res) => {
+    const adminBranchId = req.user.branch_id;
+
+    try {
+      // Get the same data as /admin/enrollments
+      const result = await pool.query(
+        `SELECT e.enrollment_id
+         FROM enrollments e
+         JOIN users u ON e.user_id = u.user_id
+         LEFT JOIN schedules s ON e.schedule_id = s.schedule_id
+         WHERE e.archived_at IS NULL 
+           AND e.instructor_id IS NULL
+           AND e.enrollment_date >= '2025-12-01'
+           AND u.branch_id = $1`, // ← ONLY student's branch
+        [adminBranchId],
+      );
+
+      res.json({ count: result.rows.length });
+    } catch (err) {
+      console.error("Error fetching unread count:", err);
+      res.status(500).json({ error: "Could not fetch count" });
+    }
+  },
+);
+// Get notifications
+app.get("/notifications", authenticateToken, async (req, res) => {
+  const userId = req.user.userId;
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT 
+        e.enrollment_id,
+        e.course_id,
+        e.instructor_id,
+        e.enrollment_date,
+        e.status,
+        c.name AS course_name,
+        u.name AS instructor_name
+      FROM enrollments e
+      JOIN courses c ON e.course_id = c.course_id
+      LEFT JOIN users u ON u.user_id = e.instructor_id
+      WHERE e.user_id = $1 
+        AND e.instructor_id IS NOT NULL
+      ORDER BY e.enrollment_date DESC
+      `,
+      [userId],
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching notifications:", err);
+    res.status(500).json({ error: "Failed to load notifications" });
+  }
+});
+
+// Get instructor notifications
+app.get("/instructor/notifications", authenticateToken, async (req, res) => {
+  const instructorId = req.user.userId;
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT 
+        e.enrollment_id,
+        e.course_id,
+        e.enrollment_date,
+        c.name AS course_name,
+        u.name AS student_name
+      FROM enrollments e
+      JOIN courses c ON e.course_id = c.course_id
+      JOIN users u ON u.user_id = e.user_id
+      WHERE e.instructor_id = $1
+      ORDER BY e.enrollment_date DESC
+      `,
+      [instructorId],
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching instructor notifications:", err);
+    res.status(500).json({ error: "Failed to load notifications" });
   }
 });
 

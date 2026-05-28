@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png";
 import axios from "axios";
@@ -26,6 +26,7 @@ import {
   TrendingDown,
   Menu,
   X,
+  Bell,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import { BsExclamationOctagon } from "react-icons/bs";
@@ -380,6 +381,7 @@ const RecordsPage = () => {
   const [filterStatus, setFilterStatus] = useState("");
   const [filterMonth, setFilterMonth] = useState("");
   const [filterYear, setFilterYear] = useState("");
+  const selectRefs = useRef({});
 
   useEffect(() => {
     const fetchEnrollments = async () => {
@@ -414,10 +416,88 @@ const RecordsPage = () => {
     fetchEnrollments();
   }, []);
 
+  // ✅ Generate dynamic status options based on required_schedules
+  // ✅ Generate dynamic status options based on required_schedules
+  const getAvailableStatuses = (enrollment) => {
+    const currentStatus = enrollment.status?.toLowerCase() || "";
+    const requiredDays = enrollment.required_schedules || 1;
+
+    // If already final status, return empty (dropdown will be disabled)
+    if (currentStatus === "passed/completed" || currentStatus === "failed") {
+      return [];
+    }
+
+    const statuses = [];
+
+    // === PROGRESSION STATUSES ===
+    const progressionGroup = [];
+
+    // Initial statuses
+    if (!currentStatus) {
+      progressionGroup.push({
+        value: "pending",
+        label: "Pending",
+        group: "progression",
+      });
+    }
+
+    if (currentStatus === "" || currentStatus === "pending") {
+      progressionGroup.push({
+        value: "in progress",
+        label: "In Progress",
+        group: "progression",
+      });
+    }
+
+    // Generate Day X - Completed based on required_schedules
+    for (let day = 1; day <= requiredDays; day++) {
+      const dayCompleted = `day ${day} - completed`;
+
+      // Show "Day X - Completed" if not yet reached
+      if (currentStatus !== dayCompleted) {
+        progressionGroup.push({
+          value: dayCompleted,
+          label: `Day ${day} - Completed`,
+          group: "progression",
+        });
+      }
+    }
+
+    // === ABSENT STATUSES ===
+    const absentGroup = [];
+    for (let day = 1; day <= requiredDays; day++) {
+      const dayAbsent = `day ${day} - absent`;
+      absentGroup.push({
+        value: dayAbsent,
+        label: `Day ${day} - Absent`,
+        group: "absent",
+      });
+    }
+
+    // === FINAL STATUSES ===
+    const finalGroup = [
+      { value: "passed/completed", label: "Passed", group: "final" },
+      { value: "failed", label: "Failed", group: "final" },
+    ];
+
+    return {
+      progression: progressionGroup,
+      absent: absentGroup,
+      final: finalGroup,
+    };
+  };
+
   const handleStatusUpdate = async (enrollmentId, newStatus, studentName) => {
     const result = await Swal.fire({
       title: `Update status?`,
-      text: `Are you sure you want to update ${studentName}'s status to "${newStatus}"?`,
+      text: `Are you sure you want to update ${studentName}'s status to "${
+        newStatus.toLowerCase() === "passed/completed"
+          ? "Passed"
+          : newStatus
+              .split(" ")
+              .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+              .join(" ")
+      }"?`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#d33",
@@ -458,7 +538,14 @@ const RecordsPage = () => {
       Swal.fire({
         icon: "success",
         title: "Status Updated",
-        text: `${studentName}'s status is now "${newStatus}".`,
+        text: `${studentName}'s status is now "${
+          newStatus.toLowerCase() === "passed/completed"
+            ? "Passed"
+            : newStatus
+                .split(" ")
+                .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                .join(" ")
+        }".`,
         timer: 2000,
         showConfirmButton: false,
       });
@@ -471,7 +558,6 @@ const RecordsPage = () => {
       });
     }
   };
-
   // ✅ Convert 24h to 12h format
   const formatTime = (time) => {
     if (!time) return "";
@@ -523,10 +609,12 @@ const RecordsPage = () => {
         return "bg-blue-100 text-blue-800 border-blue-300";
       case "pending":
         return "bg-yellow-100 text-yellow-800 border-yellow-300";
-      case "absent":
-        return "bg-red-100 text-red-800 border-red-300";
+      case "absent": // ← ADD THIS
+        return "bg-orange-100 text-orange-800 border-orange-300"; // ← ADD THIS
       case "passed/completed":
         return "bg-purple-100 text-purple-800 border-purple-300";
+      case "completed": // ✅ ADD THIS CASE TOO
+        return "bg-green-100 text-green-800 border-green-300";
       case "failed":
         return "bg-red-100 text-red-800 border-red-300";
       default:
@@ -577,12 +665,25 @@ const RecordsPage = () => {
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500"
               >
                 <option value="">All Statuses</option>
-                <option value="pending">Pending</option>
-                <option value="in progress">In Progress</option>
-                <option value="day 1 - completed">Day 1 - Completed</option>
-                <option value="day 2 - completed">Day 2 - Completed</option>
-                <option value="passed/completed">Passed/Completed</option>
-                <option value="failed">Failed</option>
+
+                <optgroup label="Progress">
+                  <option value="pending">Pending</option>
+                  <option value="in progress">In Progress</option>
+                  <option value="day 1 - completed">Day 1 - Completed</option>
+                  <option value="day 2 - completed">Day 2 - Completed</option>
+                  <option value="day 3 - completed">Day 3 - Completed</option>
+                </optgroup>
+
+                <optgroup label=" Absent">
+                  <option value="day 1 - absent">Day 1 - Absent</option>
+                  <option value="day 2 - absent">Day 2 - Absent</option>
+                  <option value="day 3 - absent">Day 3 - Absent</option>
+                </optgroup>
+
+                <optgroup label="Final">
+                  <option value="passed/completed">Passed</option>
+                  <option value="failed">Failed</option>
+                </optgroup>
               </select>
             </div>
 
@@ -777,29 +878,119 @@ const RecordsPage = () => {
                       <td className="px-6 py-4">
                         <select
                           value={enrollment.status || ""}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const newStatus = e.target.value;
+                            if (newStatus === enrollment.status) return;
                             handleStatusUpdate(
                               enrollment.enrollment_id,
-                              e.target.value,
+                              newStatus,
                               enrollment.student_name
-                            )
+                            );
+                          }}
+                          className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-500 shadow-sm hover:border-red-400 transition-colors"
+                          disabled={
+                            enrollment.status?.toLowerCase() ===
+                              "passed/completed" ||
+                            enrollment.status?.toLowerCase() === "failed"
                           }
-                          className="border border-gray-300 rounded px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-500"
                         >
-                          <option value="">Select Status</option>
-                          <option value="pending">Pending</option>
-                          <option value="in progress">In Progress</option>
-                          <option value="day 1 - completed">
-                            Day 1 - Completed
-                          </option>
-                          <option value="day 2 - completed">
-                            Day 2 - Completed
-                          </option>
+                          {/* Current Status */}
+                          {enrollment.status && (
+                            <option
+                              value={enrollment.status}
+                              className="font-semibold"
+                            >
+                              {(() => {
+                                const status = enrollment.status.toLowerCase();
+                                // Special case: "passed/completed" → "Passed"
+                                if (status === "passed/completed") {
+                                  return "Passed";
+                                }
+                                // Capitalize each word properly
+                                return enrollment.status
+                                  .split(" ")
+                                  .map(
+                                    (word) =>
+                                      word.charAt(0).toUpperCase() +
+                                      word.slice(1)
+                                  )
+                                  .join(" ");
+                              })()}
+                            </option>
+                          )}
 
-                          <option value="passed/completed">
-                            Passed/Completed
-                          </option>
-                          <option value="failed">Failed</option>
+                          {!enrollment.status && (
+                            <option value="" className="text-gray-400">
+                              Select Status
+                            </option>
+                          )}
+
+                          {/* Dynamic Options */}
+                          {(() => {
+                            const statusGroups =
+                              getAvailableStatuses(enrollment);
+
+                            // If no groups (final status), return nothing
+                            if (!statusGroups.progression) return null;
+
+                            return (
+                              <>
+                                {/* Progression Group */}
+                                {statusGroups.progression.length > 0 && (
+                                  <optgroup
+                                    label="Progress Status"
+                                    className="bg-blue-50"
+                                  >
+                                    {statusGroups.progression.map((status) => (
+                                      <option
+                                        key={status.value}
+                                        value={status.value}
+                                        className="py-2"
+                                      >
+                                        {status.label}
+                                      </option>
+                                    ))}
+                                  </optgroup>
+                                )}
+
+                                {/* Absent Group */}
+                                {statusGroups.absent.length > 0 && (
+                                  <optgroup
+                                    label="Absent Status"
+                                    className="bg-orange-50"
+                                  >
+                                    {statusGroups.absent.map((status) => (
+                                      <option
+                                        key={status.value}
+                                        value={status.value}
+                                        className="py-2 text-orange-700"
+                                      >
+                                        {status.label}
+                                      </option>
+                                    ))}
+                                  </optgroup>
+                                )}
+
+                                {/* Final Group */}
+                                {statusGroups.final.length > 0 && (
+                                  <optgroup
+                                    label="Final Status"
+                                    className="bg-green-50"
+                                  >
+                                    {statusGroups.final.map((status) => (
+                                      <option
+                                        key={status.value}
+                                        value={status.value}
+                                        className="py-2 font-semibold"
+                                      >
+                                        {status.label}
+                                      </option>
+                                    ))}
+                                  </optgroup>
+                                )}
+                              </>
+                            );
+                          })()}
                         </select>
                       </td>
                     </tr>
@@ -923,22 +1114,106 @@ const RecordsPage = () => {
                   </label>
                   <select
                     value={enrollment.status || ""}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const newStatus = e.target.value;
+                      if (newStatus === enrollment.status) return;
                       handleStatusUpdate(
                         enrollment.enrollment_id,
-                        e.target.value,
+                        newStatus,
                         enrollment.student_name
-                      )
+                      );
+                    }}
+                    className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 shadow-sm hover:border-red-400 transition-all"
+                    disabled={
+                      enrollment.status?.toLowerCase() === "passed/completed" ||
+                      enrollment.status?.toLowerCase() === "failed"
                     }
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                   >
-                    <option value="">Select Status</option>
-                    <option value="pending">Pending</option>
-                    <option value="in progress">In Progress</option>
-                    <option value="day 1 - completed">Day 1 - Completed</option>
-                    <option value="day 2 - completed">Day 2 - Completed</option>
-                    <option value="passed/completed">Passed/Completed</option>
-                    <option value="failed">Failed</option>
+                    {/* Current Status */}
+                    {enrollment.status && (
+                      <option
+                        value={enrollment.status}
+                        className="font-semibold"
+                      >
+                        {(() => {
+                          const status = enrollment.status.toLowerCase();
+                          // Special case: "passed/completed" → "Passed"
+                          if (status === "passed/completed") {
+                            return "Passed";
+                          }
+                          // Capitalize each word properly
+                          return enrollment.status
+                            .split(" ")
+                            .map(
+                              (word) =>
+                                word.charAt(0).toUpperCase() + word.slice(1)
+                            )
+                            .join(" ");
+                        })()}
+                      </option>
+                    )}
+
+                    {!enrollment.status && (
+                      <option value="" className="text-gray-400">
+                        Select Status
+                      </option>
+                    )}
+
+                    {/* Dynamic Options */}
+                    {(() => {
+                      const statusGroups = getAvailableStatuses(enrollment);
+
+                      if (!statusGroups.progression) return null;
+
+                      return (
+                        <>
+                          {/* Progression Group */}
+                          {statusGroups.progression.length > 0 && (
+                            <optgroup label="📊 Progress Status">
+                              {statusGroups.progression.map((status) => (
+                                <option
+                                  key={status.value}
+                                  value={status.value}
+                                  className="py-2"
+                                >
+                                  {status.label}
+                                </option>
+                              ))}
+                            </optgroup>
+                          )}
+
+                          {/* Absent Group */}
+                          {statusGroups.absent.length > 0 && (
+                            <optgroup label="⚠️ Absent Status">
+                              {statusGroups.absent.map((status) => (
+                                <option
+                                  key={status.value}
+                                  value={status.value}
+                                  className="py-2"
+                                >
+                                  {status.label}
+                                </option>
+                              ))}
+                            </optgroup>
+                          )}
+
+                          {/* Final Group */}
+                          {statusGroups.final.length > 0 && (
+                            <optgroup label="✅ Final Status">
+                              {statusGroups.final.map((status) => (
+                                <option
+                                  key={status.value}
+                                  value={status.value}
+                                  className="py-2 font-semibold"
+                                >
+                                  {status.label}
+                                </option>
+                              ))}
+                            </optgroup>
+                          )}
+                        </>
+                      );
+                    })()}
                   </select>
                 </div>
               </div>
@@ -1662,19 +1937,166 @@ const FeedbacksPage = () => {
     </div>
   );
 };
+
+const NotificationsPage = ({ setActivePage }) => {
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/instructor/notifications`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      const data = await res.json();
+
+      // Mark all as seen automatically when page loads
+      const enrollmentIds = data.map((n) => n.enrollment_id);
+      localStorage.setItem(
+        "instructorSeenNotifications",
+        JSON.stringify(enrollmentIds)
+      );
+
+      setNotifications(data);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mb-4"></div>
+          <p className="text-gray-600">Loading notifications...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-white rounded-2xl shadow-lg p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-3xl font-bold text-red-600 mb-2">
+                Notifications
+              </h1>
+              <p className="text-gray-600">New student assignments</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {notifications.length === 0 ? (
+              <div className="text-center py-12">
+                <Bell className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 text-lg font-semibold">
+                  No notifications yet
+                </p>
+                <p className="text-gray-400 text-sm mt-1">
+                  You're all caught up!
+                </p>
+              </div>
+            ) : (
+              notifications.map((notif) => (
+                <div
+                  key={notif.enrollment_id}
+                  onClick={() => setActivePage("Students")}
+                  className="border border-gray-200 bg-white rounded-xl p-4 hover:shadow-md transition-all cursor-pointer hover:border-blue-300"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 bg-blue-100 rounded-lg flex-shrink-0">
+                      <Bell className="w-6 h-6 text-blue-600" />
+                    </div>
+
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-gray-800 mb-1">
+                        New Student Assigned
+                      </h3>
+                      <p className="text-gray-700 mb-2">
+                        <span className="font-semibold">
+                          {notif.student_name}
+                        </span>{" "}
+                        has been assigned to you for{" "}
+                        <span className="font-semibold">
+                          {notif.course_name}
+                        </span>
+                      </p>
+
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
+                          Approved
+                        </span>
+                      </div>
+
+                      <p className="text-gray-500 text-sm">
+                        Assigned:{" "}
+                        {new Date(notif.enrollment_date).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Instructor = () => {
   const [activePage, setActivePage] = useState("Dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const navigationItems = [
-    { name: "Dashboard", icon: <BarChart3 className="w-5 h-5" /> },
-    { name: "Records", icon: <User className="w-5 h-5" /> },
-    {
-      name: "Report Maintenance",
-      icon: <BsExclamationOctagon className="w-5 h-5" />,
-    },
-    { name: "Feedbacks", icon: <FcFeedback className="w-5 h-5" /> },
-  ];
+  const [notifCount, setNotifCount] = useState(0);
+
+  useEffect(() => {
+    fetchNotifCount();
+    const interval = setInterval(fetchNotifCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    // Reset count when viewing Notifications page
+    if (activePage === "Notifications") {
+      setNotifCount(0);
+    }
+  }, [activePage]);
+
+  const fetchNotifCount = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/instructor/notifications`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      const data = await res.json();
+
+      const seenNotifs = JSON.parse(
+        localStorage.getItem("instructorSeenNotifications") || "[]"
+      );
+      const unseenCount = data.filter(
+        (n) => !seenNotifs.includes(n.enrollment_id)
+      ).length;
+
+      setNotifCount(unseenCount);
+    } catch (error) {
+      console.error("Error fetching notif count:", error);
+    }
+  };
 
   const handleNavClick = (pageName) => {
     setActivePage(pageName);
@@ -1761,18 +2183,33 @@ const Instructor = () => {
       >
         {/* Brand Header */}
         <div className="p-6 bg-gradient-to-r from-red-600 to-red-700 text-white">
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center">
-              <img
-                src={logo}
-                alt="Logo"
-                className="h-8 w-8 rounded-full object-contain"
-              />
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center">
+                <img
+                  src={logo}
+                  alt="Logo"
+                  className="h-8 w-8 rounded-full object-contain"
+                />
+              </div>
+              <div>
+                <div className="font-bold text-lg">1st Safety</div>
+                <div className="text-red-100 text-sm">Driving School</div>
+              </div>
             </div>
-            <div>
-              <div className="font-bold text-lg">1st Safety</div>
-              <div className="text-red-100 text-sm">Driving School</div>
-            </div>
+
+            {/* Bell Icon with Badge */}
+            <button
+              onClick={() => handleNavClick("Notifications")}
+              className="relative p-2 hover:bg-red-500 rounded-lg transition-colors"
+            >
+              <Bell className="w-6 h-6 text-white" />
+              {notifCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-yellow-400 text-red-900 text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold shadow-lg">
+                  {notifCount > 9 ? "9+" : notifCount}
+                </span>
+              )}
+            </button>
           </div>
         </div>
 
@@ -1790,21 +2227,30 @@ const Instructor = () => {
 
         {/* Navigation */}
         <nav className="p-4 space-y-2">
-          {navigationItems.map(({ name, icon }) => (
+          {[
+            { name: "Dashboard", icon: <BarChart3 className="w-5 h-5" /> },
+            { name: "Records", icon: <User className="w-5 h-5" /> },
+            {
+              name: "Report Maintenance",
+              icon: <BsExclamationOctagon className="w-5 h-5" />,
+            },
+            { name: "Feedbacks", icon: <FcFeedback className="w-5 h-5" /> },
+          ].map(({ name, icon }) => (
             <button
               key={name}
               onClick={() => handleNavClick(name)}
               className={`flex items-center w-full px-4 py-3 rounded-lg font-medium text-sm cursor-pointer transition-colors
-                ${
-                  activePage === name
-                    ? "bg-red-600 text-white"
-                    : "text-gray-700 hover:bg-gray-100"
-                }`}
+        ${
+          activePage === name
+            ? "bg-red-600 text-white"
+            : "text-gray-700 hover:bg-gray-100"
+        }`}
             >
               <span className="mr-3">{icon}</span>
               <span className="truncate">{name}</span>
             </button>
           ))}
+
           {/* Sign Out Button */}
           <div className="pt-4 border-t border-gray-200">
             <button
@@ -1827,6 +2273,9 @@ const Instructor = () => {
             {activePage === "Records" && <RecordsPage />}
             {activePage === "Report Maintenance" && <MaintenancePage />}
             {activePage === "Feedbacks" && <FeedbacksPage />}
+            {activePage === "Notifications" && (
+              <NotificationsPage setActivePage={setActivePage} />
+            )}
           </div>
         </main>
       </div>

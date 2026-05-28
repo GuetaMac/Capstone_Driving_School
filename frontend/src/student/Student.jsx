@@ -31,6 +31,7 @@ import {
   Car,
   BookOpen,
   CheckCircle,
+  Bell,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import { FcFeedback } from "react-icons/fc";
@@ -363,8 +364,11 @@ const DashboardPage = () => {
           <StatCard
             number={
               enrollment?.status
-                ? enrollment.status.charAt(0).toUpperCase() +
-                  enrollment.status.slice(1)
+                ? enrollment.status === "passed/completed" ||
+                  enrollment.status === "Passed/completed"
+                  ? "Completed"
+                  : enrollment.status.charAt(0).toUpperCase() +
+                    enrollment.status.slice(1)
                 : "Pending"
             }
             title="Status"
@@ -503,9 +507,70 @@ const CoursesPage = () => {
   }, []);
 
   const handleEnrollClick = (course) => {
-    // Navigate to enrollment page with course data
     navigate("/enroll", { state: { course } });
   };
+
+  // ✅ SEPARATE COURSES BY TYPE
+  const tdcCourses = courses.filter(
+    (course) =>
+      course.mode === "ftof" ||
+      course.mode === "online" ||
+      course.name?.toLowerCase().includes("theoretical")
+  );
+
+  const pdcCourses = courses.filter(
+    (course) =>
+      course.mode !== "ftof" &&
+      course.mode !== "online" &&
+      !course.name?.toLowerCase().includes("theoretical")
+  );
+
+  const CourseCard = ({ course }) => (
+    <div className="flex flex-col bg-white border border-gray-200 rounded-xl shadow-md hover:shadow-xl transition-shadow overflow-hidden">
+      {course.image ? (
+        <img
+          src={`${import.meta.env.VITE_API_URL}${course.image}`}
+          alt={course.name}
+          className="w-full h-40 sm:h-48 object-cover"
+        />
+      ) : (
+        <div className="w-full h-40 sm:h-48 bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
+          <span className="text-gray-400 text-base sm:text-lg">No Image</span>
+        </div>
+      )}
+
+      <div className="p-4 sm:p-6 flex flex-col flex-1">
+        <h3 className="text-lg sm:text-xl font-bold mb-2 text-red-600">
+          {course.name}
+        </h3>
+        <p className="text-xs sm:text-sm text-gray-500 mb-3">
+          ({course.codename})
+        </p>
+        <p className="text-sm sm:text-base text-gray-700 mb-4 flex-1">
+          {course.description}
+        </p>
+
+        {(course.type || course.mode) && (
+          <p className="text-xs sm:text-sm text-gray-500 mb-4">
+            {course.type && `Type: ${course.type}`}
+            {course.type && course.mode && " | "}
+            {course.mode && `Mode: ${course.mode}`}
+          </p>
+        )}
+
+        <p className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">
+          ₱{course.price}
+        </p>
+
+        <button
+          onClick={() => handleEnrollClick(course)}
+          className="w-full px-4 py-2.5 sm:py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all font-semibold text-sm sm:text-base"
+        >
+          Enroll Now
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-3 sm:p-6">
@@ -514,75 +579,69 @@ const CoursesPage = () => {
           Available Courses
         </h1>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {loading ? (
-            <div className="col-span-full text-center py-12">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mb-4"></div>
-              <p className="text-gray-500 text-lg">Loading courses...</p>
-            </div>
-          ) : courses.length === 0 ? (
-            <div className="col-span-full text-center py-12">
-              <p className="text-gray-500 text-lg mb-2">
-                No courses available for your branch.
-              </p>
-              <p className="text-gray-400 text-sm">
-                Please contact the school for more information.
-              </p>
-            </div>
-          ) : (
-            courses.map((course) => (
-              <div
-                key={course.course_id}
-                className="flex flex-col bg-white border border-gray-200 rounded-xl shadow-md hover:shadow-xl transition-shadow overflow-hidden"
-              >
-                {course.image ? (
-                  <img
-                    src={`${import.meta.env.VITE_API_URL}${course.image}`}
-                    alt={course.name}
-                    className="w-full h-40 sm:h-48 object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-40 sm:h-48 bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
-                    <span className="text-gray-400 text-base sm:text-lg">
-                      No Image
-                    </span>
-                  </div>
-                )}
-
-                <div className="p-4 sm:p-6 flex flex-col flex-1">
-                  <h3 className="text-lg sm:text-xl font-bold mb-2 text-red-600">
-                    {course.name}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-gray-500 mb-3">
-                    ({course.codename})
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mb-4"></div>
+            <p className="text-gray-500 text-lg">Loading courses...</p>
+          </div>
+        ) : courses.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500 text-lg mb-2">
+              No courses available for your branch.
+            </p>
+            <p className="text-gray-400 text-sm">
+              Please contact the school for more information.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* ✅ THEORETICAL DRIVING COURSES (TDC) SECTION */}
+            {tdcCourses.length > 0 && (
+              <div className="mb-12">
+                <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded-lg">
+                  <h2 className="text-xl sm:text-2xl font-bold text-blue-900 mb-2">
+                    📚 Theoretical Driving Courses (TDC)
+                  </h2>
+                  <p className="text-sm sm:text-base text-blue-800">
+                    <strong>No Student Permit Required</strong> - Perfect for
+                    beginners! Learn traffic rules, road signs, and safe driving
+                    practices.
                   </p>
-                  <p className="text-sm sm:text-base text-gray-700 mb-4 flex-1">
-                    {course.description}
-                  </p>
-
-                  {(course.type || course.mode) && (
-                    <p className="text-xs sm:text-sm text-gray-500 mb-4">
-                      {course.type && `Type: ${course.type}`}
-                      {course.type && course.mode && " | "}
-                      {course.mode && `Mode: ${course.mode}`}
-                    </p>
-                  )}
-
-                  <p className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">
-                    ₱{course.price}
-                  </p>
-
-                  <button
-                    onClick={() => handleEnrollClick(course)}
-                    className="w-full px-4 py-2.5 sm:py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 transition-all font-semibold text-sm sm:text-base"
-                  >
-                    Enroll Now
-                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                  {tdcCourses.map((course) => (
+                    <CourseCard key={course.course_id} course={course} />
+                  ))}
                 </div>
               </div>
-            ))
-          )}
-        </div>
+            )}
+
+            {/* ✅ PRACTICAL DRIVING COURSES (PDC) SECTION */}
+            {pdcCourses.length > 0 && (
+              <div>
+                <div className="bg-orange-50 border-l-4 border-orange-500 p-4 mb-6 rounded-lg">
+                  <h2 className="text-xl sm:text-2xl font-bold text-orange-900 mb-2">
+                    🚗 Practical Driving Courses (PDC)
+                  </h2>
+                  <p className="text-sm sm:text-base text-orange-800">
+                    <strong>Student Permit Required</strong> - Hands-on driving
+                    lessons with professional instructors. Get behind the wheel
+                    and master driving skills!
+                  </p>
+                  <p className="text-xs sm:text-sm text-orange-700 mt-2">
+                    ⚠️ You must have a valid Student Permit from LTO before
+                    enrolling in these courses.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                  {pdcCourses.map((course) => (
+                    <CourseCard key={course.course_id} course={course} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
@@ -966,6 +1025,11 @@ const EnrollmentPage = () => {
 
         <div className="space-y-6">
           {enrollments.map((e) => {
+            console.log("🔍 STUDENT - Enrollment data:", {
+              name: e.student_name,
+              raw_start_date: e.start_date,
+              multiple_schedules: e.multiple_schedules,
+            });
             const isOnlineTheoretical =
               (e.course_name ?? "").toLowerCase() ===
               "online theoretical driving course";
@@ -987,37 +1051,23 @@ const EnrollmentPage = () => {
               >
                 <div className="flex flex-col lg:flex-row">
                   {imageUrl && (
-                    <div className="lg:w-64 flex-shrink-0">
+                    <div className="lg:w-64 flex-shrink-0 overflow-hidden">
                       <img
                         src={imageUrl}
                         alt={e.course_name ?? "Course"}
-                        className="w-full h-48 lg:h-full object-cover"
+                        className="w-full h-48 lg:h-full object-cover object-center scale-105 hover:scale-110 transition-transform duration-300"
+                        loading="lazy"
                         onError={(evt) =>
                           (evt.currentTarget.style.display = "none")
                         }
                       />
                     </div>
                   )}
-
                   <div className="flex-grow p-6">
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+                    <div className="mb-4">
                       <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
                         {e.course_name ?? "Unnamed Course"}
                       </h2>
-                      <span
-                        className={`inline-block px-4 py-2 rounded-full font-semibold text-sm whitespace-nowrap ${
-                          (e.payment_status ?? "").toLowerCase() === "paid" ||
-                          (e.payment_status ?? "").toLowerCase() ===
-                            "fully paid"
-                            ? "bg-green-100 text-green-800"
-                            : (e.payment_status ?? "").toLowerCase() ===
-                              "partially paid"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-red-100 text-red-800"
-                        }`}
-                      >
-                        {(e.payment_status ?? "unpaid").replace(/_/g, " ")}
-                      </span>
                     </div>
 
                     <div className="space-y-3 mb-6">
@@ -1092,23 +1142,337 @@ const EnrollmentPage = () => {
                         </>
                       )}
 
-                      <div className="flex items-center gap-3 bg-gray-50 rounded-lg p-4 border border-gray-200">
-                        <div className="flex-shrink-0">
+                      {/* Progress Tracker - RESPONSIVE */}
+                      <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-4 sm:p-6 border-2 border-gray-200">
+                        <div className="flex items-center gap-2 mb-4 sm:mb-6">
+                          <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-lg p-2 text-white shadow-md">
+                            <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />
+                          </div>
+                          <h3 className="text-xs sm:text-sm font-bold text-gray-700 uppercase tracking-wide">
+                            Course Progress
+                          </h3>
+                        </div>
+
+                        {/* Progress Stepper */}
+                        <div className="relative">
+                          {(() => {
+                            const requiredDays = e.required_schedules || 2; // Default to 2 if not set
+                            const status = (e.status ?? "").toLowerCase();
+
+                            // Calculate progress percentage
+                            const getProgressPercentage = () => {
+                              if (
+                                status === "passed/completed" ||
+                                status === "failed"
+                              )
+                                return 100;
+                              if (status.includes(`day ${requiredDays}`))
+                                return 100;
+
+                              for (
+                                let day = requiredDays - 1;
+                                day >= 1;
+                                day--
+                              ) {
+                                if (status.includes(`day ${day}`)) {
+                                  return (day / (requiredDays + 1)) * 100;
+                                }
+                              }
+
+                              if (status === "in progress")
+                                return (1 / (requiredDays + 1)) * 100;
+                              return 0;
+                            };
+
+                            // Generate steps dynamically
+                            const steps = [
+                              { label: "Enrolled", isCompleted: true },
+                              {
+                                label: status.includes("day 1")
+                                  ? "Day 1"
+                                  : "In Progress",
+                                isCompleted:
+                                  [
+                                    "in progress",
+                                    ...Array.from(
+                                      { length: requiredDays },
+                                      (_, i) => `day ${i + 1}`
+                                    ),
+                                  ].some((s) => status.includes(s)) ||
+                                  status === "passed/completed" ||
+                                  status === "failed",
+                              },
+                              ...Array.from(
+                                { length: requiredDays - 1 },
+                                (_, i) => {
+                                  const dayNum = i + 2;
+                                  return {
+                                    label: status.includes(`day ${dayNum}`)
+                                      ? `Day ${dayNum}`
+                                      : dayNum === requiredDays
+                                      ? "Almost Done"
+                                      : `Day ${dayNum}`,
+                                    isCompleted:
+                                      Array.from(
+                                        { length: requiredDays - i - 1 },
+                                        (_, j) => `day ${dayNum + j}`
+                                      ).some((s) => status.includes(s)) ||
+                                      status === "passed/completed" ||
+                                      status === "failed",
+                                  };
+                                }
+                              ),
+                              {
+                                label:
+                                  status === "passed/completed"
+                                    ? "Completed"
+                                    : status === "failed"
+                                    ? "Failed"
+                                    : status.includes("absent")
+                                    ? "Absent"
+                                    : "Pending",
+                                isCompleted:
+                                  status === "passed/completed" ||
+                                  status === "failed" ||
+                                  status.includes("absent"),
+                                isFinal: true,
+                              },
+                            ];
+
+                            return (
+                              <>
+                                {/* Progress Line - Desktop */}
+                                <div className="hidden sm:block absolute top-5 left-0 w-full h-1 bg-gray-200">
+                                  <div
+                                    className="h-full bg-gradient-to-r from-red-500 to-red-600 transition-all duration-500"
+                                    style={{
+                                      width: `${getProgressPercentage()}%`,
+                                    }}
+                                  ></div>
+                                </div>
+
+                                {/* DESKTOP/TABLET VIEW - Horizontal Stepper */}
+                                <div className="hidden sm:flex relative justify-between items-center">
+                                  {steps.map((step, index) => (
+                                    <div
+                                      key={index}
+                                      className="flex flex-col items-center z-10 flex-1"
+                                    >
+                                      <div
+                                        className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shadow-lg transition-all ${
+                                          step.isFinal
+                                            ? status === "passed/completed"
+                                              ? "bg-gradient-to-r from-green-500 to-green-600 text-white"
+                                              : status === "failed"
+                                              ? "bg-gradient-to-r from-red-700 to-red-800 text-white"
+                                              : status.includes("absent")
+                                              ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white"
+                                              : "bg-gray-300 text-gray-500"
+                                            : step.isCompleted
+                                            ? "bg-gradient-to-r from-red-500 to-red-600 text-white"
+                                            : "bg-gray-300 text-gray-500"
+                                        }`}
+                                      >
+                                        {step.isFinal
+                                          ? status === "passed/completed"
+                                            ? "✓"
+                                            : status === "failed"
+                                            ? "✗"
+                                            : status.includes("absent")
+                                            ? "⚠"
+                                            : index + 1
+                                          : step.isCompleted
+                                          ? "✓"
+                                          : index + 1}
+                                      </div>
+                                      <span
+                                        className={`text-[10px] sm:text-xs font-semibold mt-2 text-center ${
+                                          step.isFinal
+                                            ? status === "passed/completed"
+                                              ? "text-green-600"
+                                              : status === "failed"
+                                              ? "text-red-600"
+                                              : status.includes("absent")
+                                              ? "text-orange-600"
+                                              : "text-gray-700"
+                                            : "text-gray-700"
+                                        }`}
+                                      >
+                                        {step.label}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+
+                                {/* MOBILE VIEW - Vertical Stepper */}
+                                <div className="sm:hidden space-y-4">
+                                  {steps.map((step, index) => (
+                                    <React.Fragment key={index}>
+                                      <div className="flex items-center gap-4">
+                                        <div
+                                          className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-lg flex-shrink-0 ${
+                                            step.isFinal
+                                              ? status === "passed/completed"
+                                                ? "bg-gradient-to-r from-green-500 to-green-600 text-white"
+                                                : status === "failed"
+                                                ? "bg-gradient-to-r from-red-700 to-red-800 text-white"
+                                                : status.includes("absent")
+                                                ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white"
+                                                : "bg-gray-300 text-gray-500"
+                                              : step.isCompleted
+                                              ? "bg-gradient-to-r from-red-500 to-red-600 text-white"
+                                              : "bg-gray-300 text-gray-500"
+                                          }`}
+                                        >
+                                          {step.isFinal
+                                            ? status === "passed/completed"
+                                              ? "✓"
+                                              : status === "failed"
+                                              ? "✗"
+                                              : status.includes("absent")
+                                              ? "⚠"
+                                              : index + 1
+                                            : step.isCompleted
+                                            ? "✓"
+                                            : index + 1}
+                                        </div>
+                                        <div className="flex-1">
+                                          <h4
+                                            className={`font-bold text-sm ${
+                                              step.isFinal
+                                                ? status === "passed/completed"
+                                                  ? "text-green-600"
+                                                  : status === "failed"
+                                                  ? "text-red-600"
+                                                  : status.includes("absent")
+                                                  ? "text-orange-600"
+                                                  : "text-gray-800"
+                                                : "text-gray-800"
+                                            }`}
+                                          >
+                                            {step.label}
+                                          </h4>
+                                          <p className="text-xs text-gray-500">
+                                            {index === 0
+                                              ? "Course enrollment confirmed"
+                                              : index === steps.length - 1
+                                              ? status === "passed/completed"
+                                                ? "Training successfully completed"
+                                                : status === "failed"
+                                                ? "Did not pass the training"
+                                                : status.includes("absent")
+                                                ? "Student was absent"
+                                                : "Awaiting completion"
+                                              : "Training in progress"}
+                                          </p>
+                                        </div>
+                                      </div>
+                                      {index < steps.length - 1 && (
+                                        <div
+                                          className={`ml-5 h-6 w-0.5 ${
+                                            steps[index + 1].isCompleted
+                                              ? "bg-gradient-to-b from-red-500 to-red-600"
+                                              : "bg-gray-300"
+                                          }`}
+                                        ></div>
+                                      )}
+                                    </React.Fragment>
+                                  ))}
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
+
+                        {/* Current Status Badge */}
+                        <div className="mt-4 sm:mt-6 pt-4 border-t border-gray-200">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
+                            <span className="text-xs sm:text-sm font-semibold text-gray-600">
+                              Current Status:
+                            </span>
+                            <span
+                              className={`inline-flex px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-bold capitalize shadow-sm ${
+                                (e.status ?? "").toLowerCase() ===
+                                "passed/completed"
+                                  ? "bg-green-100 text-green-800 border-2 border-green-300"
+                                  : (e.status ?? "").toLowerCase() === "failed"
+                                  ? "bg-red-100 text-red-800 border-2 border-red-300"
+                                  : (e.status ?? "")
+                                      .toLowerCase()
+                                      .includes("absent")
+                                  ? "bg-orange-100 text-orange-800 border-2 border-orange-300"
+                                  : (e.status ?? "")
+                                      .toLowerCase()
+                                      .includes("day")
+                                  ? "bg-blue-100 text-blue-800 border-2 border-blue-300"
+                                  : "bg-yellow-100 text-yellow-800 border-2 border-yellow-300"
+                              }`}
+                            >
+                              {/* ✅ FORMAT STATUS DISPLAY */}
+                              {(() => {
+                                const displayStatus = e.status ?? "enrolled";
+                                // Replace "passed/completed" with "Completed"
+                                if (
+                                  displayStatus.toLowerCase() ===
+                                  "passed/completed"
+                                ) {
+                                  return "Completed";
+                                }
+                                // Capitalize each word properly (Day 1 - Absent, etc.)
+                                return displayStatus
+                                  .split(" ")
+                                  .map(
+                                    (word) =>
+                                      word.charAt(0).toUpperCase() +
+                                      word.slice(1)
+                                  )
+                                  .join(" ");
+                              })()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Payment Status - NEW LOCATION */}
+                      <div className="mt-4 sm:mt-6 pt-4 border-t border-gray-200">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+                          <div className="flex items-center gap-2">
+                            <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+                            <span className="text-xs sm:text-sm font-semibold text-gray-600">
+                              Payment Status:
+                            </span>
+                          </div>
                           <span
-                            className={`inline-flex px-3 py-1 rounded-full text-sm font-semibold capitalize ${
-                              (e.status ?? "").toLowerCase() ===
-                              "passed/completed"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-blue-100 text-blue-800"
+                            className={`inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-bold capitalize shadow-sm ${
+                              (e.payment_status ?? "").toLowerCase() ===
+                                "paid" ||
+                              (e.payment_status ?? "").toLowerCase() ===
+                                "fully paid"
+                                ? "bg-green-100 text-green-800 border-2 border-green-300"
+                                : (e.payment_status ?? "").toLowerCase() ===
+                                  "partially paid"
+                                ? "bg-yellow-100 text-yellow-800 border-2 border-yellow-300"
+                                : "bg-red-100 text-red-800 border-2 border-red-300"
                             }`}
                           >
-                            {e.status ?? "pending"}
+                            {(e.payment_status ?? "").toLowerCase() ===
+                              "paid" ||
+                            (e.payment_status ?? "").toLowerCase() ===
+                              "fully paid" ? (
+                              <CheckCircle className="w-4 h-4" />
+                            ) : (e.payment_status ?? "").toLowerCase() ===
+                              "partially paid" ? (
+                              <Clock className="w-4 h-4" />
+                            ) : (
+                              <AlertCircle className="w-4 h-4" />
+                            )}
+                            {(e.payment_status ?? "unpaid").replace(/_/g, " ")}
                           </span>
                         </div>
                       </div>
                     </div>
 
-                    {(e.status ?? "").toLowerCase() === "passed/completed" &&
+                    {((e.status ?? "").toLowerCase() === "passed/completed" ||
+                      (e.status ?? "").toLowerCase() === "failed") &&
                       !isOnlineTheoretical && (
                         <button
                           className={`w-full sm:w-auto px-6 py-3 rounded-xl font-semibold transition-all duration-200 shadow-md flex items-center justify-center gap-2 ${
@@ -1320,6 +1684,7 @@ const EnrollmentPage = () => {
     </div>
   );
 };
+
 const FeedbacksPage = () => {
   const [feedbacks, setFeedbacks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1498,17 +1863,228 @@ const FeedbacksPage = () => {
   );
 };
 
+const NotificationsPage = ({ setActivePage }) => {
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/notifications`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+
+      // Mark all as seen automatically when page loads
+      const notifKeys = data.map((n) => `${n.enrollment_id}-${n.status}`);
+      localStorage.setItem("seenNotifications", JSON.stringify(notifKeys));
+
+      setNotifications(data);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Format status for display
+  // Format status for display
+  const formatStatus = (status) => {
+    if (!status) return "Pending";
+
+    // Special case: if status is "passed" or "completed", return "Passed"
+    if (status.toLowerCase() === "passed/completed") {
+      return "Passed";
+    }
+
+    // For other statuses, capitalize each word properly
+    return status
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
+  };
+
+  // Get status badge color
+  const getStatusColor = (status) => {
+    const colors = {
+      pending: "bg-yellow-100 text-yellow-800",
+      approved: "bg-green-100 text-green-800",
+      in_progress: "bg-blue-100 text-blue-800",
+      completed: "bg-green-100 text-green-800",
+      cancelled: "bg-red-100 text-red-800",
+      on_hold: "bg-orange-100 text-orange-800",
+    };
+    return colors[status] || "bg-gray-100 text-gray-800";
+  };
+
+  // Determine notification type and content
+  const getNotificationContent = (notif) => {
+    // If status is still pending/approved and instructor just assigned
+    if (notif.status === "pending" || notif.status === "approved") {
+      return {
+        title: "Instructor Assigned",
+        message: (
+          <>
+            Your instructor for{" "}
+            <span className="font-semibold">{notif.course_name}</span> is{" "}
+            <span className="font-semibold">
+              {notif.instructor_name || "Not assigned yet"}
+            </span>
+          </>
+        ),
+      };
+    }
+
+    // For other statuses - show status update
+    return {
+      title: "Status Updated",
+      message: (
+        <>
+          Instructor{" "}
+          <span className="font-semibold">
+            {notif.instructor_name || "Admin"}
+          </span>{" "}
+          updated your status for{" "}
+          <span className="font-semibold">{notif.course_name}</span> to{" "}
+          <span className="font-semibold">{formatStatus(notif.status)}</span>
+        </>
+      ),
+    };
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mb-4"></div>
+          <p className="text-gray-600">Loading notifications...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-white rounded-2xl shadow-lg p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-3xl font-bold text-red-600 mb-2">
+                Notifications
+              </h1>
+              <p className="text-gray-600">Updates on your enrollments</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {notifications.length === 0 ? (
+              <div className="text-center py-12">
+                <Bell className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 text-lg font-semibold">
+                  No notifications yet
+                </p>
+                <p className="text-gray-400 text-sm mt-1">
+                  You're all caught up!
+                </p>
+              </div>
+            ) : (
+              notifications.map((notif) => {
+                const content = getNotificationContent(notif);
+
+                return (
+                  <div
+                    key={`${notif.enrollment_id}-${notif.status}`}
+                    onClick={() => setActivePage("Enrollment Details")}
+                    className="border border-gray-200 bg-white rounded-xl p-4 hover:shadow-md transition-all cursor-pointer hover:border-blue-300"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="p-3 bg-blue-100 rounded-lg flex-shrink-0">
+                        <Bell className="w-6 h-6 text-blue-600" />
+                      </div>
+
+                      <div className="flex-1">
+                        <h3 className="text-lg font-bold text-gray-800 mb-1">
+                          {content.title}
+                        </h3>
+                        <p className="text-gray-700 mb-2">{content.message}</p>
+
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          <span
+                            className={`px-3 py-1 ${getStatusColor(
+                              notif.status
+                            )} rounded-full text-xs font-semibold`}
+                          >
+                            {formatStatus(notif.status)}
+                          </span>
+                        </div>
+
+                        <p className="text-gray-500 text-sm">
+                          Enrolled:{" "}
+                          {new Date(notif.enrollment_date).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 const Student = () => {
   const [activePage, setActivePage] = useState("Dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [notifCount, setNotifCount] = useState(0);
 
-  // Get the user from localStorage
+  useEffect(() => {
+    fetchNotifCount();
+    const interval = setInterval(fetchNotifCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    // Reset count when viewing Notifications page
+    if (activePage === "Notifications") {
+      setNotifCount(0);
+    }
+  }, [activePage]);
+
+  const fetchNotifCount = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/notifications`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+
+      const seenNotifs = JSON.parse(
+        localStorage.getItem("seenNotifications") || "[]"
+      );
+
+      // Create unique key: enrollment_id + status
+      const unseenCount = data.filter((n) => {
+        const notifKey = `${n.enrollment_id}-${n.status}`;
+        return !seenNotifs.includes(notifKey);
+      }).length;
+
+      setNotifCount(unseenCount);
+    } catch (error) {
+      console.error("Error fetching notif count:", error);
+    }
+  };
   const user = JSON.parse(localStorage.getItem("user"));
-  const name = user?.name || "Student"; // fallback kung wala
+  const name = user?.name || "Student";
 
   const handleNavClick = (pageName) => {
     setActivePage(pageName);
-    setSidebarOpen(false); // Close sidebar on mobile after navigation
+    setSidebarOpen(false);
   };
 
   const handleSignOut = async () => {
@@ -1563,7 +2139,19 @@ const Student = () => {
             <div className="text-gray-500 text-xs">Driving School</div>
           </div>
         </div>
-        <div className="w-10"></div>
+
+        {/* BELL ICON - DAGDAG MO TO */}
+        <button
+          onClick={() => handleNavClick("Notifications")}
+          className="p-2 rounded-lg hover:bg-gray-100 transition-colors relative"
+        >
+          <Bell className="w-6 h-6 text-gray-700" />
+          {notifCount > 0 && (
+            <span className="absolute top-0 right-0 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+              {notifCount > 9 ? "9+" : notifCount}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* Mobile Overlay */}
@@ -1587,18 +2175,33 @@ const Student = () => {
       >
         {/* Brand Header */}
         <div className="p-6 bg-gradient-to-r from-red-600 to-red-700 text-white">
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center">
-              <img
-                src={logo}
-                alt="Logo"
-                className="h-8 w-8 rounded-full object-contain"
-              />
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center">
+                <img
+                  src={logo}
+                  alt="Logo"
+                  className="h-8 w-8 rounded-full object-contain"
+                />
+              </div>
+              <div>
+                <div className="font-bold text-lg">1st Safety</div>
+                <div className="text-red-100 text-sm">Driving School</div>
+              </div>
             </div>
-            <div>
-              <div className="font-bold text-lg">1st Safety</div>
-              <div className="text-red-100 text-sm">Driving School</div>
-            </div>
+
+            {/* BELL ICON - DAGDAG MO TO */}
+            <button
+              onClick={() => handleNavClick("Notifications")}
+              className="p-2 rounded-lg hover:bg-red-700 transition-colors relative"
+            >
+              <Bell className="w-6 h-6 text-white" />
+              {notifCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-white text-red-600 text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                  {notifCount > 9 ? "9+" : notifCount}
+                </span>
+              )}
+            </button>
           </div>
         </div>
 
@@ -1614,7 +2217,6 @@ const Student = () => {
           </div>
         </div>
 
-        {/* Navigation */}
         {/* Navigation */}
         <nav className="p-4 space-y-2">
           {[
@@ -1640,6 +2242,7 @@ const Student = () => {
               <span className="truncate">{name}</span>
             </button>
           ))}
+
           {/* Sign Out Button */}
           <div className="pt-4 border-t border-gray-200">
             <button
@@ -1661,6 +2264,9 @@ const Student = () => {
             {activePage === "Courses" && <CoursesPage />}
             {activePage === "Enrollment Details" && <EnrollmentPage />}
             {activePage === "Submitted Feedbacks" && <FeedbacksPage />}
+            {activePage === "Notifications" && (
+              <NotificationsPage setActivePage={setActivePage} />
+            )}
           </div>
         </main>
       </div>
